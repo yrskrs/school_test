@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Вхід учня{% endblock %}
+{% block navbar %}{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <div class="auth-logo student-logo">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+      <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    </svg>
+  </div>
+  <h1 class="auth-title">Вхід на тест</h1>
+  {% if auto_session %}
+  <p class="auth-subtitle" style="font-size: 1.1rem; color: var(--text);">Поточний тест: <strong style="color: var(--primary);">{{ auto_session.test.title }}</strong></p>
+  {% else %}
+  <p class="auth-subtitle">Введіть ваше ім'я та код доступу</p>
+  {% endif %}
+
+  <form method="post" action="/student/login" class="auth-form">
+    <div class="form-group">
+      <label for="student_name">Ім'я та прізвище</label>
+      <input
+        type="text"
+        id="student_name"
+        name="student_name"
+        placeholder="Іваненко Іван"
+        value="{{ student_name if student_name is defined else '' }}"
+        autocomplete="name"
+        required
+        autofocus
+      />
+    </div>
+    {% if auto_session %}
+      <input type="hidden" name="access_code" value="{{ prefilled_code }}">
+    {% else %}
+    <div class="form-group">
+      <label for="access_code">Код доступу</label>
+      <input
+        type="text"
+        id="access_code"
+        name="access_code"
+        placeholder="123456"
+        maxlength="10"
+        autocomplete="off"
+        required
+        class="code-input"
+        value="{{ prefilled_code or '' }}"
+        {% if prefilled_code %}readonly style="text-align:center;letter-spacing:0.4em;font-size:1.4rem;font-weight:700;background-color:var(--bg-body);"{% else %}style="text-align:center;letter-spacing:0.4em;font-size:1.4rem;font-weight:700"{% endif %}
+      />
+      <p class="form-hint">Код надає вчитель перед початком тесту</p>
+    </div>
+    {% endif %}
+    <button type="submit" class="btn btn-primary btn-full btn-student">Увійти</button>
+  </form>
+
+  <div class="auth-divider"></div>
+  <p class="auth-hint">
+    Ви вчитель? <a href="/teacher/login">Вхід для вчителя</a>
+  </p>
+</div>
+{% endblock %}

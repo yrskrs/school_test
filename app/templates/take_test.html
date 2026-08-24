@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}{{ test.title }}{% endblock %}
+{% block navbar %}{% endblock %}
+{% block body_class %}student-page test-page{% endblock %}
+{% block body_attrs %}oncopy="return false;" oncut="return false;" oncontextmenu="return false;"{% endblock %}
+
+{% block content %}
+<style>
+  .student-page {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  .student-page input[type="text"], 
+  .student-page textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
+  /* Visual Navigator button states */
+  .q-nav-btn {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 6px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    cursor: default !important;
+    pointer-events: none !important;
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.2s ease !important;
+    
+    /* Default (Unanswered) state */
+    background: var(--border) !important;
+    border: 1px solid var(--border-light) !important;
+    color: var(--text-muted) !important;
+  }
+
+  /* Remove the dot overlay since we are using solid background colors */
+  .q-nav-btn::after {
+    display: none !important;
+  }
+
+  /* 1. Active (current) state */
+  .q-nav-btn.active {
+    border: 2.5px solid var(--primary) !important;
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 0 3px var(--primary-glow) !important;
+    background: rgba(108, 99, 255, 0.15) !important;
+  }
+  [data-theme="light"] .q-nav-btn.active {
+    background: rgba(79, 70, 229, 0.1) !important;
+  }
+
+  /* 2. Answered state (Saved) */
+  .q-nav-btn.answered {
+    background: var(--success) !important;
+    border-color: var(--success) !important;
+    color: #ffffff !important;
+  }
+  .q-nav-btn.active.answered {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.4), 0 0 0 5px var(--primary-glow) !important;
+  }
+
+  /* 3. Skipped state */
+  .q-nav-btn.skipped {
+    background: var(--warning) !important;
+    border-color: var(--warning) !important;
+    color: #ffffff !important;
+  }
+  .q-nav-btn.active.skipped {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4), 0 0 0 5px var(--primary-glow) !important;
+  }
+
+  /* 4. Timed out state */
+  .q-nav-btn.timed-out {
+    background: #374151 !important;
+    border-color: #4b5563 !important;
+    color: #9ca3af !important;
+  }
+  [data-theme="light"] .q-nav-btn.timed-out {
+    background: #e5e7eb !important;
+    border-color: #d1d5db !important;
+    color: #6b7280 !important;
+  }
+</style>
+<!-- Test header bar -->
+<div class="test-topbar">
+  <div class="test-topbar-left">
+    <span class="test-topbar-title">{{ test.title }}</span>
+    <span class="test-student-name">
+      {{ attempt.student_name }}
+      {% if test.class_name %} &bull; Клас: {{ test.class_name }}{% endif %}
+    </span>
+  </div>
+  <div class="test-topbar-right">
+    <div class="progress-info" id="progress-info">
+      Питання <span id="current-q-num">1</span> з <span id="total-q-num">0</span>
+    </div>
+    {% if test.time_limit_minutes %}
+    <div class="timer-box" id="timer-box" title="Загальний час">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+      </svg>
+      <span id="timer-display">--:--</span>
+    </div>
+    {% endif %}
+    {% if test.time_limit_per_question %}
+    <div class="timer-box timer-box--orange" id="q-timer-box" title="Час на запитання">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+      </svg>
+      <span id="q-timer-display">--:--</span>
+    </div>
+    {% endif %}
+    <button onclick="toggleTheme()" class="test-theme-toggle" title="Змінити тему оформлення (Світла / Темна)" type="button">
+      <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <svg class="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+      <span class="theme-label-text" style="font-size:0.78rem;">Тема</span>
+    </button>
+    <button class="btn btn-danger" id="btn-finish" onclick="finishTest()" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">
+      Завершити тест
+    </button>
+  </div>
+</div>
+
+<!-- Progress bar -->
+<div class="progress-bar-wrap">
+  <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+</div>
+
+<!-- Question navigator -->
+<div class="q-nav" id="q-nav"></div>
+<div class="q-nav-legend">
+  <span class="q-nav-legend-item">
+    <span class="q-nav-legend-dot q-nav-legend-dot--answered"></span> Відповідь збережена
+  </span>
+  <span class="q-nav-legend-item">
+    <span class="q-nav-legend-dot q-nav-legend-dot--skipped"></span> Пропущено
+  </span>
+  <span class="q-nav-legend-item">
+    <span class="q-nav-legend-dot q-nav-legend-dot--active"></span> Поточне
+  </span>
+  <span class="q-nav-legend-item">
+    <span class="q-nav-legend-dot q-nav-legend-dot--default"></span> Без відповіді
+  </span>
+</div>
+
+<!-- Question area -->
+<div class="test-body">
+  <div class="question-card" id="question-card">
+    <div class="question-loading">Завантаження...</div>
+  </div>
+
+  <div class="test-nav-buttons">
+    <button class="btn btn-secondary" id="btn-skip" onclick="skipQuestion()">
+      ↷ Пропустити
+    </button>
+    <div id="last-question-text" style="display:none; color:var(--text-muted); font-size:0.85rem; max-width: 250px; text-align:center; align-self:center;">
+      Це останнє завдання. Ви можете завершити тестування кнопкою зверху.
+    </div>
+    <button class="btn btn-primary" id="btn-next" onclick="nextQuestion()">
+      Відповісти →
+    </button>
+  </div>
+</div>
+
+<!-- Finish confirm modal -->
+<div class="modal-overlay" id="finish-modal" style="display:none">
+  <div class="modal-box">
+    <h2>Завершити тест?</h2>
+    <p id="finish-modal-text">Ви відповіли на <strong id="answered-count">0</strong> із <strong id="total-count">0</strong> питань.</p>
+    <p class="modal-warning">Після підтвердження повернутись буде неможливо.</p>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeFinishModal()">Повернутись</button>
+      <button class="btn btn-danger" id="confirm-finish-btn" onclick="confirmFinish()">Завершити</button>
+    </div>
+  </div>
+</div>
+
+<!-- Start Fullscreen Modal -->
+<div class="modal-overlay" id="start-overlay" style="z-index: 9999;">
+  <div class="modal-box text-center">
+    <h2>Тестування готове</h2>
+    <p>Для проходження тесту необхідно увійти в повноекранний режим. Вихід з нього, згортання браузера або перемикання вкладок заборонені. У вас є лише 3 попередження, після чого тест буде завершено автоматично!</p>
+    <div class="modal-actions" style="justify-content:center; margin-top:2rem;">
+      <button class="btn btn-primary" onclick="startFullscreenTest()">Розпочати тестування</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen Warning Modal -->
+<div class="modal-overlay" id="fullscreen-block" style="display:none; background: rgba(0,0,0,0.95); z-index: 10000;">
+  <div class="modal-box text-center">
+    <h2 style="color:var(--danger)">Увага!</h2>
+    <p>Вихід з повноекранного режиму під час тестування заборонено.</p>
+    <p style="color:var(--warning); font-weight:bold; font-size: 1.1rem; margin-top: 1rem;">
+      У вас є <span id="fs-timer-display">10</span> секунд, щоб повернутись, інакше поточна відповідь не зарахується!
+    </p>
+    <div class="modal-actions" style="justify-content:center; margin-top:2rem;">
+      <button class="btn btn-primary" onclick="returnToFullscreen()">Повернутись до тесту</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pause Warning Modal -->
+<div class="modal-overlay" id="pause-block" style="display:none; background: rgba(0,0,0,0.9); z-index: 9999;">
+  <div class="modal-box text-center">
+    <h2 style="color:var(--warning)">Тест призупинено</h2>
+    <p>Вчитель призупинив проходження тесту.</p>
+    <p>Будь ласка, зачекайте, поки вчитель відновить тестування.</p>
+  </div>
+</div>
+
+<!-- Offline Connection Lost Modal -->
+<div class="modal-overlay" id="offline-block" style="display:none; background: rgba(0,0,0,0.95); z-index: 10001; backdrop-filter: blur(5px);">
+  <div class="modal-box text-center" style="max-width: 450px;">
+    <div class="import-spinner-wrapper" style="margin: 0 auto 1.5rem auto; width: 60px; height: 60px; position: relative;">
+      <div class="import-spinner-glow" style="position: absolute; inset: -4px; background: radial-gradient(circle, var(--warning) 0%, transparent 70%); filter: blur(8px); opacity: 0.5;"></div>
+      <div class="import-spinner" style="box-sizing: border-box; width: 100%; height: 100%; border: 4px solid var(--border-light); border-top-color: var(--warning); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    </div>
+    <h2 style="color:var(--warning); margin-bottom: 1rem;">Зв'язок із сервером втрачено</h2>
+    <p style="margin-bottom: 0.5rem; font-weight: 500;">Проходження тесту та таймери автоматично призупинено.</p>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">Очікуємо на відновлення з'єднання з комп'ютером вчителя. Тест продовжиться автоматично, щойно мережа з'явиться.</p>
+  </div>
+</div>
+<!-- Anti-Cheat Violation Modal -->
+<div class="modal-overlay" id="violation-block" style="display:none; background: rgba(0,0,0,0.95); z-index: 10002;">
+  <div class="modal-box text-center">
+    <h2 style="color:var(--danger)">Попередження!</h2>
+    <p>Ви згорнули браузер або перемкнули вкладку, що заборонено правилами тестування.</p>
+    <p style="margin: 1rem 0; padding: 1rem; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--danger);">
+      У вас <strong id="violation-count">1</strong> з <strong>3</strong> порушень.<br>
+      <span style="font-size: 0.85rem; color: var(--text-muted);">Після 3 порушень тест буде завершено автоматично.</span>
+    </p>
+    <p style="color:var(--warning); font-weight:bold; font-size: 1.1rem; margin-top: 1rem;">
+      У вас є <span id="violation-timer-display">10</span> секунд, щоб повернутись, інакше поточна відповідь не зарахується!
+    </p>
+    <div class="modal-actions" style="justify-content:center; margin-top:1.5rem;">
+      <button class="btn btn-primary" onclick="dismissViolationModal()">Я зрозумів(ла)</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" id="page-config">
+{
+  "attempt_id":     {{ attempt.id }},
+  "session_id":     {{ session_id }},
+  "test_data":      {{ test_payload      | tojson }},
+  "saved_answers":  {{ saved_answers     | tojson }},
+  "skipped_questions": {{ skipped_question_ids | tojson }},
+  "time_remaining": {{ time_remaining_seconds | tojson }},
+  "attempt_status": "{{ attempt.status.value }}"
+}
+</script>
+<script>
+  (function () {
+    var cfg          = JSON.parse(document.getElementById('page-config').textContent);
+    window.ATTEMPT_ID    = cfg.attempt_id;
+    window.SESSION_ID    = cfg.session_id;
+    window.TEST_DATA     = cfg.test_data;
+    window.SAVED_ANSWERS = cfg.saved_answers;
+    window.SKIPPED_QUESTIONS = cfg.skipped_questions;
+    window.TIME_REMAINING = cfg.time_remaining;
+    window.ATTEMPT_STATUS = cfg.attempt_status;
+  }());
+</script>
+<script src="/static/js/student.js?v=18"></script>
+{% endblock %}

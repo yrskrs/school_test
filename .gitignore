@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Testing & Logs
+.pytest_cache/
+*.log
+
+# Database
+*.sqlite3
+data/*.db
+data/results/*
+!data/results/.gitkeep
+data/archives/*
+!data/archives/.gitkeep
+data/temp_archive/*
+!data/temp_archive/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Temp uploaded media in static (keep .gitkeep)
+app/static/uploads/*
+!app/static/uploads/.gitkeep
+app/static/tests/*
+!app/static/tests/.gitkeep
+
+# Scratch files (keep .gitkeep)
+scratch/*
+!scratch/.gitkeep

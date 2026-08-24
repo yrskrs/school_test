@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Тест завершено — {{ test.title }}{% endblock %}
+{% block navbar %}{% endblock %}
+{% block body_class %}student-page{% endblock %}
+
+{% block content %}
+<div class="finished-card">
+  {% if attempt.status.value == 'timeout' %}
+  <div class="finished-icon finished-icon--timeout">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12,6 12,12 16,14"/>
+    </svg>
+  </div>
+  <h1 class="finished-title">Час вийшов</h1>
+  <p class="finished-subtitle">Тест завершено автоматично</p>
+  {% elif attempt.status.value == 'stopped' %}
+  <div class="finished-icon finished-icon--timeout" style="border-color: var(--danger); color: var(--danger);">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+    </svg>
+  </div>
+  <h1 class="finished-title">Тест зупинено</h1>
+  <p class="finished-subtitle">Проходження тесту було зупинено вчителем</p>
+  {% else %}
+  <div class="finished-icon finished-icon--success">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+      <polyline points="22,4 12,14.01 9,11.01"/>
+    </svg>
+  </div>
+  <h1 class="finished-title">Тест завершено!</h1>
+  <p class="finished-subtitle">Дякуємо, {{ attempt.student_name }}!</p>
+  {% endif %}
+
+  <div class="finished-actions" style="margin: 1.5rem 0; display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;">
+    <a href="/student/login" class="btn btn-secondary">Головна сторінка</a>
+    {% if test.allow_retake %}
+    <form action="/student/login" method="post" style="margin:0;">
+      <input type="hidden" name="student_name" value="{{ attempt.student_name }}">
+      <input type="hidden" name="access_code" value="{{ attempt.session.access_code }}">
+      <button type="submit" class="btn btn-primary">Повторно пройти тест</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if test.show_result_after_finish and attempt.score is not none %}
+  <div class="score-display">
+    <div class="score-circle {% if percent >= 90 %}score-circle--excellent{% elif percent >= 70 %}score-circle--good{% elif percent >= 50 %}score-circle--ok{% else %}score-circle--poor{% endif %}">
+      <span class="score-percent">{{ percent }}%</span>
+    </div>
+    <div class="score-details">
+      <p class="score-points">Оцінка: <strong>{{ attempt | scale_grade }}</strong> з {{ test.max_grade or 12 }}</p>
+      <p class="score-points" style="font-size: 0.9em; color: var(--text-muted);">{{ attempt.score | round(1) }} / {{ attempt.max_score | round(1) }} балів</p>
+      <p class="score-label">
+        {% if percent >= 90 %}Відмінно!
+        {% elif percent >= 70 %}Добре
+        {% elif percent >= 50 %}Задовільно
+        {% else %}Потрібно повторити матеріал
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  {% if test.show_correct_answers %}
+  <div class="answers-review">
+    <h2>Перегляд відповідей</h2>
+    {% for answer in answers %}
+    {% set question = answer.question %}
+    <div class="review-item {% if answer and answer.is_correct %}review-item--correct{% elif answer %}review-item--wrong{% else %}review-item--skipped{% endif %}">
+      <div class="review-question">
+        <span class="review-num">{{ loop.index }}.</span>
+        <div style="flex:1">
+          <div style="margin-bottom:0.25rem">{{ question.question_text }}</div>
+          {% if question.image_url and question.question_type.value != 'hotspot' %}
+            <img src="{{ question.image_url }}" class="test-image" style="max-height:100px" />
+          {% endif %}
+        </div>
+        <span class="review-points">
+          {% if answer %}{{ answer.awarded_points | round(1) }}{% else %}0{% endif %} / {{ question.points }} б.
+        </span>
+      </div>
+      {% if question.question_type.value in ['single_choice', 'multiple_choice', 'true_false', 'image_choice'] %}
+      <div class="review-options">
+        {% for option in question.options %}
+        <div class="review-option
+          {% if option.is_correct %}review-option--correct{% endif %}
+          {% if answer and answer.selected_options_json %}
+            {% set selected = answer.selected_options_json | from_json %}
+            {% if option.id in selected %}review-option--selected{% endif %}
+          {% endif %}
+        ">
+          <span style="margin-right:10px">{% if option.is_correct %}✓{% elif answer and answer.selected_options_json and option.id in (answer.selected_options_json | from_json) %}✗{% else %}○{% endif %}</span>
+          {% if option.image_url %}
+            <img src="{{ option.image_url }}" class="test-image" style="max-height:60px;margin-right:10px" />
+          {% endif %}
+          <span>{{ option.option_text }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% elif question.question_type.value == 'matching' %}
+        {% set submitted_pairs = {} %}
+        {% if answer and answer.selected_options_json %}
+          {% set parsed = answer.selected_options_json | from_json %}
+          {% set submitted_pairs = parsed if parsed is mapping else {} %}
+        {% endif %}
+        <div class="review-options" style="display:flex;flex-direction:column;gap:0.5rem">
+          {% for option in question.options %}
+          {% set student_ans = submitted_pairs.get(option.id | string, "") %}
+          {% set correct_ans = option.matching_text or "" %}
+          {% set is_match = (student_ans | string | lower | trim) == (correct_ans | string | lower | trim) %}
+          <div class="review-option {% if student_ans %}{% if is_match %}review-option--correct{% else %}review-option--wrong{% endif %}{% endif %}" style="display:flex;flex-direction:column;align-items:flex-start">
+            <div style="font-weight:600">{{ option.option_text }}</div>
+            <div style="margin-left:1rem;color:var(--text-secondary)">Ваша відповідь: <strong>{{ student_ans or '(не відповів)' }}</strong></div>
+            <div style="margin-left:1rem;color:var(--text-secondary)">Правильно: <strong>{{ option.matching_text }}</strong></div>
+          </div>
+          {% endfor %}
+        </div>
+      {% elif question.question_type.value == 'sequence' %}
+        {% set submitted_order = [] %}
+        {% if answer and answer.selected_options_json %}
+          {% set submitted_order = answer.selected_options_json | from_json %}
+        {% endif %}
+        <div class="review-options" style="display:flex;gap:2rem">
+          <div style="flex:1">
+            <h4>Ваша відповідь:</h4>
+            {% if not submitted_order %}
+              <p>(не відповів)</p>
+            {% else %}
+              {% for opt_id in submitted_order %}
+                {% set outer_index = loop.index %}
+                {% for option in question.options %}
+                  {% if option.id == opt_id %}
+                    <div class="review-option" style="margin-bottom:4px"><span class="badge badge-count" style="margin-right:8px;min-width:24px;height:24px;font-size:12px">{{ outer_index }}</span> {{ option.option_text }}</div>
+                  {% endif %}
+                {% endfor %}
+              {% endfor %}
+            {% endif %}
+          </div>
+          <div style="flex:1">
+            <h4>Правильно:</h4>
+            {% for option in question.options | sort(attribute='order_index') %}
+              <div class="review-option review-option--correct" style="margin-bottom:4px"><span class="badge badge-count" style="margin-right:8px;min-width:24px;height:24px;font-size:12px">{{ loop.index }}</span> {{ option.option_text }}</div>
+            {% endfor %}
+          </div>
+        </div>
+      {% elif question.question_type.value == 'short_text' %}
+      <div class="review-text">
+        <p>Ваша відповідь: <strong>{{ answer.answer_text if answer and answer.answer_text else '(не відповів)' }}</strong></p>
+        <p>Правильна відповідь: <strong>{{ question.options[0].option_text if question.options else '—' }}</strong></p>
+      </div>
+      {% elif question.question_type.value == 'hotspot' %}
+      {% set click_data = {} %}
+      {% if answer and answer.selected_options_json %}
+        {% set click_data = answer.selected_options_json | from_json %}
+      {% endif %}
+      <div class="review-text">
+        <div class="hotspot-render" data-click="{{ click_data | tojson | forceescape }}" data-regions="{% for option in question.options %}{% if option.is_correct %}{{ option.option_text }}|{% endif %}{% endfor %}">
+          <img src="{{ question.image_url }}" style="max-width:100%; display:block; border: 1px solid var(--border-light); border-radius: var(--radius-sm);" onload="drawHotspotResult(this)" />
+        </div>
+        <p class="mt-2">Ваша відповідь: <strong>{% if click_data.x %}Координати ({{ click_data.x | round }}, {{ click_data.y | round }}){% else %}(не відповів){% endif %}</strong></p>
+        {% for option in question.options %}
+          {% if option.is_correct %}
+            <p>Правильна зона: <strong>{{ option.option_text }}</strong></p>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if question.explanation %}
+      <p class="review-explanation">💡 {{ question.explanation }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="finished-message">
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block head %}
+<script>
+function drawHotspotResult(imgElement) {
+  const wrapper = imgElement.parentElement;
+  if (wrapper.querySelector('svg')) return;
+
+  wrapper.style.position = "relative";
+  wrapper.style.display = "inline-block";
+  wrapper.style.alignSelf = "flex-start";
+  wrapper.style.width = "fit-content";
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.style.position = "absolute";
+  svg.style.top = "0";
+  svg.style.left = "0";
+  svg.style.width = "100%";
+  svg.style.height = "100%";
+  svg.style.pointerEvents = "none";
+  
+  const nw = imgElement.naturalWidth;
+  const nh = imgElement.naturalHeight;
+  if (!nw || !nh) return;
+  
+  svg.setAttribute("viewBox", `0 0 ${nw} ${nh}`);
+
+  const clickData = JSON.parse(wrapper.dataset.click || '{}');
+  const regionsStr = wrapper.dataset.regions || '';
+  
+  const regions = regionsStr.split('|').filter(r => r.trim());
+  regions.forEach(region => {
+     const points = region.split('-').map(p => {
+       const parts = p.replace(/[()]/g, '').split(',');
+       if(parts.length === 2) return `${parseFloat(parts[0])},${parseFloat(parts[1])}`;
+       return '';
+     }).filter(Boolean).join(' ');
+     
+     if (points) {
+       const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+       polygon.setAttribute("points", points);
+       polygon.setAttribute("fill", "rgba(0, 255, 0, 0.3)");
+       polygon.setAttribute("stroke", "#00aa00");
+       polygon.setAttribute("stroke-width", Math.max(2, nw * 0.005));
+       svg.appendChild(polygon);
+     }
+  });
+
+  if (clickData && clickData.x !== undefined) {
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", clickData.x);
+    circle.setAttribute("cy", clickData.y);
+    const r = Math.max(4, Math.min(nw, nh) * 0.015);
+    circle.setAttribute("r", r);
+    circle.setAttribute("fill", "rgba(255, 0, 0, 0.8)");
+    circle.setAttribute("stroke", "white");
+    circle.setAttribute("stroke-width", Math.max(2, nw * 0.003));
+    svg.appendChild(circle);
+  }
+
+  wrapper.appendChild(svg);
+}
+</script>
+{% endblock %}

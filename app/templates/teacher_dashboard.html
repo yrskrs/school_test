@@ -1,0 +1,442 @@
+{% extends "base.html" %}
+{% block title %}Панель вчителя{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Вітаємо, {{ teacher.full_name }}!</h1>
+  <p class="page-subtitle">Панель управління тестуванням</p>
+</div>
+
+{% if admin_data %}
+<div class="dashboard-metrics" style="display: flex; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap;">
+  <div class="card" style="flex: 1; min-width: 150px; padding: 1.5rem; text-align: center; border-bottom: 4px solid var(--primary);">
+    <h3 style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">Вчителів</h3>
+    <div style="font-size: 2.5rem; font-weight: 700; color: var(--primary);">{{ admin_data.teachers_info|length }}</div>
+  </div>
+  <div class="card" style="flex: 1; min-width: 150px; padding: 1.5rem; text-align: center; border-bottom: 4px solid var(--success);">
+    <h3 style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">Активних сесій</h3>
+    <div style="font-size: 2.5rem; font-weight: 700; color: var(--success);">{{ admin_data.all_active_sessions|length }}</div>
+  </div>
+  <div class="card" style="flex: 1; min-width: 150px; padding: 1.5rem; text-align: center; border-bottom: 4px solid var(--warning);">
+    <h3 style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px;">Всього тестів</h3>
+    <div style="font-size: 2.5rem; font-weight: 700; color: var(--text);">{{ test_count }}</div>
+  </div>
+</div>
+{% endif %}
+
+{% if chart_activity_data != '[]' or chart_tests_data != '[]' or chart_classes_data != '[]' %}
+<!-- Dashboard Charts -->
+<div class="dashboard-charts" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+  <div class="card" style="padding: 1.5rem;">
+    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Активність (останні 7 днів)</h3>
+    <canvas id="activityChart" style="max-height: 250px;"></canvas>
+  </div>
+  <div class="card" style="padding: 1.5rem;">
+    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Середній бал за тестами (з 12)</h3>
+    <canvas id="scoresChart" style="max-height: 250px;"></canvas>
+  </div>
+  <div class="card" style="padding: 1.5rem;">
+    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Середній бал по класах</h3>
+    <canvas id="classesChart" style="max-height: 250px;"></canvas>
+  </div>
+</div>
+{% endif %}
+
+{% if not admin_data %}
+<!-- Quick actions -->
+<div class="section-header">
+  <h2>Швидкий початок роботи</h2>
+</div>
+<div class="quick-actions">
+  <a href="/teacher/tests/create" class="action-btn action-btn--primary">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Створити тест
+  </a>
+  <a href="/teacher/tests/import" class="action-btn action-btn--secondary">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/>
+      <polyline points="9,15 12,12 15,15"/>
+    </svg>
+    Імпортувати JSON
+  </a>
+  <label for="importXmlInput" class="action-btn action-btn--secondary" style="cursor: pointer; margin: 0;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/>
+      <polyline points="9,15 12,12 15,15"/>
+    </svg>
+    Імпортувати XML (MyTestX)
+    <input type="file" id="importXmlInput" accept=".xml" style="display:none" onchange="handleXmlImport(event)">
+  </label>
+  <label for="importDocxInput" class="action-btn action-btn--secondary" style="cursor: pointer; margin: 0;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/>
+      <polyline points="9,15 12,12 15,15"/>
+    </svg>
+    Імпортувати Word (.docx)
+    <input type="file" id="importDocxInput" accept=".docx" style="display:none" onchange="handleDocxImport(event)">
+  </label>
+</div>
+{% endif %}
+
+{% if admin_data %}
+<!-- ADMIN PANEL -->
+<div class="section-header" style="margin-top: 2rem; border-top: 2px dashed var(--danger); padding-top: 2rem;">
+  <h2 style="color: var(--danger);">Панель Адміністратора</h2>
+</div>
+
+<div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+  <button class="btn btn-primary" id="btn-admin-teachers" onclick="switchAdminTab('teachers')" style="border-radius: var(--radius-sm);">Зареєстровані користувачі</button>
+  <button class="btn btn-secondary" id="btn-admin-sessions" onclick="switchAdminTab('sessions')" style="border-radius: var(--radius-sm);">Всі активні сесії на сервері</button>
+</div>
+
+<div id="admin-teachers-tab">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Користувач (Вчитель)</th>
+          <th>Логін</th>
+          <th class="mobile-hidden">Активних тестів</th>
+          <th class="mobile-hidden">Остання дія</th>
+          <th>Час останньої дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for info in admin_data.teachers_info %}
+        <tr>
+          <td><strong>{{ info.teacher.full_name }}</strong></td>
+          <td>{{ info.teacher.username }}</td>
+          <td class="mobile-hidden">
+            {% if info.active_tests > 0 %}
+              <span class="badge badge-status badge-status--in_progress">{{ info.active_tests }}</span>
+            {% else %}
+              <span class="badge badge-count">0</span>
+            {% endif %}
+          </td>
+          <td class="mobile-hidden">{{ info.latest_action }}</td>
+          <td>{{ info.latest_time.strftime('%d.%m.%Y %H:%M') if info.latest_time else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="admin-sessions-tab" style="display: none;">
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Вчитель</th>
+          <th>Тест</th>
+          <th class="mobile-hidden">Код доступу</th>
+          <th class="mobile-hidden">Розпочато</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in admin_data.all_active_sessions %}
+        <tr>
+          <td>{{ s.test.teacher.full_name }}</td>
+          <td><strong>{{ s.test.title }}</strong></td>
+          <td class="mobile-hidden"><span class="badge badge-code">{{ s.access_code }}</span></td>
+          <td class="mobile-hidden">{{ s.started_at.strftime('%d.%m.%Y %H:%M') }}</td>
+          <td>
+             <a href="/teacher/sessions/{{ s.id }}/monitor" class="btn btn-sm btn-primary">Моніторинг</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align: center;">Немає активних сесій на сервері</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function switchAdminTab(tab) {
+  if (tab === 'teachers') {
+    document.getElementById('admin-teachers-tab').style.display = 'block';
+    document.getElementById('admin-sessions-tab').style.display = 'none';
+    document.getElementById('btn-admin-teachers').className = 'btn btn-primary';
+    document.getElementById('btn-admin-sessions').className = 'btn btn-secondary';
+  } else {
+    document.getElementById('admin-teachers-tab').style.display = 'none';
+    document.getElementById('admin-sessions-tab').style.display = 'block';
+    document.getElementById('btn-admin-teachers').className = 'btn btn-secondary';
+    document.getElementById('btn-admin-sessions').className = 'btn btn-primary';
+  }
+}
+</script>
+{% endif %}
+
+{% if not admin_data %}
+<!-- Active sessions -->
+{% if active_sessions %}
+<div class="section-header">
+  <h2>Активні сесії</h2>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Тест</th>
+        <th class="mobile-hidden">Код доступу</th>
+        <th class="mobile-hidden">Розпочато</th>
+        <th>Дії</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in active_sessions %}
+      <tr>
+        <td><strong>{{ s.test.title }}</strong></td>
+        <td class="mobile-hidden">
+          <span class="badge badge-code">{{ s.access_code }}</span>
+        </td>
+        <td class="mobile-hidden">{{ s.started_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>
+          <a href="/teacher/sessions/{{ s.id }}/monitor" class="btn btn-sm btn-primary">Моніторинг</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+
+
+{% if test_count == 0 %}
+<div class="empty-state">
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+  </svg>
+  <h3>Поки що нічого немає</h3>
+  <p>Створіть перший тест, щоб почати роботу</p>
+  <a href="/teacher/tests/create" class="btn btn-primary">Створити тест</a>
+</div>
+{% elif class_stats %}
+<div class="section-header">
+  <h2>Статистика по класах</h2>
+</div>
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Клас</th>
+        <th>Унікальних учнів</th>
+        <th>Пройдено тестів</th>
+        <th>Середній бал (з 12)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for cs in class_stats %}
+      <tr>
+        <td><strong>{{ cs.class_name }}</strong></td>
+        <td>{{ cs.student_count }} уч.</td>
+        <td>{{ cs.attempt_count }}</td>
+        <td>
+          <span class="badge badge-status badge-status--finished">{{ cs.avg_score }}</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+
+
+<script>
+async function handleXmlImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  showImportOverlay('Імпортування XML-тесту');
+
+  try {
+    const res = await fetch('/teacher/tests/import/xml', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
+    } else {
+      hideImportOverlay();
+      const err = await res.json();
+      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
+    }
+  } catch (error) {
+    hideImportOverlay();
+    alert('Помилка мережі при завантаженні файлу');
+  }
+  
+  event.target.value = ''; // скидаємо файл
+}
+
+async function handleDocxImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  showImportOverlay('Імпортування Word-тесту');
+
+  try {
+    const res = await fetch('/teacher/tests/import/docx', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
+    } else {
+      hideImportOverlay();
+      const err = await res.json();
+      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
+    }
+  } catch (error) {
+    hideImportOverlay();
+    alert('Помилка мережі при завантаженні файлу');
+  }
+  
+  event.target.value = ''; // скидаємо файл
+}
+</script>
+
+{% if chart_activity_data != '[]' or chart_tests_data != '[]' or chart_classes_data != '[]' %}
+<script id="chart-activity-data" type="application/json">{{ chart_activity_data | safe }}</script>
+<script id="chart-activity-labels" type="application/json">{{ chart_activity_labels | safe }}</script>
+<script id="chart-tests-data" type="application/json">{{ chart_tests_data | safe }}</script>
+<script id="chart-tests-labels" type="application/json">{{ chart_tests_labels | safe }}</script>
+<script id="chart-classes-data" type="application/json">{{ chart_classes_data | safe }}</script>
+<script id="chart-classes-labels" type="application/json">{{ chart_classes_labels | safe }}</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Activity Chart
+  try {
+    const activityDataText = document.getElementById('chart-activity-data')?.textContent;
+    const activityLabelsText = document.getElementById('chart-activity-labels')?.textContent;
+    
+    if (activityDataText && activityLabelsText) {
+      const activityData = JSON.parse(activityDataText);
+      const activityLabels = JSON.parse(activityLabelsText);
+
+      if (activityData && activityData.length > 0) {
+        const activityCtx = document.getElementById('activityChart').getContext('2d');
+        new Chart(activityCtx, {
+          type: 'line',
+          data: {
+            labels: activityLabels,
+            datasets: [{
+              label: 'Завершених тестувань',
+              data: activityData,
+              borderColor: '#4361ee',
+              backgroundColor: 'rgba(67, 97, 238, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+          }
+        });
+      }
+    }
+  } catch(e) {
+    console.error("Помилка завантаження графіка активності", e);
+  }
+
+  // Scores Chart
+  try {
+    const scoresDataText = document.getElementById('chart-tests-data')?.textContent;
+    const scoresLabelsText = document.getElementById('chart-tests-labels')?.textContent;
+    
+    if (scoresDataText && scoresLabelsText) {
+      const scoresData = JSON.parse(scoresDataText);
+      const scoresLabels = JSON.parse(scoresLabelsText);
+
+      if (scoresData && scoresData.length > 0) {
+        const scoresCtx = document.getElementById('scoresChart').getContext('2d');
+        new Chart(scoresCtx, {
+          type: 'bar',
+          data: {
+            labels: scoresLabels,
+            datasets: [{
+              label: 'Середній бал (з 12)',
+              data: scoresData,
+              backgroundColor: '#4cc9f0',
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: 12 } }
+          }
+        });
+      }
+    }
+  } catch(e) {
+    console.error("Помилка завантаження графіка успішності", e);
+  }
+
+  // Classes Chart
+  try {
+    const classesDataText = document.getElementById('chart-classes-data')?.textContent;
+    const classesLabelsText = document.getElementById('chart-classes-labels')?.textContent;
+    
+    if (classesDataText && classesLabelsText) {
+      const classesData = JSON.parse(classesDataText);
+      const classesLabels = JSON.parse(classesLabelsText);
+
+      if (classesData && classesData.length > 0) {
+        const classesCtx = document.getElementById('classesChart').getContext('2d');
+        new Chart(classesCtx, {
+          type: 'bar',
+          data: {
+            labels: classesLabels,
+            datasets: [{
+              label: 'Середній бал по класах',
+              data: classesData,
+              backgroundColor: '#f72585',
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, max: 12 } }
+          }
+        });
+      }
+    }
+  } catch(e) {
+    console.error("Помилка завантаження графіка класів", e);
+  }
+</script>
+{% endif %}
+{% endblock %}

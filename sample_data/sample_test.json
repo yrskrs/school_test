@@ -1,0 +1,213 @@
+{
+  "title": "Зразковий тест з астрономії",
+  "subject": "Астрономія",
+  "class_name": "11-А",
+  "description": "Зразковий тест для демонстрації імпорту з різних форматів.",
+  "time_limit_minutes": 15,
+  "shuffle_questions": true,
+  "shuffle_options": true,
+  "show_result_after_finish": true,
+  "show_correct_answers": true,
+  "is_formative": false,
+  "questions": [
+    {
+      "question_text": "Яка планета є найближчою до Сонця?",
+      "question_type": "single_choice",
+      "points": 1.0,
+      "topic": "Сонячна система",
+      "difficulty": "easy",
+      "explanation": "Меркурій — найближча планета до Сонця.",
+      "order_index": 0,
+      "options": [
+        {
+          "option_text": "Меркурій",
+          "is_correct": true,
+          "order_index": 0
+        },
+        {
+          "option_text": "Венера",
+          "is_correct": false,
+          "order_index": 1
+        },
+        {
+          "option_text": "Земля",
+          "is_correct": false,
+          "order_index": 2
+        },
+        {
+          "option_text": "Марс",
+          "is_correct": false,
+          "order_index": 3
+        }
+      ]
+    },
+    {
+      "question_text": "Які з перелічених космічних об'єктів мають природні супутники?",
+      "question_type": "multiple_choice",
+      "points": 1.0,
+      "topic": "Супутники планет",
+      "difficulty": "medium",
+      "explanation": "Земля (Місяць), Марс (Фобос і Демос) та Юпітер (95 супутників) мають супутники. Венера супутників не має.",
+      "order_index": 1,
+      "options": [
+        {
+          "option_text": "Земля",
+          "is_correct": true,
+          "order_index": 0
+        },
+        {
+          "option_text": "Марс",
+          "is_correct": true,
+          "order_index": 1
+        },
+        {
+          "option_text": "Венера",
+          "is_correct": false,
+          "order_index": 2
+        },
+        {
+          "option_text": "Юпітер",
+          "is_correct": true,
+          "order_index": 3
+        }
+      ]
+    },
+    {
+      "question_text": "Установіть відповідність між планетою та кількістю її супутників:",
+      "question_type": "matching",
+      "points": 1.0,
+      "topic": "Супутники планет",
+      "difficulty": "medium",
+      "explanation": "Земля має 1 супутник, Марс — 2, Юпітер — близько 95.",
+      "order_index": 2,
+      "options": [
+        {
+          "option_text": "Земля",
+          "matching_text": "1",
+          "is_correct": true,
+          "order_index": 0
+        },
+        {
+          "option_text": "Марс",
+          "matching_text": "2",
+          "is_correct": true,
+          "order_index": 1
+        },
+        {
+          "option_text": "Юпітер",
+          "matching_text": "Близько 95",
+          "is_correct": true,
+          "order_index": 2
+        }
+      ]
+    },
+    {
+      "question_text": "Розташуйте планети в порядку віддалення від Сонця (починаючи з найближчої):",
+      "question_type": "sequence",
+      "points": 1.0,
+      "topic": "Сонячна система",
+      "difficulty": "medium",
+      "explanation": "Правильний порядок планет: Меркурій, Венера, Земля, Марс.",
+      "order_index": 3,
+      "options": [
+        {
+          "option_text": "Меркурій",
+          "is_correct": true,
+          "order_index": 0
+        },
+        {
+          "option_text": "Венера",
+          "is_correct": true,
+          "order_index": 1
+        },
+        {
+          "option_text": "Земля",
+          "is_correct": true,
+          "order_index": 2
+        },
+        {
+          "option_text": "Марс",
+          "is_correct": true,
+          "order_index": 3
+        }
+      ]
+    },
+    {
+      "question_text": "Чи є Сонце найближчою до Землі зіркою?",
+      "question_type": "true_false",
+      "points": 1.0,
+      "topic": "Сонце",
+      "difficulty": "easy",
+      "explanation": "Сонце є найближчою зіркою до нашої планети (відстань близько 150 млн км).",
+      "order_index": 4,
+      "options": [
+        {
+          "option_text": "Так",
+          "is_correct": true,
+          "order_index": 0
+        },
+        {
+          "option_text": "Ні",
+          "is_correct": false,
+          "order_index": 1
+        }
+      ]
+    },
+    {
+      "question_text": "Введіть назву нашої галактики.",
+      "question_type": "short_text",
+      "points": 1.0,
+      "topic": "Галактики",
+      "difficulty": "easy",
+      "explanation": "Наша галактика називається Чумацький Шлях.",
+      "order_index": 5,
+      "options": [
+        {
+          "option_text": "Чумацький Шлях",
+          "is_correct": true,
+          "order_index": 0
+        }
+      ]
+    },
+    {
+      "question_text": "Вкажіть на зображенні Сонце:",
+      "question_type": "hotspot",
+      "points": 1.0,
+      "topic": "Сонце",
+      "difficulty": "medium",
+      "image_url": "/static/uploads/c89acb3fc2224bcfa0b219cf9dbf12b7.jpg",
+      "explanation": "Сонце знаходиться посередині даної області.",
+      "order_index": 6,
+      "options": [
+        {
+          "option_text": "(50,50)-(150,50)-(150,150)-(50,150)",
+          "is_correct": true,
+          "order_index": 0
+        }
+      ]
+    },
+    {
+      "question_text": "Оберіть зображення, яке відповідає Марсу:",
+      "question_type": "image_choice",
+      "points": 1.0,
+      "topic": "Сонячна система",
+      "difficulty": "medium",
+      "explanation": "Марс — червона планета.",
+      "order_index": 7,
+      "options": [
+        {
+          "option_text": "Марс",
+          "image_url": "/static/uploads/c89acb3fc2224bcfa0b219cf9dbf12b7.jpg",
+          "is_correct": true,
+          "order_index": 0
+        },
+        {
+          "option_text": "Земля",
+          "image_url": "/static/uploads/2e2b34df1707405ca6322e143bf40fe7.bmp",
+          "is_correct": false,
+          "order_index": 1
+        }
+      ]
+    }
+  ]
+}

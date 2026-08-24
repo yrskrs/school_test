@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Помилка {{ code }}{% endblock %}
+{% block body_class %}error-page{% endblock %}
+
+{% block content %}
+<div class="error-card">
+  <div class="error-code">{{ code }}</div>
+  <h1 class="error-title">
+    {% if code == 404 %}Сторінку не знайдено
+    {% elif code == 403 %}Доступ заборонено
+    {% elif code == 500 %}Помилка сервера
+    {% else %}Помилка{% endif %}
+  </h1>
+  <p class="error-message">{{ message }}</p>
+  <div class="error-actions">
+    <a href="/" class="btn btn-primary">На головну</a>
+    <a href="javascript:history.back()" class="btn btn-secondary">Назад</a>
+  </div>
+</div>
+{% endblock %}

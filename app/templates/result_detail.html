@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block title %}Результат: {{ attempt.student_name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ attempt.student_name }}</h1>
+    <p class="page-subtitle">
+      {{ attempt.session.test.title }} 
+      {% if attempt.session.test.class_name %} &bull; Клас: {{ attempt.session.test.class_name }}{% endif %}
+      &bull; Сесія: {{ attempt.session.access_code }}
+    </p>
+  </div>
+  <div class="action-group">
+    <button class="btn btn-primary" onclick="window.print()">🖨️ Зберегти як PDF</button>
+    <a href="/teacher/results" class="btn btn-secondary">← Назад</a>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="stats-grid">
+  <div class="stat-card {% if attempt.score is not none and attempt.max_score and (attempt.score / attempt.max_score * 100) >= 70 %}stat-card--green{% else %}stat-card--blue{% endif %}">
+    <div class="stat-icon">📊</div>
+    <div class="stat-info">
+      <span class="stat-value">
+        {% if attempt.score is not none %}{{ attempt.score | round(1) }} / {{ attempt.max_score | round(1) }}{% else %}—{% endif %}
+      </span>
+      <span class="stat-label">Балів</span>
+    </div>
+  </div>
+  <div class="stat-card stat-card--purple">
+    <div class="stat-icon">%</div>
+    <div class="stat-info">
+      <span class="stat-value">
+        {% if attempt.score is not none and attempt.max_score %}
+          {{ (attempt.score / attempt.max_score * 100) | round(1) }}%
+        {% else %}—{% endif %}
+      </span>
+      <span class="stat-label">Результат</span>
+    </div>
+  </div>
+  <div class="stat-card stat-card--green">
+    <div class="stat-icon">🎓</div>
+    <div class="stat-info">
+      <span class="stat-value">
+        {{ attempt | scale_grade }} / {{ attempt.session.test.max_grade or 12 }}
+      </span>
+      <span class="stat-label">Оцінка</span>
+    </div>
+  </div>
+  <div class="stat-card stat-card--blue">
+    <div class="stat-icon">⏱</div>
+    <div class="stat-info">
+      <span class="stat-value">
+        {% if attempt.started_at and attempt.finished_at %}
+          {% set diff = (attempt.finished_at - attempt.started_at).seconds %}
+          {{ (diff // 60) }}:{{ '%02d' % (diff % 60) }}
+        {% else %}—{% endif %}
+      </span>
+      <span class="stat-label">Витрачено</span>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📅</div>
+    <div class="stat-info">
+      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; line-height: 1.2; margin-bottom: 0.2rem;">
+        <span class="stat-value" style="margin: 0; line-height: 1;">{{ attempt.started_at.strftime('%d.%m.%Y') if attempt.started_at else '—' }}</span>
+        <span class="badge badge-status badge-status--{{ attempt.status.value }}" style="font-size: 0.65rem; padding: 0.2rem 0.5rem;">
+          {% if attempt.status.value == 'finished' %}Завершено
+          {% elif attempt.status.value == 'timeout' %}Час вийшов
+          {% else %}{{ attempt.status.value }}{% endif %}
+        </span>
+      </div>
+      <span class="stat-label">Дата та статус</span>
+    </div>
+  </div>
+</div>
+
+<!-- Answers detail -->
+<div class="card mt-2">
+  <h2 class="card-title">Відповіді на питання</h2>
+  {% for answer in answers %}
+  {% set question = answer.question %}
+  <div class="answer-detail-item {% if answer and answer.is_correct %}answer-correct{% elif answer and answer.awarded_points == 0 %}answer-wrong{% else %}answer-skipped{% endif %}">
+    <div class="answer-detail-header">
+      <span class="answer-num">{{ loop.index }}</span>
+      <div style="flex:1">
+        <div class="answer-question-text" style="margin-bottom:0.25rem">{{ question.question_text }}</div>
+        {% if question.image_url and question.question_type.value != 'hotspot' %}
+          <img src="{{ question.image_url }}" class="test-image" style="max-height:100px" />
+        {% endif %}
+      </div>
+      <span class="answer-score">
+        {% if answer %}{{ answer.awarded_points | round(1) }}{% else %}0{% endif %} / {{ question.points }} б.
+      </span>
+    </div>
+    <div class="answer-detail-body">
+      <div class="answer-type-badge">
+        {% if question.question_type.value == 'single_choice' %}Одна відповідь
+        {% elif question.question_type.value == 'multiple_choice' %}Декілька відповідей
+        {% elif question.question_type.value == 'true_false' %}Так/Ні
+        {% elif question.question_type.value == 'short_text' %}Коротка відповідь
+        {% elif question.question_type.value == 'image_choice' %}Вибір зображення
+        {% elif question.question_type.value == 'matching' %}Відповідність
+        {% elif question.question_type.value == 'sequence' %}Послідовність
+        {% elif question.question_type.value == 'hotspot' %}Вказівка на зображенні
+        {% endif %}
+      </div>
+
+      {% if question.question_type.value in ['single_choice', 'multiple_choice', 'true_false', 'image_choice'] %}
+        {% set selected_ids = [] %}
+        {% if answer and answer.selected_options_json %}
+          {% set selected_ids = answer.selected_options_json | from_json %}
+        {% endif %}
+        <div class="options-review">
+          {% for option in question.options %}
+          <div class="opt-review
+            {% if option.is_correct %}opt-correct{% endif %}
+            {% if option.id in selected_ids %}opt-selected{% endif %}
+          ">
+            <span class="opt-icon">
+              {% if option.is_correct and option.id in selected_ids %}✓
+              {% elif option.is_correct %}✓
+              {% elif option.id in selected_ids %}✗
+              {% else %}○{% endif %}
+            </span>
+            {% if option.image_url %}
+              <img src="{{ option.image_url }}" class="test-image" style="max-height:60px;margin-right:10px" />
+            {% endif %}
+            <span>{{ option.option_text }}</span>
+            {% if option.is_correct %}<span class="opt-tag">правильна</span>{% endif %}
+            {% if option.id in selected_ids and not option.is_correct %}<span class="opt-tag opt-tag--wrong">обрана</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% elif question.question_type.value == 'hotspot' %}
+        {% set click_data = {} %}
+        {% if answer and answer.selected_options_json %}
+          {% set click_data = answer.selected_options_json | from_json %}
+        {% endif %}
+        <div class="options-review">
+          <div class="hotspot-render" data-click="{{ click_data | tojson | forceescape }}" data-regions="{% for option in question.options %}{% if option.is_correct %}{{ option.option_text }}|{% endif %}{% endfor %}">
+            <img src="{{ question.image_url }}" style="max-width:100%; display:block; border: 1px solid var(--border-light); border-radius: var(--radius-sm);" onload="drawHotspotResult(this)" />
+          </div>
+          <p class="mt-2"><strong>Відповідь учня:</strong> {% if click_data.x %}Координати ({{ click_data.x | round }}, {{ click_data.y | round }}){% else %}Немає відповіді{% endif %}</p>
+          {% for option in question.options %}
+            {% if option.is_correct %}
+              <p><strong>Правильна зона:</strong> {{ option.option_text }}</p>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% elif question.question_type.value == 'matching' %}
+        {% set submitted_pairs = {} %}
+        {% if answer and answer.selected_options_json %}
+          {% set submitted_pairs = answer.selected_options_json | from_json %}
+        {% endif %}
+        <div class="options-review">
+          {% for option in question.options %}
+          {% set student_ans = submitted_pairs.get(option.id | string, "") %}
+          {% set is_match = (student_ans | lower | trim) == (option.matching_text | lower | trim) %}
+          <div class="opt-review {% if student_ans %}{% if is_match %}opt-correct{% else %}opt-wrong{% endif %}{% endif %}">
+            <span class="opt-icon">
+              {% if is_match %}✓{% elif student_ans %}✗{% else %}○{% endif %}
+            </span>
+            <div style="flex:1">
+              <strong>{{ option.option_text }}</strong> &rarr; 
+              <span style="color:var(--text-secondary)">Правильно: <strong>{{ option.matching_text }}</strong></span>
+            </div>
+            {% if student_ans %}
+              {% if is_match %}
+                <span class="opt-tag">Вірно</span>
+              {% else %}
+                <span class="opt-tag opt-tag--wrong">Обрано: {{ student_ans }}</span>
+              {% endif %}
+            {% else %}
+              <span class="opt-tag opt-tag--wrong">Пропущено</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% elif question.question_type.value == 'sequence' %}
+        {% set submitted_order = [] %}
+        {% if answer and answer.selected_options_json %}
+          {% set submitted_order = answer.selected_options_json | from_json %}
+        {% endif %}
+        <div class="options-review" style="display:flex;gap:2rem">
+          <div style="flex:1">
+            <h4>Відповідь учня:</h4>
+            {% if not submitted_order %}
+              <p>(не відповів)</p>
+            {% else %}
+              {% for opt_id in submitted_order %}
+                {% for option in question.options %}
+                  {% if option.id == opt_id %}
+                    <div class="opt-review" style="margin-bottom:4px"><span class="badge badge-count" style="margin-right:8px;min-width:24px;height:24px;font-size:12px">{{ loop.index }}</span> {{ option.option_text }}</div>
+                  {% endif %}
+                {% endfor %}
+              {% endfor %}
+            {% endif %}
+          </div>
+          <div style="flex:1">
+            <h4>Правильна послідовність:</h4>
+            {% for option in question.options | sort(attribute='order_index') %}
+              <div class="opt-review opt-correct" style="margin-bottom:4px"><span class="badge badge-count" style="margin-right:8px;min-width:24px;height:24px;font-size:12px">{{ loop.index }}</span> {{ option.option_text }}</div>
+            {% endfor %}
+          </div>
+        </div>
+      {% elif question.question_type.value == 'short_text' %}
+        <div class="short-text-review">
+          <p>Відповідь учня: <strong>{{ answer.answer_text if answer and answer.answer_text else '(не відповів)' }}</strong></p>
+          {% if question.options %}
+          <p>Правильна відповідь: <strong>{{ question.options[0].option_text }}</strong></p>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if question.explanation %}
+      <p class="explanation">💡 {{ question.explanation }}</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Event log -->
+{% if event_logs %}
+<div class="card mt-2 no-print">
+  <h2 class="card-title">Журнал подій</h2>
+  <div class="table-wrapper" style="margin:0">
+    <table class="data-table data-table--compact">
+      <thead>
+        <tr><th>Час</th><th>Подія</th><th>Деталі</th></tr>
+      </thead>
+      <tbody>
+        {% for log in event_logs %}
+        <tr>
+          <td>{{ log.event_time.strftime('%H:%M:%S') }}</td>
+          <td>
+            {% set event_names = {
+              'login': 'Вхід',
+              'start_test': 'Початок тесту',
+              'answer_saved': 'Збережено відповідь',
+              'question_changed': 'Зміна питання',
+              'test_finished': 'Завершення тесту',
+              'connection_lost': 'Втрачено з\'єднання',
+              'reconnect': 'Відновлено з\'єднання',
+              'tab_blur': 'Згорнув вкладку',
+              'tab_focus': 'Розгорнув вкладку',
+              'timeout_auto_submit': 'Автоматичне завершення',
+              'pause_test': 'Тест на паузі',
+              'resume_test': 'Тест відновлено',
+              'stop_test': 'Тест зупинено',
+              'question_skipped': 'Пропустив питання',
+              'question_returned': 'Повернувся до пропущеного питання'
+            } %}
+            <span class="event-badge event-badge--{{ log.event_type.value }}">
+              {{ event_names.get(log.event_type.value, log.event_type.value) }}
+              {% if log.count is defined and log.count > 1 %}
+                <span class="event-count" style="background: rgba(0,0,0,0.2); border-radius: 10px; padding: 1px 5px; margin-left: 4px; font-size: 0.8em;">x{{ log.count }}</span>
+              {% endif %}
+            </span>
+          </td>
+          {% set details = log.details or '' %}
+          {% if details.startswith('question_id=') %}
+            {% set qid_str = details.replace('question_id=', '') %}
+            {% set qid = qid_str | int %}
+            {% set qtext = question_map.get(qid, '') %}
+            {% if qtext %}
+              {% set qtext_short = qtext | truncate(50) %}
+              {% set details = 'Питання: «' ~ qtext_short ~ '» (ID: ' ~ qid ~ ')' %}
+            {% else %}
+              {% set details = 'ID питання: ' ~ qid %}
+            {% endif %}
+          {% else %}
+            {% set details = details.replace('score=', 'Бали: ') %}
+            {% set details = details.replace('name=', "Ім'я: ") %}
+          {% endif %}
+          <td class="text-muted">{{ details }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block head %}
+<script>
+function drawHotspotResult(imgElement) {
+  const wrapper = imgElement.parentElement;
+  // Avoid drawing multiple times
+  if (wrapper.querySelector('svg')) return;
+
+  wrapper.style.position = "relative";
+  wrapper.style.display = "inline-block";
+  wrapper.style.alignSelf = "flex-start";
+  wrapper.style.width = "fit-content";
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.style.position = "absolute";
+  svg.style.top = "0";
+  svg.style.left = "0";
+  svg.style.width = "100%";
+  svg.style.height = "100%";
+  svg.style.pointerEvents = "none";
+  
+  const nw = imgElement.naturalWidth;
+  const nh = imgElement.naturalHeight;
+  if (!nw || !nh) return;
+  
+  svg.setAttribute("viewBox", `0 0 ${nw} ${nh}`);
+
+  const clickData = JSON.parse(wrapper.dataset.click || '{}');
+  const regionsStr = wrapper.dataset.regions || '';
+  
+  // Draw polygons
+  const regions = regionsStr.split('|').filter(r => r.trim());
+  regions.forEach(region => {
+     const points = region.split('-').map(p => {
+       const parts = p.replace(/[()]/g, '').split(',');
+       if(parts.length === 2) return `${parseFloat(parts[0])},${parseFloat(parts[1])}`;
+       return '';
+     }).filter(Boolean).join(' ');
+     
+     if (points) {
+       const polygon = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+       polygon.setAttribute("points", points);
+       polygon.setAttribute("fill", "rgba(0, 255, 0, 0.3)");
+       polygon.setAttribute("stroke", "#00aa00");
+       polygon.setAttribute("stroke-width", Math.max(2, nw * 0.005));
+       svg.appendChild(polygon);
+     }
+  });
+
+  // Draw click
+  if (clickData && clickData.x !== undefined) {
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", clickData.x);
+    circle.setAttribute("cy", clickData.y);
+    const r = Math.max(4, Math.min(nw, nh) * 0.015);
+    circle.setAttribute("r", r);
+    circle.setAttribute("fill", "rgba(255, 0, 0, 0.8)");
+    circle.setAttribute("stroke", "white");
+    circle.setAttribute("stroke-width", Math.max(2, nw * 0.003));
+    svg.appendChild(circle);
+  }
+
+  wrapper.appendChild(svg);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Інструкція — {{ test.title }}{% endblock %}
+{% block navbar %}{% endblock %}
+{% block body_class %}student-page{% endblock %}
+
+{% block content %}
+<div class="instruction-card">
+  <div class="instruction-header">
+    <div class="instruction-icon">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <h1 class="instruction-title">{{ test.title }}</h1>
+    {% if test.subject or test.class_name %}
+    <p class="instruction-meta">
+      {% if test.subject %}{{ test.subject }}{% endif %}
+      {% if test.subject and test.class_name %} &bull; {% endif %}
+      {% if test.class_name %}{{ test.class_name }}{% endif %}
+    </p>
+    {% endif %}
+  </div>
+
+  {% if test.description %}
+  <div class="instruction-description">
+    <p>{{ test.description }}</p>
+  </div>
+  {% endif %}
+
+  <div class="instruction-stats">
+    <div class="istat">
+      <span class="istat-icon">📝</span>
+      <span class="istat-value">{{ question_count }}</span>
+      <span class="istat-label">питань</span>
+    </div>
+    <div class="istat">
+      <span class="istat-icon">⏱️</span>
+      <span class="istat-value">
+        {% if test.time_limit_minutes %}{{ test.time_limit_minutes }} хв{% else %}∞{% endif %}
+      </span>
+      <span class="istat-label">на тест</span>
+    </div>
+    <div class="istat">
+      <span class="istat-icon">💾</span>
+      <span class="istat-value">Авто</span>
+      <span class="istat-label">збереження</span>
+    </div>
+  </div>
+
+  <div class="instruction-rules">
+    <h2>Правила проходження</h2>
+    <ul>
+      <li>Уважно читайте кожне питання перед відповіддю</li>
+      <li>Відповіді зберігаються автоматично після кожного вибору</li>
+      <li>Ви можете переходити між питаннями та змінювати відповіді</li>
+      {% if test.time_limit_minutes %}
+      <li>Час обмежено: <strong>{{ test.time_limit_minutes }} хвилин</strong>. Після закінчення тест завершиться автоматично</li>
+      {% endif %}
+      <li>Після натискання «Завершити тест» повернутись буде неможливо</li>
+      {% if test.show_result_after_finish %}
+      <li>Результат буде показано одразу після завершення</li>
+      {% endif %}
+    </ul>
+  </div>
+
+  <div class="instruction-student">
+    <p>Учень: <strong>{{ attempt.student_name }}</strong></p>
+  </div>
+
+  <a href="/student/test/{{ attempt.id }}" class="btn btn-primary btn-full btn-start">
+    Почати тест
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="5" y1="12" x2="19" y2="12"/>
+      <polyline points="12,5 19,12 12,19"/>
+    </svg>
+  </a>
+</div>
+{% endblock %}

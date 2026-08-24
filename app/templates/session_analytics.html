@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Аналітика: {{ test.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Аналітика тесту: {{ test.title }}</h1>
+    <p class="page-subtitle">Клас (за замовчуванням): {{ test.class_name }}</p>
+  </div>
+  <div class="action-group">
+    <form method="get" action="/teacher/tests/{{ test.id }}/analytics" style="display:flex; gap:0.5rem; align-items:center;">
+      <label for="session_id" style="font-size:0.9rem; color:var(--text-muted);">Фільтр:</label>
+      <select name="session_id" id="session_id" class="form-input" style="padding:0.3rem; min-width:200px;" onchange="this.form.submit()">
+        <option value="">Всі класи та уроки (загальна)</option>
+        {% for s in all_sessions %}
+        <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
+          Урок: {{ s.started_at.strftime('%d.%m.%Y %H:%M') }} (Код: {{ s.access_code }})
+        </option>
+        {% endfor %}
+      </select>
+    </form>
+    <button class="btn btn-primary" onclick="window.print()">🖨️ Зберегти як PDF</button>
+    <a href="/teacher/sessions" class="btn btn-secondary">← Назад</a>
+  </div>
+</div>
+
+<div class="stats-grid" style="margin-bottom: 2rem;">
+  <div class="stat-card stat-card--blue">
+    <div class="stat-icon">👥</div>
+    <div class="stat-info">
+      <span class="stat-value">{{ total_attempts }}</span>
+      <span class="stat-label">Завершених спроб</span>
+    </div>
+  </div>
+  <div class="stat-card {% if avg_pct >= 70 %}stat-card--green{% elif avg_pct >= 40 %}stat-card--purple{% else %}stat-card--red{% endif %}">
+    <div class="stat-icon">📊</div>
+    <div class="stat-info">
+      <span class="stat-value">{{ avg_score | round(1) }} / {{ max_score | round(1) }}</span>
+      <span class="stat-label">Середній бал</span>
+    </div>
+  </div>
+  <div class="stat-card stat-card--purple">
+    <div class="stat-icon">%</div>
+    <div class="stat-info">
+      <span class="stat-value">{{ avg_pct | round(1) }}%</span>
+      <span class="stat-label">Успішність</span>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="card-title">Аналіз складності питань (Item Analysis)</h2>
+  
+  {% if total_attempts == 0 %}
+    <div class="empty-state">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+      <h3>Ще немає результатів</h3>
+      <p>Аналітика з'явиться після того, як хоча б один учень завершить тест.</p>
+    </div>
+  {% else %}
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th width="50">№</th>
+            <th>Питання</th>
+            <th width="150" style="text-align: center;">Тип</th>
+            <th width="120" style="text-align: center;">Правильно</th>
+            <th width="120" style="text-align: center;">Успішність</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stat in questions_stats %}
+          <tr>
+            <td><strong>{{ stat.index }}</strong></td>
+            <td>
+              <div style="font-size: 0.9rem; margin-bottom: 0.25rem; font-weight: 500;">
+                {{ stat.question.question_text | truncate(100) }}
+              </div>
+              {% if stat.options_dist %}
+                <div style="font-size: 0.8rem; margin-top: 0.5rem; background: var(--bg-color); padding: 0.5rem; border-radius: 4px;">
+                  <strong style="display:block; margin-bottom:0.25rem; color: var(--text-muted);">Відповіді учнів:</strong>
+                  {% for opt in stat.options_dist %}
+                    <div style="display:flex; justify-content:space-between; margin-bottom:0.2rem;">
+                      {% if opt.is_correct %}
+                        <span style="color: var(--success-color); font-weight:600;">
+                      {% else %}
+                        <span style="color: var(--text-color);">
+                      {% endif %}
+                        • {{ opt.text | truncate(60) }}
+                      </span>
+                      <span style="color: var(--text-muted);">{{ opt.count }} уч.</span>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </td>
+            <td style="text-align: center;">
+              {% set type_names = {
+                'single_choice': 'Одна правильна',
+                'multiple_choice': 'Кілька правильних',
+                'true_false': 'Так / Ні',
+                'short_text': 'Коротка відповідь',
+                'sequence': 'Послідовність',
+                'matching': 'Відповідність',
+                'image_choice': 'Зображення',
+                'hotspot': 'Вказівка на зображенні'
+              } %}
+              <span class="badge badge-count">{{ type_names.get(stat.question.question_type.value, stat.question.question_type.value) }}</span>
+            </td>
+            <td style="text-align: center;">
+              {{ stat.correct_count }} / {{ stat.answered_count }}
+            </td>
+            <td style="text-align: center;">
+              {% if stat.correct_pct >= 80 %}
+                <span class="pct-badge pct-excellent">{{ stat.correct_pct | round(1) }}%</span>
+              {% elif stat.correct_pct >= 50 %}
+                <span class="pct-badge pct-good">{{ stat.correct_pct | round(1) }}%</span>
+              {% elif stat.correct_pct >= 30 %}
+                <span class="pct-badge pct-ok">{{ stat.correct_pct | round(1) }}%</span>
+              {% else %}
+                <span class="pct-badge pct-poor">{{ stat.correct_pct | round(1) }}%</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

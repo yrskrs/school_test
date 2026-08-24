@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Результат: {{ attempt.student_name }} - {{ test.title }}</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --primary: #3b82f6;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --border: #e5e7eb;
+      --bg-card: #f9fafb;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--border);
+    }
+    .header h1 {
+      margin: 0 0 0.5rem 0;
+      color: var(--text);
+    }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+    }
+    .score-banner {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .score-circle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 4px solid var(--primary);
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--primary);
+      margin-bottom: 1rem;
+    }
+    .score-circle--excellent { border-color: var(--success); color: var(--success); }
+    .score-circle--good { border-color: var(--primary); color: var(--primary); }
+    .score-circle--ok { border-color: var(--warning); color: var(--warning); }
+    .score-circle--poor { border-color: var(--danger); color: var(--danger); }
+    
+    .question-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .question-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    .q-number { font-weight: bold; color: var(--text-muted); }
+    .q-points { font-weight: bold; }
+    .q-text { font-size: 1.1rem; font-weight: 500; margin-bottom: 1rem; }
+    
+    .test-image { max-width: 100%; height: auto; border-radius: 4px; margin: 0.5rem 0; border: 1px solid var(--border); }
+    
+    .options { display: flex; flex-direction: column; gap: 0.5rem; }
+    .option {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+    }
+    .option--correct { border-color: var(--success); background: #ecfdf5; }
+    .option--selected { border-color: var(--primary); background: #eff6ff; }
+    .option--wrong { border-color: var(--danger); background: #fef2f2; }
+    
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.1rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      background: var(--text-muted);
+      color: white;
+      margin-right: 0.5rem;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      margin-left: 0.5rem;
+    }
+    .status--correct { background: #d1fae5; color: #065f46; }
+    .status--partial { background: #fef3c7; color: #92400e; }
+    .status--wrong { background: #fee2e2; color: #991b1b; }
+    .status--skipped { background: #f3f4f6; color: #374151; }
+
+    .text-success { color: var(--success); }
+    .text-danger { color: var(--danger); }
+
+    @media print {
+      body { padding: 0; }
+      .question-card { break-inside: avoid; border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>{{ test.title }}</h1>
+    <div class="meta">
+      <div><strong>Учень:</strong> {{ attempt.student_name }}</div>
+      <div><strong>Клас:</strong> {{ test.class_name or '—' }}</div>
+      <div><strong>Предмет:</strong> {{ test.subject or '—' }}</div>
+    </div>
+    <div class="meta" style="justify-content: center; gap: 2rem;">
+      <div><strong>Початок:</strong> {{ attempt.started_at.strftime('%d.%m.%Y %H:%M') if attempt.started_at else '—' }}</div>
+      <div><strong>Завершення:</strong> {{ attempt.finished_at.strftime('%d.%m.%Y %H:%M') if attempt.finished_at else '—' }}</div>
+      <div><strong>Статус:</strong> 
+        {% if attempt.status.value == 'timeout' %}Час вийшов
+        {% elif attempt.status.value == 'stopped' %}Зупинено
+        {% else %}Завершено{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="score-banner">
+    {% set percent = 0 %}
+    {% if attempt.max_score and attempt.max_score > 0 %}
+      {% set percent = (attempt.score / attempt.max_score * 100) | round(1) %}
+    {% endif %}
+    
+    <div class="score-circle {% if percent >= 90 %}score-circle--excellent{% elif percent >= 70 %}score-circle--good{% elif percent >= 50 %}score-circle--ok{% else %}score-circle--poor{% endif %}">
+      {{ percent }}%
+    </div>
+    <div style="font-size: 1.25rem; font-weight: bold;">
+      Оцінка: {{ attempt | scale_grade }} з {{ test.max_grade or 12 }}
+    </div>
+    <div style="color: var(--text-muted); margin-top: 0.5rem;">
+      {{ attempt.score | round(1) }} / {{ attempt.max_score | round(1) }} балів
+    </div>
+  </div>
+
+  <h2>Відповіді:</h2>
+  
+  {% for answer in answers %}
+    {% set q = answer.question %}
+    <div class="question-card">
+      <div class="question-header">
+        <div class="q-number">Питання {{ loop.index }}</div>
+        <div class="q-points">
+          {% if answer.awarded_points == q.points %}
+            <span class="status-badge status--correct">Вірно</span>
+          {% elif answer.awarded_points > 0 %}
+            <span class="status-badge status--partial">Частково ({{ answer.awarded_points | round(1) }})</span>
+          {% elif answer.selected_options_json or answer.answer_text %}
+            <span class="status-badge status--wrong">Невірно</span>
+          {% else %}
+            <span class="status-badge status--skipped">Пропущено</span>
+          {% endif %}
+          {{ answer.awarded_points | round(1) }} / {{ q.points }} б.
+        </div>
+      </div>
+      
+      <div class="q-text">{{ q.question_text }}</div>
+      {% if q.base64_image %}
+        <img src="{{ q.base64_image }}" class="test-image" />
+      {% endif %}
+      
+      <div class="options">
+        {% set type = q.question_type.value %}
+        {% set selected = {} if type == 'matching' else [] %}
+        {% if answer.selected_options_json %}
+          {% set parsed = answer.selected_options_json | from_json %}
+          {% set selected = parsed if parsed is not none else selected %}
+        {% endif %}
+        {% if type in ['matching', 'hotspot'] and not selected is mapping %}
+          {% set selected = {} %}
+        {% endif %}
+        
+        {% if type in ['single_choice', 'multiple_choice', 'true_false', 'image_choice'] %}
+          {% for opt in q.options %}
+            {% set is_sel = opt.id in selected %}
+            {% set is_cor = opt.is_correct %}
+            <div class="option 
+              {% if is_cor %}option--correct{% endif %}
+              {% if is_sel and not is_cor %}option--wrong{% endif %}
+            ">
+              <span style="margin-right:10px; font-weight:bold;">
+                {% if is_cor %}✓{% elif is_sel %}✗{% else %}○{% endif %}
+              </span>
+              {% if opt.base64_image %}
+                <img src="{{ opt.base64_image }}" class="test-image" style="max-height:60px;margin-right:10px;" />
+              {% endif %}
+              <span>{{ opt.option_text }}</span>
+            </div>
+          {% endfor %}
+          
+        {% elif type == 'matching' %}
+          <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem;">
+            <tr style="background: var(--bg-card); border-bottom: 1px solid var(--border);">
+              <th style="padding: 0.5rem; text-align: left;">Опція</th>
+              <th style="padding: 0.5rem; text-align: left;">Відповідь учня</th>
+              <th style="padding: 0.5rem; text-align: left;">Правильно</th>
+            </tr>
+            {% for opt in q.options %}
+              {% set s_ans = selected.get(opt.id | string, "") %}
+              {% set correct_ans = opt.matching_text or "" %}
+              {% set match = (s_ans | string | lower | trim) == (correct_ans | string | lower | trim) %}
+              
+              {% set color_class = "" %}
+              {% if s_ans %}
+                {% set color_class = "text-success" if match else "text-danger" %}
+              {% endif %}
+              
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 0.5rem; font-weight: 500;">{{ opt.option_text }}</td>
+                <td style="padding: 0.5rem;" class="{{ color_class }}">
+                  {{ s_ans or '—' }}
+                </td>
+                <td style="padding: 0.5rem; color: var(--success);">{{ opt.matching_text }}</td>
+              </tr>
+            {% endfor %}
+          </table>
+          
+        {% elif type == 'sequence' %}
+          <div style="display:flex; gap: 2rem; margin-top: 0.5rem;">
+            <div style="flex:1;">
+              <strong>Відповідь учня:</strong>
+              {% if not selected %}<p>—</p>{% endif %}
+              {% for opt_id in selected %}
+                {% set outer_index = loop.index %}
+                {% for opt in q.options %}{% if opt.id == opt_id %}
+                  <div class="option option--selected" style="margin-top:0.25rem;">
+                    <span class="badge">{{ outer_index }}</span> {{ opt.option_text }}
+                  </div>
+                {% endif %}{% endfor %}
+              {% endfor %}
+            </div>
+            <div style="flex:1;">
+              <strong>Правильна послідовність:</strong>
+              {% for opt in q.options | sort(attribute='order_index') %}
+                <div class="option option--correct" style="margin-top:0.25rem;">
+                  <span class="badge">{{ loop.index }}</span> {{ opt.option_text }}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          
+        {% elif type == 'short_text' %}
+          <div style="margin-top: 0.5rem;">
+            <p><strong>Відповідь учня:</strong> <span style="color: var(--primary);">{{ answer.answer_text or '—' }}</span></p>
+            <p><strong>Правильна відповідь:</strong> <span style="color: var(--success);">{{ q.options[0].option_text if q.options else '—' }}</span></p>
+          </div>
+          
+        {% elif type == 'hotspot' %}
+          <div style="margin-top: 0.5rem;">
+            <p><strong>Відповідь учня (координати):</strong> 
+              {% if selected.x %}({{ selected.x | round }}, {{ selected.y | round }}){% else %}—{% endif %}
+            </p>
+            <p><strong>Правильні зони:</strong> 
+              {% for opt in q.options %}{% if opt.is_correct %}{{ opt.option_text }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}
+            </p>
+          </div>
+        {% endif %}
+      </div>
+      
+      {% if q.explanation %}
+        <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; color: #92400e;">
+          <strong>💡 Пояснення:</strong> {{ q.explanation }}
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+  
+  <div style="text-align: center; margin-top: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+    Згенеровано автоматично системою тестування
+  </div>
+</div>
+</body>
+</html>

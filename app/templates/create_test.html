@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Створити тест{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  {% if import_mode is defined and import_mode %}
+    <h1>Імпорт тесту з JSON</h1>
+    <p class="page-subtitle">Завантажте файл або вставте JSON</p>
+  {% else %}
+    <h1>Створити новий тест</h1>
+    <p class="page-subtitle">Заповніть параметри тесту та додайте питання</p>
+  {% endif %}
+</div>
+
+{% if import_mode is defined and import_mode %}
+<!-- ===================== IMPORT MODE ===================== -->
+<div class="card">
+  <form method="post" action="/teacher/tests/import-json" enctype="multipart/form-data" onsubmit="showImportOverlay('Імпортування JSON-тесту')">
+    <div class="form-group">
+      <label for="json_file">JSON-файл тесту</label>
+      <input type="file" id="json_file" name="json_file" accept=".json" />
+      <p class="form-hint">Або вставте JSON нижче</p>
+    </div>
+    <div class="form-group">
+      <label for="json_text">JSON-текст</label>
+      <textarea id="json_text" name="json_text" rows="14" class="code-textarea" placeholder='{"title": "Назва тесту", "questions": [...]}'></textarea>
+    </div>
+    <div class="form-actions">
+      <a href="/teacher/tests" class="btn btn-secondary">Скасувати</a>
+      <button type="submit" class="btn btn-primary">Імпортувати</button>
+    </div>
+  </form>
+</div>
+
+<div class="card mt-2">
+  <h3>Формат JSON</h3>
+  <pre class="code-block">{
+  "title": "Назва тесту",
+  "subject": "Математика",
+  "class_name": "7-А",
+  "description": "Опис тесту",
+  "time_limit_minutes": 30,
+  "shuffle_questions": false,
+  "shuffle_options": false,
+  "show_result_after_finish": true,
+  "show_correct_answers": false,
+  "questions": [
+    {
+      "question_text": "Текст питання",
+      "question_type": "single_choice",
+      "points": 1.0,
+      "order_index": 0,
+      "options": [
+        {"option_text": "Варіант А", "is_correct": true},
+        {"option_text": "Варіант Б", "is_correct": false}
+      ]
+    }
+  ]
+}</pre>
+  <p class="form-hint">Типи питань: <code>single_choice</code>, <code>multiple_choice</code>, <code>true_false</code>, <code>short_text</code></p>
+</div>
+
+{% else %}
+<!-- ===================== CREATE MODE ===================== -->
+<form method="post" action="/teacher/tests/create" id="createTestForm">
+  <input type="hidden" name="questions_json" id="questions_json" value="[]" />
+  <input type="hidden" name="upload_session_id" id="upload_session_id" value="" />
+
+  <div class="card">
+    <h2 class="card-title">Основні параметри</h2>
+    <div class="form-grid">
+      <div class="form-group form-group--full">
+        <label for="title">Назва тесту *</label>
+        <input type="text" id="title" name="title" required placeholder="Контрольна робота з математики" />
+      </div>
+      <div class="form-group">
+        <label for="subject">Предмет</label>
+        <input type="text" id="subject" name="subject" value="{{ teacher.subject or '' }}" placeholder="Математика" />
+      </div>
+      <div class="form-group">
+        <label for="class_name">Клас *</label>
+        <select id="class_name" name="class_name" required>
+          <option value="">Оберіть клас</option>
+          {% for c in teacher_classes %}
+            <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+        {% if not teacher_classes %}
+          <p class="form-hint" style="color: var(--danger); margin-top: 4px;">Будь ласка, спочатку <a href="/teacher/profile" style="text-decoration: underline; color: var(--danger);">вкажіть класи</a> у профілі.</p>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label for="time_limit_minutes">Ліміт часу (хвилини)</label>
+        <input type="number" id="time_limit_minutes" name="time_limit_minutes" min="1" max="300" placeholder="45" />
+      </div>
+      <div class="form-group">
+        <label for="time_limit_per_question">Час на 1 питання (секунди)</label>
+        <input type="number" id="time_limit_per_question" name="time_limit_per_question" min="1" max="3600" placeholder="Немає" />
+      </div>
+      <div class="form-group form-group--full">
+        <label for="description">Опис</label>
+        <textarea id="description" name="description" rows="3" placeholder="Короткий опис тесту для учнів"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="max_grade">Система оцінювання (макс. бал)</label>
+        <input type="number" id="max_grade" name="max_grade" min="1" max="1000" value="12" />
+      </div>
+      <div class="form-group">
+        <label for="random_questions_limit">Кількість випадкових запитань</label>
+        <input type="number" id="random_questions_limit" name="random_questions_limit" min="1" placeholder="Усі питання" />
+      </div>
+    </div>
+
+      <div class="form-group form-group--full" style="display:flex;gap:1.5rem;flex-wrap:wrap">
+        <label class="checkbox-label">
+          <input type="checkbox" name="shuffle_questions" value="true" />
+          Перемішувати питання
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="shuffle_options" value="true" />
+          Перемішувати варіанти відповідей
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="show_result_after_finish" value="true" checked />
+          Показувати результат після завершення
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="show_correct_answers" value="true" />
+          Показувати правильні відповіді
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="is_formative" value="true" />
+          Формативне оцінювання (без жорстких лімітів)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="allow_partial_grading" value="true" />
+          Дозволити часткове нарахування балів (для Відповідності)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="use_fuzzy_matching" value="true" />
+          Смарт-оцінювання: Дозволити друкарські помилки (алгоритм Левенштейна)
+        </label>
+      </div>
+  </div>
+
+  <!-- Sections / Topics management -->
+  <div class="card mt-2" id="topics-management-card">
+    <div class="card-header-row">
+      <h2 class="card-title">Розділи тесту (виключення розділів)</h2>
+    </div>
+    <div class="card-body" style="padding: 1rem 1.5rem">
+      <input type="hidden" name="excluded_topics" id="excluded_topics" value='[]' />
+      <div id="topics-management-container">
+        <!-- Will be populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Questions editor -->
+  <div class="card mt-2">
+    <div class="card-header-row" style="flex-wrap:wrap; gap:0.75rem;">
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <h2 class="card-title" style="margin:0;">Питання <span class="badge badge-count" id="question-count">0</span></h2>
+        <div style="display:flex; gap:0.35rem;">
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-undo" onclick="undoLastAction()" title="Скасувати останню дію (Ctrl+Z)" disabled style="opacity:0.5; cursor:not-allowed; display:inline-flex; align-items:center; gap:0.25rem;">
+            <span>↶</span> <span>Скасувати</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-redo" onclick="redoLastAction()" title="Повернути дію (Ctrl+Y)" disabled style="opacity:0.5; cursor:not-allowed; display:inline-flex; align-items:center; gap:0.25rem;">
+            <span>↷</span> <span>Повернути</span>
+          </button>
+        </div>
+      </div>
+      <label class="checkbox-label" style="margin: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.95rem;">
+        <input type="checkbox" id="toggle-grouping" onchange="toggleGrouping(this.checked)" style="width:16px;height:16px" />
+        Групувати питання за розділами
+      </label>
+    </div>
+    <div id="questions-container">
+      <div class="empty-questions" id="empty-questions-msg">
+        <p>Питань ще немає. Натисніть «Додати питання».</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <div style="display:flex;gap:0.75rem">
+      <button type="button" class="btn btn-secondary" onclick="addQuestion()">+ Додати питання</button>
+    </div>
+    <div style="display:flex;gap:0.75rem">
+      <a href="/teacher/tests" class="btn btn-secondary">Скасувати</a>
+      <button type="submit" class="btn btn-primary" onclick="return prepareSubmit()">Зберегти тест</button>
+    </div>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if not (import_mode is defined and import_mode) %}
+<script src="/static/js/teacher.js"></script>
+{% endif %}
+{% endblock %}

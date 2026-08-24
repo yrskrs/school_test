@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}{% if page == 'sessions' %}Сесії{% else %}Тести{% endif %}{% endblock %}
+
+{% block content %}
+{% if page == 'tests' %}
+<!-- ===================== TESTS LIST ===================== -->
+<div class="page-header">
+  <h1>Мої тести</h1>
+  <div style="display:flex;gap:0.75rem">
+    <label for="importXmlInput" class="btn btn-secondary" style="cursor: pointer; margin: 0;">
+      Імпорт XML (MyTestX)
+      <input type="file" id="importXmlInput" accept=".xml" style="display:none" onchange="handleXmlImport(event)">
+    </label>
+    <label for="importDocxInput" class="btn btn-secondary" style="cursor: pointer; margin: 0;">
+      Імпорт Word (.docx)
+      <input type="file" id="importDocxInput" accept=".docx" style="display:none" onchange="handleDocxImport(event)">
+    </label>
+    <a href="/teacher/tests/import" class="btn btn-secondary">Імпорт JSON</a>
+    <a href="/teacher/tests/create" class="btn btn-primary">+ Створити тест</a>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+  <a href="/teacher/tests?tab=active" class="btn {% if tab != 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні тести</a>
+  <a href="/teacher/tests?tab=archive" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
+</div>
+
+{% if tab != 'archive' %}
+<details class="card filter-card" style="margin-bottom: 1.5rem;">
+  <summary style="cursor: pointer; font-weight: 500; color: var(--text-muted); outline: none;">
+    ▶ Масове архівування (за періодом)
+  </summary>
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+    <form method="post" action="/teacher/tests/archive-bulk" class="filter-form" style="margin:0; display:flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;" onsubmit="return confirm('Ви впевнені, що хочете заархівувати всі тести за цей період?')">
+      <div class="form-group" style="margin:0; min-width: 150px;">
+        <label for="tests_start_date">Архівувати з:</label>
+        <input type="date" id="tests_start_date" name="start_date" required>
+      </div>
+      <div class="form-group" style="margin:0; min-width: 150px;">
+        <label for="tests_end_date">ПО:</label>
+        <input type="date" id="tests_end_date" name="end_date" required>
+      </div>
+      <button type="submit" class="btn btn-secondary">🗃 Архівувати період</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
+{% if tests_with_count %}
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Назва</th>
+        <th class="mobile-hidden">Предмет</th>
+        <th class="mobile-hidden">Клас</th>
+        <th>Питань</th>
+        <th class="mobile-hidden">Час</th>
+        <th class="mobile-hidden">Дата</th>
+        <th>Дії</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in tests_with_count %}
+      <tr>
+        <td><strong>{{ item.test.title }}</strong></td>
+        <td class="mobile-hidden">{{ item.test.subject or '—' }}</td>
+        <td class="mobile-hidden">{{ item.test.class_name or '—' }}</td>
+        <td>
+          <span class="badge badge-count">{{ item.question_count }}</span>
+        </td>
+        <td class="mobile-hidden">
+          {% if item.test.time_limit_minutes %}
+            {{ item.test.time_limit_minutes }} хв
+          {% else %}
+            Без обмежень
+          {% endif %}
+        </td>
+        <td class="mobile-hidden">{{ item.test.created_at.strftime('%d.%m.%Y') }}</td>
+        <td>
+          <div class="action-group" style="flex-wrap: nowrap; gap: 0.25rem;">
+            {% if not item.test.is_archived %}
+            <form method="post" action="/teacher/tests/{{ item.test.id }}/start-session" style="margin:0">
+              <button type="submit" class="btn btn-sm btn-success" title="Запустити тест">▶ Запустити</button>
+            </form>
+            {% else %}
+            <form method="post" action="/teacher/tests/{{ item.test.id }}/unarchive" style="margin:0">
+              <button type="submit" class="btn btn-sm btn-primary" title="Відновити">📦 Відновити</button>
+            </form>
+            {% endif %}
+            
+            <a href="/teacher/tests/{{ item.test.id }}/edit" class="btn btn-sm btn-secondary" title="Редагувати">✏️</a>
+            <a href="/teacher/tests/{{ item.test.id }}/analytics" class="btn btn-sm btn-secondary" title="Аналітика">📈</a>
+            <a href="/teacher/tests/{{ item.test.id }}/export" class="btn btn-sm btn-secondary" title="Експорт JSON" style="text-decoration: none;">📥</a>
+            
+            {% if not item.test.is_archived %}
+            <form method="post" action="/teacher/tests/{{ item.test.id }}/archive" style="margin:0">
+              <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати">🗃</button>
+            </form>
+            {% endif %}
+            
+            <form method="post" action="/teacher/tests/{{ item.test.id }}/delete" onsubmit="return confirm('Видалити тест «{{ item.test.title }}»?')" style="margin:0">
+              <button type="submit" class="btn btn-sm btn-danger" title="Видалити" style="padding: 0.25rem 0.5rem;">🗑️</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total_pages > 1 or per_page != 20 %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1rem; gap: 1rem; flex-wrap: wrap;">
+  <div class="pagination">
+    {% if current_page > 1 %}
+    <a href="?page={{ current_page - 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Попередня</a>
+    {% endif %}
+    
+    <span style="padding: 0.25rem 0.5rem; color: var(--text-muted);">
+      Сторінка {{ current_page }} з {{ total_pages }}
+    </span>
+    
+    {% if current_page < total_pages %}
+    <a href="?page={{ current_page + 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Наступна</a>
+    {% endif %}
+  </div>
+  
+  <div style="display:flex; align-items:center; gap: 0.5rem;">
+    <label for="per_page_select" style="font-size: 0.9rem; color: var(--text-muted); margin: 0;">Показувати по:</label>
+    <select id="per_page_select" class="form-input" style="width: auto; padding: 0.25rem 1.5rem 0.25rem 0.5rem; height: auto;" onchange="window.location.href='?page=1&per_page='+this.value">
+      <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+      <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+      <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+      <option value="0" {% if per_page == 0 %}selected{% endif %}>Всі</option>
+    </select>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14,2 14,8 20,8"/>
+  </svg>
+  <h3>Тестів ще немає</h3>
+  <p>Створіть перший тест або імпортуйте з JSON</p>
+  <div style="display:flex;gap:0.75rem;justify-content:center">
+    <a href="/teacher/tests/import" class="btn btn-secondary">Імпорт JSON</a>
+    <a href="/teacher/tests/create" class="btn btn-primary">Створити тест</a>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- ===================== SESSIONS LIST ===================== -->
+<div class="page-header" style="margin-bottom: 1rem;">
+  <h1>Сесії тестування</h1>
+</div>
+
+<div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+  <a href="/teacher/sessions?tab=active" class="btn {% if tab == 'active' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні та Завершені</a>
+  <a href="/teacher/sessions?tab=archive" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
+</div>
+
+{% if sessions_data %}
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Тест</th>
+        <th>Код доступу</th>
+        <th class="mobile-hidden">Статус</th>
+        <th class="mobile-hidden">Учнів</th>
+        <th class="mobile-hidden">Завершили</th>
+        <th class="mobile-hidden">Розпочато</th>
+        <th>Дії</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in sessions_data %}
+      <tr>
+        <td><strong>{{ item.session.test.title }}</strong></td>
+        <td><span class="badge badge-code">{{ item.session.access_code }}</span></td>
+        <td class="mobile-hidden">
+          {% if item.session.is_active %}
+            <span class="badge badge-status badge-status--in_progress">Активна</span>
+          {% else %}
+            <span class="badge badge-status badge-status--finished">Завершена</span>
+          {% endif %}
+        </td>
+        <td class="mobile-hidden">{{ item.attempt_count }}</td>
+        <td class="mobile-hidden">{{ item.finished_count }}</td>
+        <td class="mobile-hidden">{{ item.session.started_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>
+          <div class="action-group" style="flex-wrap: nowrap; gap: 0.25rem;">
+            {% if item.session.is_active %}
+              <a href="/teacher/sessions/{{ item.session.id }}/monitor" class="btn btn-sm btn-primary" title="Моніторинг">👁️ Моніторинг</a>
+              <form method="post" action="/teacher/sessions/{{ item.session.id }}/close"
+                    onsubmit="return confirm('Завершити сесію?')" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-danger" title="Закрити сесію" style="padding: 0.25rem 0.5rem;">🛑</button>
+              </form>
+              
+              {% if item.session.is_pinned %}
+              <form method="post" action="/teacher/sessions/{{ item.session.id }}/unpin" style="margin:0" title="Відкріпити з головної сторінки сайту">
+                <button type="submit" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem;">⭐️</button>
+              </form>
+              {% else %}
+              <form method="post" action="/teacher/sessions/{{ item.session.id }}/pin" style="margin:0" title="Закріпити на головній сторінці сайту (вхід без коду)">
+                <button type="submit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem;">📌</button>
+              </form>
+              {% endif %}
+            {% else %}
+              <a href="/teacher/tests/{{ item.session.test.id }}/analytics?session_id={{ item.session.id }}" class="btn btn-sm btn-secondary" title="Аналітика">📈</a>
+              {% if not item.session.is_archived %}
+              <form method="post" action="/teacher/sessions/{{ item.session.id }}/archive" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати">🗃</button>
+              </form>
+              {% else %}
+              <form method="post" action="/teacher/sessions/{{ item.session.id }}/unarchive" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-success" title="Відновити">📦 Відновити</button>
+              </form>
+              {% endif %}
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total_pages > 1 or per_page != 20 %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1rem; gap: 1rem; flex-wrap: wrap;">
+  <div class="pagination">
+    {% if current_page > 1 %}
+    <a href="?tab={{ tab }}&page={{ current_page - 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Попередня</a>
+    {% endif %}
+    
+    <span style="padding: 0.25rem 0.5rem; color: var(--text-muted);">
+      Сторінка {{ current_page }} з {{ total_pages }}
+    </span>
+    
+    {% if current_page < total_pages %}
+    <a href="?tab={{ tab }}&page={{ current_page + 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Наступна</a>
+    {% endif %}
+  </div>
+  
+  <div style="display:flex; align-items:center; gap: 0.5rem;">
+    <label for="per_page_select" style="font-size: 0.9rem; color: var(--text-muted); margin: 0;">Показувати по:</label>
+    <select id="per_page_select" class="form-input" style="width: auto; padding: 0.25rem 1.5rem 0.25rem 0.5rem; height: auto;" onchange="window.location.href='?tab={{ tab }}&page=1&per_page='+this.value">
+      <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+      <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+      <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+      <option value="0" {% if per_page == 0 %}selected{% endif %}>Всі</option>
+    </select>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+    <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+  </svg>
+  <h3>Сесій ще немає</h3>
+  <p>Запустіть тест, щоб створити сесію</p>
+  <a href="/teacher/tests" class="btn btn-primary">До списку тестів</a>
+</div>
+{% endif %}
+{% endif %}
+
+<script>
+async function handleXmlImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  showImportOverlay('Імпортування XML-тесту');
+
+  try {
+    const res = await fetch('/teacher/tests/import/xml', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
+    } else {
+      hideImportOverlay();
+      const err = await res.json();
+      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
+    }
+  } catch (error) {
+    hideImportOverlay();
+    alert('Помилка мережі при завантаженні файлу');
+  }
+  
+  event.target.value = ''; // скидаємо файл
+}
+
+async function handleDocxImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  showImportOverlay('Імпортування Word-тесту');
+
+  try {
+    const res = await fetch('/teacher/tests/import/docx', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
+    } else {
+      hideImportOverlay();
+      const err = await res.json();
+      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
+    }
+  } catch (error) {
+    hideImportOverlay();
+    alert('Помилка мережі при завантаженні файлу');
+  }
+  
+  event.target.value = ''; // скидаємо файл
+}
+
+</script>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Результати{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Результати тестування</h1>
+  <div style="display:flex;gap:0.75rem;align-items:center">
+    <a href="/teacher/journal" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+      Шкільний журнал
+    </a>
+    <a href="/teacher/results/export?session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}"
+       class="btn btn-secondary">
+      ⬇ Завантажити CSV
+    </a>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
+  <a href="/teacher/results?tab=active" class="btn {% if tab != 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні результати</a>
+  <a href="/teacher/results?tab=archive" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
+</div>
+
+{% if tab != 'archive' %}
+<details class="card filter-card" style="margin-bottom: 1.5rem;">
+  <summary style="cursor: pointer; font-weight: 500; color: var(--text-muted); outline: none;">
+    ▶ Масове архівування (за періодом)
+  </summary>
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+    <form method="post" action="/teacher/results/archive-bulk" class="filter-form" style="margin:0; display:flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;" onsubmit="return confirm('Ви впевнені, що хочете заархівувати всі результати (спроби) за цей період?')">
+      <div class="form-group" style="margin:0; min-width: 150px;">
+        <label for="results_start_date">Архівувати з:</label>
+        <input type="date" id="results_start_date" name="start_date" required>
+      </div>
+      <div class="form-group" style="margin:0; min-width: 150px;">
+        <label for="results_end_date">ПО:</label>
+        <input type="date" id="results_end_date" name="end_date" required>
+      </div>
+      <button type="submit" class="btn btn-secondary">🗃 Архівувати період</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
+<!-- Filter -->
+<div class="card filter-card">
+  <form method="get" action="/teacher/results" class="filter-form">
+    <div class="form-group" style="margin:0;min-width:220px">
+      <label for="session_filter">Фільтр по сесії</label>
+      <select id="session_filter" name="session_id" onchange="this.form.submit()">
+        <option value="">Всі сесії</option>
+        {% for s in sessions %}
+        <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
+          {{ s.test.title }} — {{ s.access_code }} ({{ s.started_at.strftime('%d.%m.%Y') }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;min-width:150px">
+      <label for="class_filter">Фільтр по класу</label>
+      <select id="class_filter" name="class_name" onchange="this.form.submit()">
+        <option value="">Всі класи</option>
+        {% for c in filter_classes %}
+        <option value="{{ c }}" {% if selected_class_name == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0; flex: 1; min-width:200px">
+      <label for="student_filter">Фільтр по учню</label>
+      <div style="display: flex; gap: 0.5rem;">
+        <input type="text" id="student_filter" name="student_name" 
+               value="{{ selected_student_name or '' }}" 
+               placeholder="Введіть ім'я..." 
+               list="student_list"
+               autocomplete="off"
+               style="height: 38px; box-sizing: border-box; flex: 1;" />
+        <datalist id="student_list">
+          {% for s in student_names %}
+          <option value="{{ s }}"></option>
+          {% endfor %}
+        </datalist>
+        <button type="submit" class="btn btn-primary" style="padding: 0 1.2rem; height: 38px;">Шукати</button>
+        {% if selected_session_id or selected_class_name or selected_student_name %}
+        <a href="/teacher/results" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; height: 38px; padding: 0 1rem;" title="Скинути фільтри">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if attempts %}
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Учень</th>
+        <th class="mobile-hidden">Клас</th>
+        <th>Тест</th>
+        <th style="text-align: center;">Оцінка</th>
+        <th>%</th>
+        <th class="mobile-hidden">Статус</th>
+        <th class="mobile-hidden">Початок</th>
+        <th class="mobile-hidden">Завершення</th>
+        <th>Дії</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for attempt in attempts %}
+      <tr>
+        <td><strong>{{ attempt.student_name }}</strong></td>
+        <td class="mobile-hidden">{{ attempt.session.test.class_name or '—' }}</td>
+        <td>{{ attempt.session.test.title }}</td>
+        <td style="text-align: center;">
+            {% if attempt.score is not none %}
+              <span class="badge" style="background: var(--primary); color: white; font-size: 1.1rem; padding: 0.4rem 0.8rem; font-weight: bold;">
+                {{ attempt | scale_grade }}
+              </span>
+            {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if attempt.score is not none and attempt.max_score %}
+            {% set pct = (attempt.score / attempt.max_score * 100) | round(0) | int %}
+            <span class="pct-badge
+              {% if pct >= 90 %}pct-excellent
+              {% elif pct >= 70 %}pct-good
+              {% elif pct >= 50 %}pct-ok
+              {% else %}pct-poor{% endif %}">
+              {{ pct }}%
+            </span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="mobile-hidden">
+          <span class="badge badge-status badge-status--{{ attempt.status.value }}">
+            {% if attempt.status.value == 'finished' %}Завершено
+            {% elif attempt.status.value == 'timeout' %}Час вийшов
+            {% elif attempt.status.value == 'in_progress' %}В процесі
+            {% else %}Не розпочато{% endif %}
+          </span>
+        </td>
+        <td class="mobile-hidden">{{ attempt.started_at.strftime('%d.%m %H:%M') if attempt.started_at else '—' }}</td>
+        <td class="mobile-hidden">{{ attempt.finished_at.strftime('%d.%m %H:%M') if attempt.finished_at else '—' }}</td>
+        <td>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
+            {% if not attempt.is_archived %}
+            <form method="post" action="/teacher/results/{{ attempt.id }}/archive" style="margin:0">
+              <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати">🗃</button>
+            </form>
+            {% else %}
+            <form method="post" action="/teacher/results/{{ attempt.id }}/unarchive" style="margin:0">
+              <button type="submit" class="btn btn-sm btn-primary">Відновити</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Пагінація -->
+{% if total_pages > 1 %}
+<div class="pagination-container" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+  {% if page > 1 %}
+    <a href="/teacher/results?tab={{ tab }}&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
+  {% else %}
+    <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">« Назад</button>
+  {% endif %}
+
+  <div style="display: flex; gap: 0.35rem;">
+    {% for p in range(1, total_pages + 1) %}
+      {% if p == page %}
+        <span class="btn btn-primary btn-sm" style="padding: 0.4rem 0.8rem; pointer-events: none; font-weight: 600; background: var(--primary);">{{ p }}</span>
+      {% else %}
+        <a href="/teacher/results?tab={{ tab }}&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  {% if page < total_pages %}
+    <a href="/teacher/results?tab={{ tab }}&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
+  {% else %}
+    <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">Далі »</button>
+  {% endif %}
+</div>
+{% endif %}
+
+<p class="text-muted" style="margin-top:0.5rem">Всього: {{ total_attempts }} результатів</p>
+{% else %}
+<div class="empty-state">
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+    <line x1="6" y1="20" x2="6" y2="14"/>
+  </svg>
+  <h3>Результатів ще немає</h3>
+  <p>Запустіть тестову сесію та зачекайте, поки учні пройдуть тест</p>
+  <a href="/teacher/sessions" class="btn btn-primary">До сесій</a>
+</div>
+{% endif %}
+
+{% block scripts %}
+<script>
+  document.getElementById('student_filter').addEventListener('input', function(e) {
+    const datalist = document.getElementById('student_list');
+    const options = Array.from(datalist.options).map(opt => opt.value);
+    if (options.includes(e.target.value)) {
+      e.target.form.submit();
+    }
+  });
+</script>
+{% endblock %}
+{% endblock %}

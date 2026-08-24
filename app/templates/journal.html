@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Журнал оцінок{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Шкільний журнал</h1>
+    <p class="page-subtitle">Зведені оцінки учнів за всіма тестами</p>
+  </div>
+  <div style="display:flex;gap:0.75rem;align-items:center">
+    <a href="/teacher/journal/export?class_name={{ selected_class_name or '' }}&date_from={{ date_from or '' }}&date_to={{ date_to or '' }}" class="btn btn-secondary">
+      ⬇ Завантажити CSV
+    </a>
+    <a href="/teacher/results" class="btn btn-secondary">
+      Повернутися до списку
+    </a>
+  </div>
+</div>
+
+<!-- Filter -->
+<div class="card filter-card" style="margin-bottom: 2rem;">
+  <form method="get" action="/teacher/journal" class="filter-form">
+    <div class="form-group" style="margin:0;min-width:180px">
+      <label for="class_filter">Фільтр по класу</label>
+      <select id="class_filter" name="class_name" onchange="this.form.submit()">
+        <option value="">Всі класи</option>
+        {% for c in filter_classes %}
+        <option value="{{ c }}" {% if selected_class_name == c %}selected{% endif %}>{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin:0;min-width:150px">
+      <label for="date_from">Дата з</label>
+      <input type="date" id="date_from" name="date_from" value="{{ date_from or '' }}" style="height: 38px; box-sizing: border-box;">
+    </div>
+    
+    <div class="form-group" style="margin:0;min-width:150px">
+      <label for="date_to">Дата по</label>
+      <input type="date" id="date_to" name="date_to" value="{{ date_to or '' }}" style="height: 38px; box-sizing: border-box;">
+    </div>
+    
+    <div style="display: flex; gap: 0.5rem; align-items: flex-end; height: 38px;">
+      <button type="submit" class="btn btn-primary" style="height: 100%; padding: 0 1.2rem;">Показати</button>
+      {% if selected_class_name or date_from or date_to %}
+      <a href="/teacher/journal" class="btn btn-secondary" style="height: 100%; display: flex; align-items: center; justify-content: center; padding: 0 1rem;" title="Скинути фільтри">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if not journal_data %}
+<div class="empty-state">
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+  </svg>
+  <h3>Немає даних для журналу</h3>
+  <p>Змініть параметри фільтру або зачекайте, поки учні пройдуть тести.</p>
+</div>
+{% else %}
+<div class="card" style="padding: 0; overflow: hidden;">
+  <div class="journal-wrapper" style="overflow-x: auto; max-height: 70vh;">
+    <table class="journal-table">
+      <thead>
+        <tr>
+          <th class="journal-student-col">Прізвище, ім'я учня</th>
+          {% for col in columns %}
+          <th class="journal-date-col">
+            <div class="journal-test-date">{{ col.date.strftime('%d.%m.%Y') if col.date else '—' }}</div>
+            <div class="journal-test-title" title="{{ col.test_title }}">{{ col.test_title }}</div>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in journal_data %}
+        <tr>
+          <td class="journal-student-col"><strong>{{ row.name }}</strong></td>
+          {% for col in columns %}
+            {% set grade = row.grades.get(col.id) %}
+            <td class="journal-grade-cell {% if grade is not none %}has-grade{% endif %}">
+              {% if grade is not none %}
+                {{ grade }}
+              {% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<style>
+.journal-wrapper {
+  position: relative;
+}
+.journal-table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+.journal-table th, .journal-table td {
+  border: 1px solid var(--border);
+  padding: 0.75rem;
+  text-align: center;
+}
+.journal-table thead th {
+  background: var(--bg-card);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 2px solid var(--border);
+}
+.journal-student-col {
+  position: sticky;
+  left: 0;
+  background: #ffffff;
+  z-index: 5;
+  text-align: left !important;
+  min-width: 200px;
+  max-width: 250px;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+.journal-table thead th.journal-student-col {
+  z-index: 15; /* Top left corner needs highest z-index */
+  background: var(--bg-card);
+}
+.journal-date-col {
+  min-width: 80px;
+  max-width: 120px;
+}
+.journal-test-date {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+.journal-test-title {
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  margin: 0 auto;
+}
+.journal-grade-cell {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text);
+  min-width: 60px;
+  transition: background-color 0.2s;
+}
+.journal-grade-cell:hover {
+  background-color: #f3f4f6;
+}
+.has-grade {
+  color: var(--primary);
+}
+</style>
+{% endblock %}

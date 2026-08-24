@@ -1,0 +1,679 @@
+{% extends "base.html" %}
+{% block title %}Логи подій{% endblock %}
+
+{% block content %}
+<div id="activeLogsContainer">
+  <div class="page-header">
+    <div>
+      <h1>Логи подій</h1>
+      <p class="page-subtitle">Історія дій вчителів та адміністратора в системі</p>
+    </div>
+  </div>
+
+  <!-- Stats Dashboard Grid -->
+  <div class="stats-grid">
+    <div class="stat-card stat-card--blue">
+      <div class="stat-icon">📜</div>
+      <div class="stat-info">
+        <span class="stat-value">{{ logs|length }}</span>
+        <span class="stat-label">Записів на сторінці</span>
+      </div>
+    </div>
+    <div class="stat-card stat-card--purple">
+      <div class="stat-icon">📅</div>
+      <div class="stat-info">
+        <span class="stat-value" style="font-size: 1.15rem; font-weight: 600; padding: 0.25rem 0;">{{ last_archive_time }}</span>
+        <span class="stat-label">Останнє архівування</span>
+      </div>
+    </div>
+    <div class="stat-card stat-card--green">
+      <div class="stat-icon">📦</div>
+      <div class="stat-info">
+        <span class="stat-value">{{ archives|length }}</span>
+        <span class="stat-label">Архівів на диску</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+    <!-- Manual Archiving Card -->
+    <div class="card">
+      <div class="card-title">Архівування логів</div>
+      <p class="form-hint" style="margin-top: -1rem; margin-bottom: 1.25rem;">
+        Примусово перемістити всі логи з бази даних у зашифрований паролем ZIP-архів на диску.
+      </p>
+      <form id="archiveLogsForm" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="form-group">
+          <label for="archivePassword">Підтвердіть пароль адміністратора</label>
+          <input type="password" id="archivePassword" required placeholder="Введіть ваш пароль" />
+        </div>
+        <button type="submit" class="btn btn-warning" id="archiveBtn" style="justify-content: center;">
+          ⚙️ Створити зашифрований архів
+        </button>
+      </form>
+    </div>
+
+    <!-- Available Archives Card -->
+    <div class="card">
+      <div class="card-title">Зашифровані архіви логів (.zip)</div>
+      <p class="form-hint" style="margin-top: -1rem; margin-bottom: 1.25rem;">
+        Архіви захищені паролем адміністратора, який був чинним на момент створення архіву.
+      </p>
+      {% if archives %}
+        <div style="max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.5rem;">
+          {% for a in archives %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.6rem; background: var(--bg-card2); border-radius: 4px; font-size: 0.9rem;">
+              <div style="display: flex; flex-direction: column; max-width: 50%;">
+                <span style="font-family: monospace; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ a.filename }}">{{ a.filename }}</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">{{ a.created_at }} &middot; {{ (a.size / 1024)|round(1) }} KB</span>
+              </div>
+              <div style="display: flex; gap: 0.4rem;">
+                <button type="button" class="btn btn-sm btn-info" onclick="openServerArchive('{{ a.filename }}')" style="padding: 0.25rem 0.6rem; background: var(--info-bg); color: var(--info); border: 1px solid var(--info);">👁️ Переглянути</button>
+                <a href="/teacher/logs/download/{{ a.filename }}" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.6rem;">Скачати</a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="padding: 2rem; text-align: center; color: var(--text-muted); border: 2px dashed var(--border); border-radius: var(--radius-sm);">
+          Архіви логів на диску відсутні
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- View Saved Logs Card -->
+    <div class="card">
+      <div class="card-title">Перегляд збережених логів</div>
+      <p class="form-hint" style="margin-top: -1rem; margin-bottom: 1.25rem;">
+        Тимчасово завантажити файл логів (.zip або .json) для перегляду в режимі лише для читання.
+      </p>
+      <form id="viewLocalLogsForm" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="form-group">
+          <label for="localArchiveFile">Оберіть файл (.zip, .json)</label>
+          <input type="file" id="localArchiveFile" accept=".zip,.json" required />
+        </div>
+        <div class="form-group" id="localPasswordGroup" style="display: none;">
+          <label for="localArchivePassword">Пароль для розшифрування</label>
+          <input type="password" id="localArchivePassword" placeholder="Введіть пароль від ZIP" />
+        </div>
+        <button type="submit" class="btn btn-info" id="viewLocalBtn" style="justify-content: center; background: var(--info); color: #fff;">
+          👁️ Відкрити файл
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Logs Table Card -->
+  <div class="card mt-2">
+    <div class="card-title">Журнал активності</div>
+    {% if logs %}
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 15%;">Час</th>
+              <th style="width: 25%;">Користувач</th>
+              <th style="width: 20%;">Дія</th>
+              <th style="width: 40%;">Деталі</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+              <tr>
+                <td style="font-size: 0.85rem; color: var(--text-muted);">
+                  {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '' }}
+                </td>
+                <td>
+                  <span style="font-weight: 600;">{{ log.teacher_name }}</span>
+                  <br/>
+                  <span style="font-size: 0.8rem; color: var(--text-muted);">@{{ log.teacher_username }}</span>
+                </td>
+                <td>
+                  {% if log.action == 'login' %}
+                    <span class="badge" style="background: var(--info-bg); color: var(--info);">Вхід</span>
+                  {% elif log.action == 'logout' %}
+                    <span class="badge" style="background: var(--bg-card2); color: var(--text-muted); border: 1px solid var(--border);">Вихід</span>
+                  {% elif log.action == 'login_failed' or log.action == 'switch_teacher_failed' %}
+                    <span class="badge badge-status--abandoned">Помилка входу</span>
+                  {% elif log.action in ['create_test', 'import_test_xml', 'import_test_docx', 'import_test_json'] %}
+                    <span class="badge" style="background: rgba(167, 139, 250, 0.15); color: #c4b5fd;">Створення</span>
+                  {% elif log.action == 'edit_test' or log.action == 'edit_profile' %}
+                    <span class="badge" style="background: var(--warning-bg); color: var(--warning);">Зміна</span>
+                  {% elif log.action == 'delete_test' or log.action == 'delete_teacher' %}
+                    <span class="badge badge-status--abandoned">Видалення</span>
+                  {% elif log.action == 'reset_teacher_password' %}
+                    <span class="badge" style="background: var(--warning-bg); color: var(--warning);">Скидання пароля</span>
+                  {% elif log.action == 'archive_logs' %}
+                    <span class="badge badge-status--finished">Архів логів</span>
+                  {% else %}
+                    <span class="badge" style="background: var(--bg-card2); color: var(--text);">{{ log.action }}</span>
+                  {% endif %}
+                </td>
+                <td style="font-size: 0.85rem; word-break: break-all;">
+                  {{ log.details or '' }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Controls -->
+      {% if total_pages > 1 %}
+        <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; align-items: center;">
+          <a href="/teacher/logs?page={{ page - 1 }}" class="btn btn-secondary btn-sm {% if page <= 1 %}disabled{% endif %}" {% if page <= 1 %}disabled{% endif %}>Назад</a>
+          <span style="font-size: 0.9rem; color: var(--text-muted);">Сторінка {{ page }} з {{ total_pages }}</span>
+          <a href="/teacher/logs?page={{ page + 1 }}" class="btn btn-secondary btn-sm {% if page >= total_pages %}disabled{% endif %}" {% if page >= total_pages %}disabled{% endif %}>Вперед</a>
+        </div>
+      {% endif %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon" style="font-size: 2.5rem; margin-bottom: 1rem;">📭</div>
+        <h3>Логи порожні</h3>
+        <p>У базі даних немає активних логів роботи вчителів.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Archive Log Viewer Section (Hidden by default) -->
+<div id="archiveViewerSection" style="display: none;" class="card">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+      <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
+        📁 Архів: <span id="archiveViewerFilename" style="font-family: monospace; color: var(--primary);"></span>
+      </h2>
+      <p class="form-hint" style="margin-top: 0.2rem;">
+        Ці записи завантажено тимчасово в пам'ять браузера. <span class="badge" style="background: var(--info-bg); color: var(--info); font-size: 0.75rem;">Режим лише для читання</span>
+      </p>
+    </div>
+    <button class="btn btn-secondary" onclick="closeArchiveViewer()">
+      ✕ Закрити перегляд
+    </button>
+  </div>
+
+  <!-- Search and Filter Bar -->
+  <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center;">
+    <div style="flex: 1; min-width: 250px;">
+      <input type="text" id="archiveSearch" placeholder="🔍 Швидкий пошук за користувачем, дією чи деталями..." oninput="filterArchiveLogs()" />
+    </div>
+    <div style="width: 200px;">
+      <select id="archiveActionFilter" onchange="filterArchiveLogs()">
+        <option value="">Всі дії</option>
+      </select>
+    </div>
+    <div style="color: var(--text-muted); font-size: 0.9rem;" id="archiveMatchCount">
+      Знайдено: 0
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 15%;">Час</th>
+          <th style="width: 25%;">Користувач</th>
+          <th style="width: 20%;">Дія</th>
+          <th style="width: 40%;">Деталі</th>
+        </tr>
+      </thead>
+      <tbody id="archiveLogsTableBody">
+        <!-- Will be filled dynamically -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <div id="archivePagination" style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; align-items: center;">
+    <!-- Will be filled dynamically -->
+  </div>
+</div>
+
+<!-- Password Modal for Server Archives -->
+<div id="passwordModal" class="modal-overlay" style="display: none;">
+  <div class="modal-box">
+    <h2>Введіть пароль для розшифрування</h2>
+    <p style="margin-bottom: 1rem;">Архів: <span id="modalFilename" style="font-family: monospace; font-weight: 600; color: var(--primary);"></span></p>
+    
+    <form id="modalPasswordForm" onsubmit="submitPasswordModal(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
+      <div class="form-group">
+        <label for="modalPassword">Пароль адміністратора</label>
+        <input type="password" id="modalPassword" required placeholder="Введіть пароль" />
+      </div>
+      <div class="modal-actions" style="margin-top: 0.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closePasswordModal()">Скасувати</button>
+        <button type="submit" class="btn btn-primary" id="confirmModalBtn">👁️ Переглянути</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Existing archive action logic
+  document.getElementById('archiveLogsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const passwordInput = document.getElementById('archivePassword');
+    const password = passwordInput.value;
+    if (!password) return;
+
+    if (!confirm('Ви впевнені, що хочете заархівувати всі логи? Поточні записи будуть вилучені з бази даних та записані в захищений ZIP-архів.')) {
+      return;
+    }
+
+    const btn = document.getElementById('archiveBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '🔒 Шифрування та архівація...';
+
+    const formData = new FormData();
+    formData.append('password', password);
+
+    try {
+      const response = await fetch('/teacher/logs/archive', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      });
+
+      const data = await response.json().catch(() => ({status: 'error', message: 'Помилка розпізнавання відповіді'}));
+
+      if (data.status === 'ok') {
+        if (window.showToast) window.showToast('success', data.message);
+        passwordInput.value = '';
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        if (window.showToast) window.showToast('error', data.message);
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast('error', 'Помилка мережі: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
+  // Client-side state for archive viewing
+  let archiveLogs = [];
+  let filteredArchiveLogs = [];
+  let archiveCurrentPage = 1;
+  const archivePageLimit = 50;
+  let currentServerFilename = '';
+
+  const localFile = document.getElementById('localArchiveFile');
+  const localPasswordGroup = document.getElementById('localPasswordGroup');
+  const localPassword = document.getElementById('localArchivePassword');
+  
+  // Toggle password field visibility based on local file extension
+  localFile.addEventListener('change', function() {
+    if (this.files && this.files[0] && this.files[0].name.endsWith('.zip')) {
+      localPasswordGroup.style.display = 'flex';
+      localPassword.required = true;
+    } else {
+      localPasswordGroup.style.display = 'none';
+      localPassword.required = false;
+      localPassword.value = '';
+    }
+  });
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function formatLogDate(isoStr) {
+    if (!isoStr) return "";
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr;
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    } catch (e) {
+      return isoStr;
+    }
+  }
+
+  function getActionBadgeHtml(action) {
+    let badgeClass = "badge";
+    let badgeStyle = "";
+    let badgeText = action;
+
+    if (action === 'login') {
+      badgeStyle = "background: var(--info-bg); color: var(--info);";
+      badgeText = "Вхід";
+    } else if (action === 'logout') {
+      badgeStyle = "background: var(--bg-card2); color: var(--text-muted); border: 1px solid var(--border);";
+      badgeText = "Вихід";
+    } else if (action === 'login_failed' || action === 'switch_teacher_failed') {
+      badgeClass += " badge-status--abandoned";
+      badgeText = "Помилка входу";
+    } else if (['create_test', 'import_test_xml', 'import_test_docx', 'import_test_json'].includes(action)) {
+      badgeStyle = "background: rgba(167, 139, 250, 0.15); color: #c4b5fd;";
+      badgeText = "Створення";
+    } else if (action === 'edit_test' || action === 'edit_profile') {
+      badgeStyle = "background: var(--warning-bg); color: var(--warning);";
+      badgeText = "Зміна";
+    } else if (action === 'delete_test' || action === 'delete_teacher') {
+      badgeClass += " badge-status--abandoned";
+      badgeText = "Видалення";
+    } else if (action === 'reset_teacher_password') {
+      badgeStyle = "background: var(--warning-bg); color: var(--warning);";
+      badgeText = "Скидання пароля";
+    } else if (action === 'archive_logs') {
+      badgeClass += " badge-status--finished";
+      badgeText = "Архів логів";
+    } else {
+      badgeStyle = "background: var(--bg-card2); color: var(--text);";
+    }
+
+    return `<span class="${badgeClass}" style="${badgeStyle}">${badgeText}</span>`;
+  }
+
+  function populateActionFilter(logs) {
+    const select = document.getElementById('archiveActionFilter');
+    select.innerHTML = '<option value="">Всі дії</option>';
+    
+    const actions = [...new Set(logs.map(log => log.action))].sort();
+    actions.forEach(action => {
+      let text = action;
+      if (action === 'login') text = 'Вхід';
+      else if (action === 'logout') text = 'Вихід';
+      else if (action === 'login_failed') text = 'Помилка входу';
+      else if (action === 'switch_teacher') text = 'Перемикання профілю';
+      else if (action === 'switch_teacher_failed') text = 'Помилка перемикання';
+      else if (action === 'create_test') text = 'Створення тесту';
+      else if (action === 'edit_test') text = 'Зміна тесту';
+      else if (action === 'delete_test') text = 'Видалення тесту';
+      else if (action === 'import_test_json') text = 'Імпорт JSON';
+      else if (action === 'import_test_docx') text = 'Імпорт DOCX';
+      else if (action === 'import_test_xml') text = 'Імпорт XML';
+      else if (action === 'edit_profile') text = 'Зміна профілю';
+      else if (action === 'create_teacher') text = 'Створення вчителя';
+      else if (action === 'delete_teacher') text = 'Видалення вчителя';
+      else if (action === 'reset_teacher_password') text = 'Скидання пароля';
+      else if (action === 'archive_logs') text = 'Архів логів';
+      
+      const opt = document.createElement('option');
+      opt.value = action;
+      opt.textContent = text;
+      select.appendChild(opt);
+    });
+  }
+
+  function renderArchiveLogs() {
+    const tbody = document.getElementById('archiveLogsTableBody');
+    tbody.innerHTML = '';
+
+    const totalLogs = filteredArchiveLogs.length;
+    document.getElementById('archiveMatchCount').textContent = `Знайдено: ${totalLogs}`;
+
+    if (totalLogs === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 3rem;">
+            <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+            Нічого не знайдено за вашим запитом
+          </td>
+        </tr>
+      `;
+      document.getElementById('archivePagination').innerHTML = '';
+      return;
+    }
+
+    const totalPages = Math.ceil(totalLogs / archivePageLimit);
+    if (archiveCurrentPage > totalPages) {
+      archiveCurrentPage = totalPages || 1;
+    }
+
+    const startIndex = (archiveCurrentPage - 1) * archivePageLimit;
+    const endIndex = Math.min(startIndex + archivePageLimit, totalLogs);
+    const pageLogs = filteredArchiveLogs.slice(startIndex, endIndex);
+
+    pageLogs.forEach(log => {
+      const tr = document.createElement('tr');
+      
+      const tdTime = document.createElement('td');
+      tdTime.style.fontSize = '0.85rem';
+      tdTime.style.color = 'var(--text-muted)';
+      tdTime.textContent = formatLogDate(log.created_at);
+      tr.appendChild(tdTime);
+
+      const tdUser = document.createElement('td');
+      tdUser.innerHTML = `
+        <span style="font-weight: 600;">${escapeHtml(log.teacher_name || '')}</span>
+        <br/>
+        <span style="font-size: 0.8rem; color: var(--text-muted);">@${escapeHtml(log.teacher_username || '')}</span>
+      `;
+      tr.appendChild(tdUser);
+
+      const tdAction = document.createElement('td');
+      tdAction.innerHTML = getActionBadgeHtml(log.action);
+      tr.appendChild(tdAction);
+
+      const tdDetails = document.createElement('td');
+      tdDetails.style.fontSize = '0.85rem';
+      tdDetails.style.wordBreak = 'break-all';
+      tdDetails.textContent = log.details || '';
+      tr.appendChild(tdDetails);
+
+      tbody.appendChild(tr);
+    });
+
+    renderArchivePagination(totalPages);
+  }
+
+  function renderArchivePagination(totalPages) {
+    const container = document.getElementById('archivePagination');
+    container.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+
+    const prevBtn = document.createElement('button');
+    prevBtn.className = `btn btn-secondary btn-sm ${archiveCurrentPage <= 1 ? 'disabled' : ''}`;
+    prevBtn.textContent = 'Назад';
+    prevBtn.disabled = archiveCurrentPage <= 1;
+    prevBtn.onclick = () => {
+      if (archiveCurrentPage > 1) {
+        archiveCurrentPage--;
+        renderArchiveLogs();
+      }
+    };
+    container.appendChild(prevBtn);
+
+    const span = document.createElement('span');
+    span.style.fontSize = '0.9rem';
+    span.style.color = 'var(--text-muted)';
+    span.textContent = `Сторінка ${archiveCurrentPage} з ${totalPages}`;
+    container.appendChild(span);
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = `btn btn-secondary btn-sm ${archiveCurrentPage >= totalPages ? 'disabled' : ''}`;
+    nextBtn.textContent = 'Вперед';
+    nextBtn.disabled = archiveCurrentPage >= totalPages;
+    nextBtn.onclick = () => {
+      if (archiveCurrentPage < totalPages) {
+        archiveCurrentPage++;
+        renderArchiveLogs();
+      }
+    };
+    container.appendChild(nextBtn);
+  }
+
+  function filterArchiveLogs() {
+    const query = document.getElementById('archiveSearch').value.toLowerCase().trim();
+    const actionFilter = document.getElementById('archiveActionFilter').value;
+
+    filteredArchiveLogs = archiveLogs.filter(log => {
+      if (actionFilter && log.action !== actionFilter) {
+        return false;
+      }
+      
+      if (query) {
+        const name = (log.teacher_name || '').toLowerCase();
+        const username = (log.teacher_username || '').toLowerCase();
+        const action = (log.action || '').toLowerCase();
+        const details = (log.details || '').toLowerCase();
+        return name.includes(query) || username.includes(query) || action.includes(query) || details.includes(query);
+      }
+      
+      return true;
+    });
+
+    archiveCurrentPage = 1;
+    renderArchiveLogs();
+  }
+
+  function closeArchiveViewer() {
+    // Explicit memory unloading
+    archiveLogs = [];
+    filteredArchiveLogs = [];
+    archiveCurrentPage = 1;
+    currentServerFilename = '';
+
+    // Reset UI inputs
+    document.getElementById('archiveSearch').value = '';
+    document.getElementById('archiveActionFilter').innerHTML = '<option value="">Всі дії</option>';
+    document.getElementById('localArchiveFile').value = '';
+    document.getElementById('localArchivePassword').value = '';
+    document.getElementById('localPasswordGroup').style.display = 'none';
+
+    // Toggle views
+    document.getElementById('archiveViewerSection').style.display = 'none';
+    document.getElementById('activeLogsContainer').style.display = 'block';
+  }
+
+  // Server Archive Viewer Flow
+  function openServerArchive(filename) {
+    currentServerFilename = filename;
+    document.getElementById('modalFilename').textContent = filename;
+    document.getElementById('passwordModal').style.display = 'flex';
+    document.getElementById('modalPassword').value = '';
+    document.getElementById('modalPassword').focus();
+  }
+
+  function closePasswordModal() {
+    document.getElementById('passwordModal').style.display = 'none';
+    document.getElementById('modalPassword').value = '';
+    currentServerFilename = '';
+  }
+
+  async function submitPasswordModal(event) {
+    event.preventDefault();
+    const password = document.getElementById('modalPassword').value;
+    if (!password || !currentServerFilename) return;
+
+    const btn = document.getElementById('confirmModalBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Розшифрування...';
+
+    const formData = new FormData();
+    formData.append('archive_filename', currentServerFilename);
+    formData.append('password', password);
+
+    try {
+      const response = await fetch('/teacher/logs/view-archive', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      });
+
+      const data = await response.json().catch(() => ({status: 'error', message: 'Помилка розпізнавання відповіді'}));
+
+      if (data.status === 'ok') {
+        archiveLogs = data.logs;
+        filteredArchiveLogs = [...archiveLogs];
+        archiveCurrentPage = 1;
+        
+        document.getElementById('archiveViewerFilename').textContent = data.filename;
+        populateActionFilter(archiveLogs);
+        renderArchiveLogs();
+
+        closePasswordModal();
+        document.getElementById('activeLogsContainer').style.display = 'none';
+        document.getElementById('archiveViewerSection').style.display = 'block';
+        
+        if (window.showToast) window.showToast('success', 'Архів логів успішно розшифровано та завантажено!');
+      } else {
+        if (window.showToast) window.showToast('error', data.message);
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast('error', 'Помилка мережі: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+
+  // Local File Archive Viewer Flow
+  document.getElementById('viewLocalLogsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = document.getElementById('localArchiveFile');
+    const passwordInput = document.getElementById('localArchivePassword');
+    
+    if (!fileInput.files || !fileInput.files[0]) return;
+
+    const file = fileInput.files[0];
+    const password = passwordInput.value;
+
+    const btn = document.getElementById('viewLocalBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Розшифрування...';
+
+    const formData = new FormData();
+    formData.append('archive_file', file);
+    if (password) {
+      formData.append('password', password);
+    }
+
+    try {
+      const response = await fetch('/teacher/logs/view-archive', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      });
+
+      const data = await response.json().catch(() => ({status: 'error', message: 'Помилка розпізнавання відповіді'}));
+
+      if (data.status === 'ok') {
+        archiveLogs = data.logs;
+        filteredArchiveLogs = [...archiveLogs];
+        archiveCurrentPage = 1;
+
+        document.getElementById('archiveViewerFilename').textContent = data.filename;
+        populateActionFilter(archiveLogs);
+        renderArchiveLogs();
+
+        document.getElementById('activeLogsContainer').style.display = 'none';
+        document.getElementById('archiveViewerSection').style.display = 'block';
+
+        if (window.showToast) window.showToast('success', 'Файл логів успішно завантажено та розшифровано!');
+      } else {
+        if (window.showToast) window.showToast('error', data.message);
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast('error', 'Помилка мережі: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+</script>
+{% endblock %}

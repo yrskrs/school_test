@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Моніторинг: {{ test.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Моніторинг сесії</h1>
+    <p class="page-subtitle">{{ test.title }}</p>
+  </div>
+  <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+    <div class="ws-status" id="ws-status">
+      <span class="ws-dot" id="ws-dot"></span>
+      <span id="ws-label">Підключення...</span>
+    </div>
+    {% if session.is_active %}
+    <form method="post" action="/teacher/sessions/{{ session.id }}/close"
+          onsubmit="return confirm('Завершити сесію для всіх учнів?')" style="margin:0">
+      <button type="submit" class="btn btn-danger">Закрити сесію</button>
+    </form>
+    {% if session.is_pinned %}
+    <form method="post" action="/teacher/sessions/{{ session.id }}/unpin" style="margin:0" title="Відкріпити з головної сторінки сайту">
+      <button type="submit" class="btn btn-primary">⭐️ Головна</button>
+    </form>
+    {% else %}
+    <form method="post" action="/teacher/sessions/{{ session.id }}/pin" style="margin:0" title="Закріпити на головній сторінці сайту (вхід без коду)">
+      <button type="submit" class="btn btn-secondary">📌 Зробити головною</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- Session info -->
+<div class="monitor-info-grid">
+  <div class="info-card">
+    <span class="info-label">Код доступу</span>
+    <div style="display:flex; align-items:center; gap: 0.5rem; justify-content: center;">
+      <span class="info-value code-big">{{ session.access_code }}</span>
+      <button class="btn btn-sm btn-secondary" onclick="copyJoinLink('{{ session.access_code }}')" title="Скопіювати посилання для учнів">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+      </button>
+    </div>
+  </div>
+  <div class="info-card">
+    <span class="info-label">Статус сесії</span>
+    <span class="info-value">
+      {% if session.is_active %}
+        <span class="badge badge-status badge-status--in_progress">Активна</span>
+      {% else %}
+        <span class="badge badge-status badge-status--finished">Завершена</span>
+      {% endif %}
+    </span>
+  </div>
+  <div class="info-card">
+    <span class="info-label">Учнів підключено</span>
+    <span class="info-value" id="student-count">{{ attempts | length }}</span>
+  </div>
+  <div class="info-card">
+    <span class="info-label">Завершили тест</span>
+    <span class="info-value" id="finished-count">
+      {{ attempts | selectattr('status.value', 'in', ['finished', 'timeout']) | list | length }}
+    </span>
+  </div>
+</div>
+
+<!-- Students section -->
+<div class="card mt-2">
+  <div class="card-header-row" style="align-items: center;">
+    <h2 class="card-title">Учні</h2>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button class="btn btn-sm btn-warning" onclick="massAction('pause-all')" {% if not session.is_active %}disabled style="filter: grayscale(1); opacity: 0.6; cursor: not-allowed;"{% endif %}>⏸ Пауза всім</button>
+      <button class="btn btn-sm btn-success" onclick="massAction('resume-all')" {% if not session.is_active %}disabled style="filter: grayscale(1); opacity: 0.6; cursor: not-allowed;"{% endif %}>▶ Відновити</button>
+      <button class="btn btn-sm btn-danger" onclick="massAction('stop-all')" {% if not session.is_active %}disabled style="filter: grayscale(1); opacity: 0.6; cursor: not-allowed;"{% endif %}>⏹ Стоп всім</button>
+      <button class="btn btn-sm btn-secondary" onclick="fetchSessionStatus()">⟳ Оновити</button>
+    </div>
+  </div>
+
+  <!-- Desktop table -->
+  <div class="table-wrapper monitor-desktop-table" style="margin:0">
+    <table class="data-table" id="students-table">
+      <thead>
+        <tr>
+          <th>Учень</th>
+          <th>Статус</th>
+          <th>Прогрес</th>
+          <th>Балів</th>
+          <th>Початок</th>
+          <th>Завершення</th>
+          <th>Дії</th>
+        </tr>
+      </thead>
+      <tbody id="students-tbody">
+        {% for attempt in attempts %}
+        {% set status_str = attempt.status.value | default(attempt.status) %}
+        <tr id="row-{{ attempt.id }}">
+          <td><strong>{{ attempt.student_name }}</strong></td>
+          <td>
+            <span class="badge badge-status badge-status--{{ status_str }}" id="status-{{ attempt.id }}">
+              {% if status_str == 'not_started' %}Не розпочав
+              {% elif status_str == 'in_progress' %}Проходить
+              {% elif status_str == 'paused' %}Пауза
+              {% elif status_str == 'stopped' %}Зупинено
+              {% elif status_str == 'finished' %}Завершив
+              {% elif status_str == 'timeout' %}Час вийшов
+              {% endif %}
+            </span>
+          </td>
+          <td>
+            <div class="progress-container">
+            {% for answer in attempt.answers | rejectattr('question', 'none') | sort(attribute='question.order_index') %}
+              {% set q = answer.question %}
+              {% set pclass = '' %}
+              {% if answer.is_correct == True %}
+                {% set pclass = 'progress-box--correct' %}
+              {% elif answer.is_correct == False %}
+                {% set pclass = 'progress-box--incorrect' %}
+              {% endif %}
+              <div class="progress-box {{ pclass }}" id="box-{{ attempt.id }}-{{ q.id }}" title="Питання {{ loop.index }}"></div>
+            {% endfor %}
+            </div>
+          </td>
+          <td id="score-{{ attempt.id }}">
+            {% if attempt.score is not none %}
+              <div class="grade-val" style="font-size: 1.15rem; font-weight: 700; color: var(--info);">
+                {{ attempt | scale_grade }} <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-muted);">/ {{ test.max_grade or 12 }}</span>
+              </div>
+              <div class="score-val" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
+                Бали: {{ attempt.score | round(1) }} / {{ attempt.max_score | round(1) }}
+              </div>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ attempt.started_at.strftime('%H:%M:%S') if attempt.started_at else '—' }}</td>
+          <td id="finished-{{ attempt.id }}">
+            {{ attempt.finished_at.strftime('%H:%M:%S') if attempt.finished_at else '—' }}
+          </td>
+          <td id="actions-{{ attempt.id }}">
+            <div class="action-group">
+              {% if status_str in ['finished', 'timeout', 'stopped'] %}
+                <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
+              {% elif status_str == 'in_progress' %}
+                <button type="button" data-action="pause" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-warning">⏸ Пауза</button>
+                <button type="button" data-action="stop"  data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
+              {% elif status_str == 'paused' %}
+                <button type="button" data-action="resume" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-success">▶ Відновити</button>
+                <button type="button" data-action="stop"   data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr id="no-students-row">
+          <td colspan="7" class="text-center text-muted">Учні ще не підключились</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile student cards -->
+  <div class="monitor-mobile-cards" id="monitor-mobile-cards" style="display: none;">
+    {% for attempt in attempts %}
+    {% set status_str = attempt.status.value | default(attempt.status) %}
+    <div class="monitor-student-card" id="mcard-{{ attempt.id }}">
+      <div class="mcard-header">
+        <strong class="mcard-name">{{ attempt.student_name }}</strong>
+        <span class="badge badge-status badge-status--{{ status_str }}" id="mstatus-{{ attempt.id }}">
+          {% if status_str == 'not_started' %}Не розпочав
+          {% elif status_str == 'in_progress' %}Проходить
+          {% elif status_str == 'paused' %}Пауза
+          {% elif status_str == 'stopped' %}Зупинено
+          {% elif status_str == 'finished' %}Завершив
+          {% elif status_str == 'timeout' %}Час вийшов
+          {% endif %}
+        </span>
+      </div>
+      <div class="mcard-score" id="mscore-{{ attempt.id }}">
+        {% if attempt.score is not none %}
+          <span style="font-weight:700; color:var(--info);">{{ attempt | scale_grade }}/{{ test.max_grade or 12 }}</span>
+          <span style="color:var(--text-muted); font-size:0.75rem;"> ({{ attempt.score | round(1) }} балів)</span>
+        {% else %}
+          <span style="color:var(--text-dim);">Ще не відповідав</span>
+        {% endif %}
+      </div>
+      <div class="mcard-actions" id="mactions-{{ attempt.id }}">
+        {% if status_str in ['finished', 'timeout', 'stopped'] %}
+          <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
+        {% elif status_str == 'in_progress' %}
+          <button type="button" data-action="pause" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-warning">⏸ Пауза</button>
+          <button type="button" data-action="stop"  data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
+        {% elif status_str == 'paused' %}
+          <button type="button" data-action="resume" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-success">▶ Продовжити</button>
+          <button type="button" data-action="stop"   data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-muted" style="text-align:center; padding:1.5rem;">Учні ще не підключились</p>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Event log feed -->
+<div class="card mt-2">
+  <h2 class="card-title">Журнал подій (останні)</h2>
+  <div id="event-feed" class="event-feed">
+    <p class="text-muted" id="no-events-msg">Очікуємо події...</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="session-data" type="application/json">
+{
+  "sessionId": {{ session.id }},
+  "isActive": {{ 'true' if session.is_active else 'false' }},
+  "maxGrade": {{ test.max_grade or 12 }}
+}
+</script>
+<script>
+  const _data = JSON.parse(document.getElementById('session-data').textContent);
+  const SESSION_ID = _data.sessionId;
+  const IS_ACTIVE = _data.isActive;
+  const MAX_GRADE = _data.maxGrade;
+</script>
+<script>
+  function copyJoinLink(code) {
+    const url = window.location.origin + "/student/login?code=" + code;
+    
+    // Сучасний підхід (HTTPS або localhost)
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(() => {
+        alert("Посилання скопійовано!\n\n" + url);
+      }).catch(err => {
+        alert("Помилка копіювання: " + err);
+      });
+    } else {
+      // Запасний варіант (старі браузери або HTTP)
+      let textArea = document.createElement("textarea");
+      textArea.value = url;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert("Посилання скопійовано!\n\n" + url);
+      } catch (err) {
+        alert("Не вдалося скопіювати автоматично. Ваше посилання:\n\n" + url);
+      }
+      textArea.remove();
+    }
+  }
+
+  function massAction(action) {
+    if (action === 'stop-all' && !confirm('Ви впевнені, що хочете остаточно зупинити тестування для ВСІХ активних учнів?')) return;
+    if (action === 'pause-all' && !confirm('Призупинити тестування для ВСІХ активних учнів?')) return;
+    
+    fetch(`/teacher/sessions/${SESSION_ID}/${action}`, { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          fetchSessionStatus();
+        }
+      });
+  }
+
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const id = btn.dataset.attemptId;
+    if (action === 'pause')  pauseAttempt(id);
+    if (action === 'resume') resumeAttempt(id);
+    if (action === 'stop')   stopAttempt(id);
+  });
+</script>
+<script src="/static/js/monitor.js"></script>
+{% endblock %}

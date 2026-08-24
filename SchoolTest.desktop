@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SchoolTest Manager
+Comment=Менеджер локального сервера тестування
+Exec=/bin/bash -c "cd %k && ./start_linux.sh"
+Icon=utilities-terminal
+Terminal=false
+Categories=Education;Utility;

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Редагувати тест{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Редагувати тест</h1>
+    <p class="page-subtitle">Редагуйте параметри тесту та питання</p>
+  </div>
+  <div class="action-group" style="display:flex; gap:0.75rem; align-items:center;">
+    <a href="/teacher/tests/{{ test.id }}/export" class="btn btn-secondary">📥 Експорт JSON</a>
+    <button type="submit" form="deleteTestForm" class="btn btn-danger" onclick="return confirm('Видалити тест «{{ test.title }}»? Це також видалить всі сесії та результати!')">Видалити тест</button>
+    <a href="/teacher/tests" class="btn btn-secondary">Скасувати</a>
+    <button type="submit" form="editTestForm" class="btn btn-primary" id="save-btn-top" onclick="return prepareSubmit()">Зберегти зміни</button>
+  </div>
+</div>
+
+<form method="post" action="/teacher/tests/{{ test.id }}/edit" id="editTestForm">
+  <input type="hidden" name="questions_json" id="questions_json" value="[]" />
+
+  <div class="card">
+    <h2 class="card-title">Основні параметри</h2>
+    <div class="form-grid">
+      <div class="form-group form-group--full">
+        <label for="title">Назва тесту *</label>
+        <input type="text" id="title" name="title" required value="{{ test.title }}" placeholder="Контрольна робота з математики" />
+      </div>
+      <div class="form-group">
+        <label for="subject">Предмет</label>
+        <input type="text" id="subject" name="subject" value="{{ test.subject or '' }}" placeholder="Математика" />
+      </div>
+      <div class="form-group">
+        <label for="class_name">Клас *</label>
+        <select id="class_name" name="class_name" required>
+          <option value="">Оберіть клас</option>
+          {% for c in teacher_classes %}
+            <option value="{{ c }}" {% if test.class_name == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="time_limit_minutes">Ліміт часу (хвилини)</label>
+        <input type="number" id="time_limit_minutes" name="time_limit_minutes"
+               min="1" max="300" value="{{ test.time_limit_minutes or '' }}" />
+      </div>
+      <div class="form-group">
+        <label for="time_limit_per_question">Час на 1 питання (секунди)</label>
+        <input type="number" id="time_limit_per_question" name="time_limit_per_question"
+               min="1" max="3600" value="{{ test.time_limit_per_question or '' }}" placeholder="Немає" />
+      </div>
+      <div class="form-group form-group--full">
+        <label for="description">Опис</label>
+        <textarea id="description" name="description" rows="3">{{ test.description or '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label for="max_grade">Система оцінювання (макс. бал)</label>
+        <input type="number" id="max_grade" name="max_grade" min="1" max="1000" value="{{ test.max_grade or 12 }}" />
+      </div>
+      <div class="form-group">
+        <label for="random_questions_limit">Кількість випадкових запитань</label>
+        <input type="number" id="random_questions_limit" name="random_questions_limit" min="1" value="{{ test.random_questions_limit or '' }}" placeholder="Усі питання" />
+      </div>
+    </div>
+
+    <div class="form-checkboxes">
+      <label class="checkbox-label">
+        <input type="checkbox" name="shuffle_questions" value="true" {{ 'checked' if test.shuffle_questions }} />
+        Перемішати питання
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="shuffle_options" value="true" {{ 'checked' if test.shuffle_options }} />
+        Перемішати варіанти відповідей
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="show_result_after_finish" value="true" {{ 'checked' if test.show_result_after_finish }} />
+        Показати результат після завершення
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="show_correct_answers" value="true" {{ 'checked' if test.show_correct_answers }} />
+        Показати правильні відповіді
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="is_formative" value="true" {{ 'checked' if test.is_formative }} />
+        Формативне оцінювання
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="allow_partial_grading" value="true" {{ 'checked' if test.allow_partial_grading }} />
+        Дозволити часткове нарахування балів (для Відповідності)
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="allow_retake" value="true" {{ 'checked' if test.allow_retake }} />
+        Дозволити повторне проходження тесту
+      </label>
+      <label class="checkbox-label">
+        <input type="checkbox" name="use_fuzzy_matching" value="true" {{ 'checked' if test.use_fuzzy_matching }} />
+        Смарт-оцінювання: Дозволити друкарські помилки (алгоритм Левенштейна)
+      </label>
+    </div>
+  </div>
+
+  <!-- Sections / Topics management -->
+  <div class="card mt-2" id="topics-management-card">
+    <div class="card-header-row">
+      <h2 class="card-title">Розділи тесту (виключення розділів)</h2>
+    </div>
+    <div class="card-body" style="padding: 1rem 1.5rem">
+      <input type="hidden" name="excluded_topics" id="excluded_topics" value='{{ test.excluded_topics or "[]" }}' />
+      <div id="topics-management-container">
+        <!-- Will be populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Questions editor -->
+  <div class="card mt-2">
+    <div class="card-header-row" style="flex-wrap:wrap; gap:0.75rem;">
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <h2 class="card-title" style="margin:0;">Питання <span class="badge badge-count" id="question-count">0</span></h2>
+        <div style="display:flex; gap:0.35rem;">
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-undo" onclick="undoLastAction()" title="Скасувати останню дію (Ctrl+Z)" disabled style="opacity:0.5; cursor:not-allowed; display:inline-flex; align-items:center; gap:0.25rem;">
+            <span>↶</span> <span>Скасувати</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-redo" onclick="redoLastAction()" title="Повернути дію (Ctrl+Y)" disabled style="opacity:0.5; cursor:not-allowed; display:inline-flex; align-items:center; gap:0.25rem;">
+            <span>↷</span> <span>Повернути</span>
+          </button>
+        </div>
+      </div>
+      <label class="checkbox-label" style="margin: 0; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.95rem;">
+        <input type="checkbox" id="toggle-grouping" onchange="toggleGrouping(this.checked)" style="width:16px;height:16px" />
+        Групувати питання за розділами
+      </label>
+    </div>
+    <div id="questions-container">
+      <div class="empty-questions" id="empty-questions-msg" style="display:none">
+        <p>Питань ще немає. Натисніть «Додати питання».</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <div style="display:flex;gap:0.75rem">
+      <button type="button" class="btn btn-secondary" onclick="addQuestion()">+ Додати питання</button>
+    </div>
+    <div style="display:flex;gap:0.75rem">
+      <a href="/teacher/tests" class="btn btn-secondary">Скасувати</a>
+      <button type="submit" class="btn btn-primary" onclick="return prepareSubmit()">Зберегти зміни</button>
+    </div>
+  </div>
+</form>
+
+<div class="card mt-2" style="border: 1px solid var(--danger-glow)">
+  <form id="deleteTestForm" method="post" action="/teacher/tests/{{ test.id }}/delete"
+        onsubmit="return confirm('Видалити тест «{{ test.title }}»? Це також видалить всі сесії та результати!')"
+        style="margin:0; display:flex; justify-content:space-between; align-items:center">
+    <div>
+      <h3 style="margin:0; color:var(--danger)">Небезпечна зона</h3>
+      <p class="text-muted" style="margin:0; font-size:0.9rem">Видалення тесту є незворотною дією.</p>
+    </div>
+    <button type="submit" class="btn btn-danger">Видалити тест</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="initial-test-data" type="application/json">
+  {{ test_json | safe }}
+</script>
+<script>
+  const INITIAL_TEST_DATA = JSON.parse(document.getElementById('initial-test-data').textContent);
+</script>
+<script src="/static/js/teacher.js"></script>
+<script>
+  document.getElementById('editTestForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!prepareSubmit()) return;
+    
+    const form = e.target;
+    const saveBtnsList = [
+      document.querySelector('#editTestForm button[type="submit"]'),
+      document.getElementById('save-btn-top')
+    ].filter(Boolean);
+    saveBtnsList.forEach(btn => {
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = "Збереження...";
+      }
+    });
+
+    if (window.TopLoader) window.TopLoader.start();
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new FormData(form)
+      });
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        if (window.TopLoader) window.TopLoader.done();
+        if (window.showToast) {
+          window.showToast("success", data.message || "Тест успішно збережено!");
+        }
+        // Smooth transition and redirect to tests list
+        document.body.classList.add('page-is-leaving');
+        setTimeout(() => {
+          window.location.href = '/teacher/tests';
+        }, 300);
+      } else {
+        if (window.TopLoader) window.TopLoader.done();
+        document.body.classList.remove('page-is-leaving');
+        const data = await response.json().catch(() => ({}));
+        if (window.showToast) {
+          window.showToast("error", data.message || "Помилка при збереженні");
+        } else {
+          alert(data.message || "Помилка при збереженні");
+        }
+        saveBtnsList.forEach(btn => {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = btn.dataset.originalText || "Зберегти зміни";
+          }
+        });
+      }
+    } catch (err) {
+      if (window.TopLoader) window.TopLoader.done();
+      document.body.classList.remove('page-is-leaving');
+      if (window.showToast) {
+        window.showToast("error", "Помилка мережі: " + err.message);
+      } else {
+        alert("Помилка мережі: " + err.message);
+      }
+      saveBtnsList.forEach(btn => {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = btn.dataset.originalText || "Зберегти зміни";
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

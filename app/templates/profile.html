@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Профіль вчителя{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Профіль вчителя</h1>
+    <p class="page-subtitle">Налаштування ваших викладацьких параметрів</p>
+  </div>
+</div>
+
+{% if teacher.username == 'admin' %}
+<div class="card mt-2">
+  <div class="card-title" style="color: var(--danger);">Управління вчителями (Адміністратор)</div>
+  <p class="form-hint" style="margin-top: -1rem; margin-bottom: 1rem;">Видалення вчителя також видалить усі його тести та сесії.</p>
+  
+  <div class="form-grid">
+    <div class="form-group form-group--full">
+      <label>Оберіть вчителя</label>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <select id="deleteTeacherSelect" style="flex: 1;">
+          <option value="" disabled selected>-- Оберіть профілі --</option>
+          {% for t in all_teachers %}
+            {% if t.username != 'admin' %}
+              <option value="{{ t.username }}">{{ t.full_name }} (@{{ t.username }})</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <button type="button" class="btn btn-primary" id="archiveTeacherBtn" disabled style="color: white; background-color: var(--primary); border-color: var(--primary);">Завантажити архів</button>
+        <button type="button" class="btn btn-danger" id="deleteTeacherBtn" disabled style="color: white; background-color: var(--danger); border-color: var(--danger);">Видалити</button>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;" id="adminPasswordResetGroup">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 0.4rem;">
+          <label for="adminTeacherNewPassword" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Новий пароль для вчителя</label>
+          <input type="password" id="adminTeacherNewPassword" placeholder="Мінімум 4 символи" disabled style="width: 100%;" />
+        </div>
+        <button type="button" class="btn btn-warning" id="adminResetPasswordBtn" disabled style="height: 42px;">Змінити пароль</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card mt-2">
+  <div class="card-title">Ваші налаштування</div>
+  <form method="post" action="/teacher/profile">
+    <div class="form-grid">
+      <div class="form-group form-group--full">
+        <label for="full_name">Повне ім'я *</label>
+        <input type="text" id="full_name" name="full_name" required value="{{ teacher.full_name }}" placeholder="Петренко Іван Васильович" />
+      </div>
+      <div class="form-group form-group--full">
+        <label for="subject">Предмет, який викладає</label>
+        <input type="text" id="subject" name="subject" value="{{ teacher.subject or '' }}" placeholder="Математика, Фізика" />
+        <p class="form-hint">Буде автоматично заповнюватися при створенні та імпорті тестів</p>
+      </div>
+      <div class="form-group form-group--full">
+        <label for="classes">Класи, у яких читає вчитель</label>
+        <input type="text" id="classes" name="classes" value="{{ teacher.classes or '' }}" placeholder="7-А, 7-Б, 8-А, 10-Б" />
+        <p class="form-hint">Перелічіть через кому. Вони будуть доступні для вибору при створенні тесту</p>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top: 1.5rem;">
+      <button type="submit" class="btn btn-primary" id="saveProfileBtn">Зберегти зміни</button>
+    </div>
+  </form>
+</div>
+
+{% if teacher.username == 'admin' %}
+<div class="card mt-2">
+  <div class="card-title">Створити новий профіль вчителя</div>
+  <p class="form-hint" style="margin-top: -1rem; margin-bottom: 1rem;">Створіть додатковий акаунт вчителя для спільного використання системи.</p>
+  <form id="createTeacherForm" method="post" action="/teacher/profile/create-teacher">
+    <div class="form-grid">
+      <div class="form-group form-group--full">
+        <label for="new_full_name">Повне ім'я *</label>
+        <input type="text" id="new_full_name" name="full_name" required placeholder="Шевченко Тарас Григорович" />
+      </div>
+      <div class="form-group">
+        <label for="new_username">Логін *</label>
+        <input type="text" id="new_username" name="username" required placeholder="taras123" />
+      </div>
+      <div class="form-group">
+        <label for="new_password">Пароль *</label>
+        <input type="password" id="new_password" name="password" required placeholder="Мінімум 4 символи" />
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top: 1.5rem;">
+      <button type="submit" class="btn btn-success">Створити профіль</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Основний профіль
+  document.querySelector('form[action="/teacher/profile"]').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = document.getElementById('saveProfileBtn');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Збереження...";
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new FormData(form)
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (window.showToast) window.showToast("success", data.message || "Зміни збережено!");
+      } else {
+        const data = await response.json().catch(() => ({}));
+        if (window.showToast) window.showToast("error", data.message || "Помилка при збереженні");
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast("error", "Помилка мережі: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
+  // Створення нового вчителя
+  document.getElementById('createTeacherForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Створення...";
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: new FormData(form)
+      });
+      const data = await response.json().catch(() => ({status: "error", message: "Помилка відповіді"}));
+      
+      if (data.status === "ok") {
+        if (window.showToast) window.showToast("success", data.message);
+        form.reset();
+        setTimeout(() => window.location.reload(), 1500); // Оновлюємо сторінку щоб новий вчитель з'явився у списку
+      } else {
+        if (window.showToast) window.showToast("error", data.message);
+      }
+    } catch (err) {
+      if (window.showToast) window.showToast("error", "Помилка мережі: " + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  });
+
+  // Управління вчителями (тільки адмін)
+  const deleteSelect = document.getElementById('deleteTeacherSelect');
+  const deleteBtn = document.getElementById('deleteTeacherBtn');
+  const archiveBtn = document.getElementById('archiveTeacherBtn');
+  const adminPassInput = document.getElementById('adminTeacherNewPassword');
+  const adminResetBtn = document.getElementById('adminResetPasswordBtn');
+  
+  if (deleteSelect) {
+    deleteSelect.addEventListener('change', () => {
+      const hasValue = !!deleteSelect.value;
+      if (deleteBtn) deleteBtn.disabled = !hasValue;
+      if (archiveBtn) archiveBtn.disabled = !hasValue;
+      if (adminPassInput) adminPassInput.disabled = !hasValue;
+      if (adminResetBtn) adminResetBtn.disabled = !hasValue;
+    });
+    
+    if (archiveBtn) {
+      archiveBtn.addEventListener('click', () => {
+        const username = deleteSelect.value;
+        if (!username) return;
+        window.location.href = `/teacher/profile/archive-teacher/${username}`;
+      });
+    }
+    
+    if (adminResetBtn) {
+      adminResetBtn.addEventListener('click', async () => {
+        const username = deleteSelect.value;
+        const newPassword = adminPassInput.value;
+        if (!username) return;
+        if (!newPassword || newPassword.length < 4) {
+          if (window.showToast) window.showToast("error", "Пароль має бути не менше 4 символів!");
+          return;
+        }
+        
+        const originalText = adminResetBtn.textContent;
+        adminResetBtn.disabled = true;
+        adminResetBtn.textContent = "Збереження...";
+        
+        const formData = new FormData();
+        formData.append('username', username);
+        formData.append('new_password', newPassword);
+        
+        try {
+          const response = await fetch('/teacher/profile/change-teacher-password', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+          });
+          
+          const data = await response.json().catch(() => ({status: "error", message: "Помилка відповіді"}));
+          
+          if (data.status === "ok") {
+            if (window.showToast) window.showToast("success", data.message);
+            adminPassInput.value = "";
+          } else {
+            if (window.showToast) window.showToast("error", data.message);
+          }
+        } catch (err) {
+          if (window.showToast) window.showToast("error", "Помилка мережі: " + err.message);
+        } finally {
+          adminResetBtn.disabled = false;
+          adminResetBtn.textContent = originalText;
+        }
+      });
+    }
+    
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async () => {
+        const username = deleteSelect.value;
+        if (!username) return;
+        
+        if (!confirm(`Ви впевнені, що хочете видалити вчителя @${username}? Всі його тести та результати будуть назавжди видалені.`)) {
+          return;
+        }
+        
+        const originalText = deleteBtn.textContent;
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = "Видалення...";
+        
+        const formData = new FormData();
+        formData.append('username', username);
+        
+        try {
+          const response = await fetch('/teacher/profile/delete-teacher', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+          });
+          
+          const data = await response.json().catch(() => ({status: "error", message: "Помилка відповіді"}));
+          
+          if (data.status === "ok") {
+            if (window.showToast) window.showToast("success", data.message);
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            if (window.showToast) window.showToast("error", data.message);
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = originalText;
+          }
+        } catch (err) {
+          if (window.showToast) window.showToast("error", "Помилка мережі: " + err.message);
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = originalText;
+        }
+      });
+    }
+  }
+</script>
+{% endblock %}

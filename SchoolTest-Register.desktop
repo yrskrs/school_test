@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SchoolTest Register
+Comment=Реєстрація та керування користувачами SchoolTest
+Exec=/bin/bash -c "cd %k && ./start_register.sh"
+Icon=system-users
+Terminal=false
+Categories=Education;Utility;Qt;

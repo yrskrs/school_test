@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ШколярТест — Сучасна локальна система шкільного тестування" />
+  <title>{% block title %}Головна{% endblock %} — ШколярТест</title>
+  <link rel="stylesheet" href="/static/css/styles.css?v=11" />
+  <link rel="icon" type="image/png" href="/static/favicon.png" />
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
+  {% block head %}{% endblock %}
+  <script>
+    // Запобігання блиманню теми при завантаженні (FOUC) та надійне перемикання з першого кліку
+    (function() {
+      let savedTheme = localStorage.getItem('theme');
+      if (!savedTheme) {
+        savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.documentElement.style.backgroundColor = savedTheme === 'light' ? '#f8fafc' : '#0f1117';
+    })();
+
+    function updateThemeIcons() {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const isLight = currentTheme === 'light';
+      document.querySelectorAll('.theme-icon-sun').forEach(sun => {
+        sun.style.display = isLight ? 'none' : 'inline-block';
+      });
+      document.querySelectorAll('.theme-icon-moon').forEach(moon => {
+        moon.style.display = isLight ? 'inline-block' : 'none';
+      });
+      document.querySelectorAll('.theme-label-text').forEach(label => {
+        label.textContent = isLight ? 'Світла' : 'Темна';
+      });
+    }
+
+    function toggleTheme() {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 
+        ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+      const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      document.documentElement.style.backgroundColor = nextTheme === 'light' ? '#f8fafc' : '#0f1117';
+      localStorage.setItem('theme', nextTheme);
+      updateThemeIcons();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateThemeIcons();
+      const navHeader = document.querySelector('header.navbar');
+      const testTopbar = document.querySelector('.test-topbar');
+      const floatBtn = document.getElementById('floating-theme-btn');
+      if (floatBtn) {
+        const hasNavbar = navHeader && navHeader.children.length > 0 && navHeader.offsetHeight > 0;
+        if (hasNavbar || testTopbar) {
+          floatBtn.style.display = 'none';
+        } else {
+          floatBtn.style.display = 'flex';
+        }
+      }
+    });
+  </script>
+</head>
+<body class="{% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>
+
+  <!-- Верхня смужка статусу завантаження сторінки (Top Loading Bar) -->
+  <div id="top-loading-bar" class="top-loading-bar" aria-hidden="true">
+    <div class="top-loading-progress" id="top-loading-progress"></div>
+  </div>
+
+  {% block navbar %}
+  <header class="navbar">
+    <div class="navbar-brand">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>ШколярТест</span>
+    </div>
+    <nav class="navbar-menu">
+      {% block nav_links %}
+      {% if teacher %}
+        <a href="/teacher/dashboard" class="nav-link {% if '/teacher/dashboard' in request.url.path %}active{% endif %}">Панель</a>
+        <a href="/teacher/tests" class="nav-link {% if '/teacher/tests' in request.url.path %}active{% endif %}">Тести</a>
+        <a href="/teacher/sessions" class="nav-link {% if '/teacher/sessions' in request.url.path %}active{% endif %}">Сесії</a>
+        <a href="/teacher/results" class="nav-link {% if '/teacher/results' in request.url.path or '/teacher/journal' in request.url.path %}active{% endif %}">Результати</a>
+        {% if teacher.username == 'admin' %}
+          <a href="/teacher/logs" class="nav-link {% if '/teacher/logs' in request.url.path %}active{% endif %}">Логи</a>
+        {% endif %}
+        <a href="/teacher/profile" class="nav-link {% if '/teacher/profile' in request.url.path %}active{% endif %}">Профіль</a>
+        <a href="/teacher/logout" class="nav-link nav-link-logout">Вийти</a>
+      {% endif %}
+      {% endblock %}
+    </nav>
+    {% block navbar_extra %}
+    {% if teacher %}
+    <div style="position: relative;" id="navbar-teacher-dropdown-container">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-right: 1.5rem; padding-right: 1.5rem; border-right: 1px solid var(--border); color: var(--primary); font-weight: 600; font-size: 0.9rem; cursor: pointer;" title="Змінити профіль" id="navbar-teacher-toggle">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+        {{ teacher.full_name }}
+      </div>
+      
+      <!-- Спадне меню для перемикання вчителя -->
+      <div id="navbar-teacher-dropdown" class="card" style="display: none; position: absolute; top: 30px; right: 1.5rem; width: 300px; box-shadow: var(--shadow); z-index: 1000; padding: 1rem;">
+        <h4 style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: var(--text-muted);">Перемкнути профіль</h4>
+        <div id="navbar-teacher-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+          <!-- Items will be injected here via JS -->
+          <div style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">Завантаження...</div>
+        </div>
+        
+        <div id="navbar-teacher-password-group" style="display: none; margin-top: 1rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
+          <label for="navbar-switch-password" style="font-size: 0.8rem; display: block; margin-bottom: 0.3rem;">Пароль для <span id="navbar-target-teacher"></span></label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="password" id="navbar-switch-password" placeholder="Пароль" style="padding: 0.4rem; font-size: 0.9rem; flex: 1; border: 1px solid var(--border); border-radius: 4px;" />
+            <button type="button" class="btn btn-primary" id="navbar-switch-btn" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;">Вхід</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    <div class="teacher-clock" id="navbar-clock" title="Поточний час (Київ UTC+3)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
+      </svg>
+      <span id="navbar-clock-time">--:--:--</span>
+    </div>
+    
+    <!-- Сповіщення (Notifications) -->
+    <div class="nav-notifications" id="nav-notifications" style="position: relative; cursor: pointer; margin-left: 1rem; display: flex; align-items: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+      </svg>
+      <span id="notifications-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border-radius: 50%; font-size: 0.7rem; font-weight: bold; width: 16px; height: 16px; text-align: center; line-height: 16px;">0</span>
+      
+      <div id="notifications-dropdown" class="card" style="display: none; position: absolute; top: 30px; right: 0; width: 340px; max-height: 420px; overflow-y: auto; box-shadow: var(--shadow); z-index: 1000; padding: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding: 0.3rem 0.5rem 0.5rem 0.5rem; margin-bottom: 0.4rem;">
+          <h4 style="margin: 0; font-size: 0.88rem; color: var(--text-muted);">⚠️ Проблеми у тестах</h4>
+          <button type="button" onclick="openProblemsModal()" class="btn btn-sm btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;">
+            🔍 Вікно помилок
+          </button>
+        </div>
+        <div id="notifications-list" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.25rem;">
+          <!-- Items will be injected here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Перемикач теми на верхній панелі -->
+    <button onclick="toggleTheme()" class="navbar-theme-btn" id="navbar-theme-btn" title="Змінити тему оформлення (Світла / Темна)" type="button">
+      <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+    {% endblock %}
+  </header>
+  {% endblock %}
+
+  <!-- Кругла плаваюча кнопка теми у правому верхньому кутку -->
+  <button onclick="toggleTheme()" class="floating-theme-btn" id="floating-theme-btn" title="Змінити тему оформлення (Світла / Темна)" type="button">
+    <svg class="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+    <svg class="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+  </button>
+
+  <main class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) if get_flashed_messages is defined else [] %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% if error is defined and error %}
+      <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+    {% if success is defined and success %}
+      <div class="alert alert-success">{{ success }}</div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Модальне вікно перевірки та швидких дій для всіх помилок у тестах -->
+  <div id="problems-modal" class="problems-modal-backdrop" onclick="if(event.target===this) closeProblemsModal()">
+    <div class="problems-modal-container">
+      <div class="problems-modal-header">
+        <h3 class="problems-modal-title">
+          <span>⚠️ Аналіз та виправлення проблем у тестах</span>
+          <span id="modal-problems-count" class="badge badge-count" style="font-size:0.8rem;">0</span>
+        </h3>
+        <button type="button" class="problems-modal-close" onclick="closeProblemsModal()" title="Закрити">✕</button>
+      </div>
+
+      <div class="problems-modal-controls">
+        <input type="text" id="problems-modal-search" class="problems-modal-search" placeholder="🔍 Швидкий пошук у тексті питання чи варіанта..." oninput="renderProblemsModalContent()" />
+        <select id="problems-modal-filter" class="problems-modal-search" style="flex:0 0 200px;" onchange="renderProblemsModalContent()">
+          <option value="all">Усі типи помилок</option>
+          <option value="option_dup">Дублювання варіантів</option>
+          <option value="matching_dup">Дублювання відповідностей</option>
+        </select>
+      </div>
+
+      <div class="problems-modal-body" id="problems-modal-list">
+        <!-- Dynamic list -->
+      </div>
+    </div>
+  </div>
+
+  <button id="scrollToTopBtn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="Вгору">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  </button>
+  <button id="scrollToBottomBtn" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})" title="Вниз">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="6 9 12 15 18 9"></polyline>
+    </svg>
+  </button>
+
+  <script>
+    const topBtn = document.getElementById("scrollToTopBtn");
+    const bottomBtn = document.getElementById("scrollToBottomBtn");
+    window.addEventListener("scroll", () => {
+      const scrollPos = document.body.scrollTop || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      
+      if (scrollPos > 300) {
+        topBtn.style.display = "flex";
+      } else {
+        topBtn.style.display = "none";
+      }
+      
+      // Show bottom button if not near the bottom
+      if (docHeight - (scrollPos + windowHeight) > 300) {
+        bottomBtn.style.display = "flex";
+      } else {
+        bottomBtn.style.display = "none";
+      }
+    });
+    // Trigger scroll event on load to set initial state
+    window.dispatchEvent(new Event("scroll"));
+
+    // Global Loading Overlay functions for import
+    window.showImportOverlay = function(message = "Імпортування тесту") {
+      if (document.getElementById('importLoadingOverlay')) return;
+      const overlay = document.createElement('div');
+      overlay.className = 'import-overlay';
+      overlay.id = 'importLoadingOverlay';
+      overlay.innerHTML = `
+        <div class="import-card">
+          <div class="import-spinner-wrapper">
+            <div class="import-spinner-glow"></div>
+            <div class="import-spinner"></div>
+          </div>
+          <div class="import-title">${message}</div>
+          <div class="import-status">
+            Будь ласка, зачекайте. Обробка файлу та запитань<span class="import-dots"><span>.</span><span>.</span><span>.</span></span>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      overlay.offsetHeight; // force reflow
+      overlay.classList.add('active');
+    };
+
+    window.hideImportOverlay = function() {
+      const overlay = document.getElementById('importLoadingOverlay');
+      if (overlay) {
+        overlay.classList.remove('active');
+        setTimeout(() => {
+          if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+          }
+        }, 300);
+      }
+    };
+
+    // Глобальна функція показу сповіщень (toasts) без перезавантаження
+    window.showToast = function(category, message) {
+      const toast = document.createElement('div');
+      toast.className = `alert alert-${category}`;
+      
+      const closeBtn = document.createElement('span');
+      closeBtn.innerHTML = '&times;';
+      closeBtn.className = 'alert-close-btn';
+      closeBtn.setAttribute('style', 'float: right; cursor: pointer; margin-left: 1rem; font-weight: bold; font-size: 1.2rem; line-height: 1; opacity: 0.7; transition: opacity 0.2s;');
+      closeBtn.onmouseover = () => closeBtn.style.opacity = '1';
+      closeBtn.onmouseout = () => closeBtn.style.opacity = '0.7';
+      
+      closeBtn.addEventListener('click', () => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(120%)';
+        setTimeout(() => toast.remove(), 300);
+      });
+      
+      const textNode = document.createTextNode(message);
+      toast.appendChild(textNode);
+      toast.prepend(closeBtn);
+      
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateX(120%)';
+          setTimeout(() => toast.remove(), 300);
+        }
+      }, 4000);
+    };
+
+    // Автоматичне закриття та кнопка видалення сповіщень для статично завантажених
+    document.addEventListener('DOMContentLoaded', () => {
+      const alerts = document.querySelectorAll('.alert');
+      alerts.forEach(alert => {
+        const closeBtn = document.createElement('span');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.className = 'alert-close-btn';
+        closeBtn.setAttribute('style', 'float: right; cursor: pointer; margin-left: 1rem; font-weight: bold; font-size: 1.2rem; line-height: 1; opacity: 0.7; transition: opacity 0.2s;');
+        closeBtn.onmouseover = () => closeBtn.style.opacity = '1';
+        closeBtn.onmouseout = () => closeBtn.style.opacity = '0.7';
+        
+        closeBtn.addEventListener('click', () => {
+          alert.style.opacity = '0';
+          alert.style.transform = 'translateX(120%)';
+          setTimeout(() => alert.remove(), 300);
+        });
+        alert.prepend(closeBtn);
+
+        setTimeout(() => {
+          if (alert.parentNode) {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateX(120%)';
+            setTimeout(() => alert.remove(), 300);
+          }
+        }, 4000);
+      });
+    });
+  </script>
+
+  <footer class="footer">
+    <span>ШколярТест &mdash; локальна система тестування</span>
+  </footer>
+
+  <script>
+    // Real-time clock displaying Kyiv local time (UTC+3)
+    (function() {
+      const clockEl = document.getElementById('navbar-clock-time');
+      if (!clockEl) return;
+      const fmt = new Intl.DateTimeFormat('uk-UA', {
+        timeZone: 'Europe/Kiev',
+        hour:   '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+      function tick() {
+        clockEl.textContent = fmt.format(new Date());
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+
+    // Teacher Switcher logic
+    (function() {
+      const toggle = document.getElementById('navbar-teacher-toggle');
+      const dropdown = document.getElementById('navbar-teacher-dropdown');
+      const listContainer = document.getElementById('navbar-teacher-list');
+      const passGroup = document.getElementById('navbar-teacher-password-group');
+      const passInput = document.getElementById('navbar-switch-password');
+      const btn = document.getElementById('navbar-switch-btn');
+      const targetName = document.getElementById('navbar-target-teacher');
+      let loaded = false;
+      let selectedUsername = null;
+
+      if (!toggle) return;
+
+      toggle.addEventListener('click', function(e) {
+        if (e.target.closest('#navbar-teacher-dropdown')) return;
+        
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+        
+        if (!isVisible && !loaded) {
+          listContainer.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">Завантаження...</div>';
+          fetch('/teacher/api/list-teachers')
+            .then(res => res.json())
+            .then(data => {
+              loaded = true;
+              listContainer.innerHTML = '';
+              if (!data.teachers || data.teachers.length === 0) {
+                listContainer.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">Інших вчителів немає</div>';
+                return;
+              }
+              data.teachers.forEach(t => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding: 0.5rem; border-radius: 4px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 0.5rem;';
+                item.className = 'hover-bg-light'; // Assuming hover utility exists or just inline hover via js
+                item.onmouseover = () => item.style.backgroundColor = 'var(--bg-card)';
+                item.onmouseout = () => item.style.backgroundColor = 'transparent';
+                
+                item.innerHTML = `
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <span style="font-size: 0.9rem; font-weight: 500;">${t.full_name}</span>
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">@${t.username}</span>
+                `;
+                item.onclick = (ev) => {
+                  ev.stopPropagation();
+                  selectedUsername = t.username;
+                  targetName.textContent = t.full_name;
+                  passGroup.style.display = 'block';
+                  passInput.value = '';
+                  passInput.focus();
+                  
+                  // Highlight selection
+                  Array.from(listContainer.children).forEach(child => {
+                    child.style.border = 'none';
+                  });
+                  item.style.border = '1px solid var(--primary)';
+                };
+                listContainer.appendChild(item);
+              });
+            })
+            .catch(err => {
+              listContainer.innerHTML = '<div style="font-size: 0.8rem; color: var(--danger); text-align: center;">Помилка завантаження</div>';
+            });
+        }
+      });
+
+      document.addEventListener('click', function(e) {
+        if (!document.getElementById('navbar-teacher-dropdown-container')?.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+      
+      const doSwitch = async () => {
+        if (!selectedUsername) return;
+        const password = passInput.value;
+        if (!password) {
+          if (window.showToast) window.showToast('error', 'Введіть пароль');
+          return;
+        }
+        
+        btn.disabled = true;
+        btn.textContent = '...';
+        
+        const formData = new FormData();
+        formData.append('username', selectedUsername);
+        formData.append('password', password);
+        
+        try {
+          const res = await fetch('/teacher/profile/switch-teacher', {
+            method: 'POST',
+            body: formData,
+            headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}
+          });
+          const data = await res.json().catch(()=>({}));
+          if (data.status === 'ok') {
+            if (window.showToast) window.showToast('success', data.message);
+            setTimeout(() => window.location.href = '/teacher/dashboard', 800);
+          } else {
+            if (window.showToast) window.showToast('error', data.message || 'Помилка');
+            btn.disabled = false;
+            btn.textContent = 'Вхід';
+          }
+        } catch (e) {
+          if (window.showToast) window.showToast('error', e.message);
+          btn.disabled = false;
+          btn.textContent = 'Вхід';
+        }
+      };
+
+      btn.addEventListener('click', doSwitch);
+      passInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          doSwitch();
+        }
+      });
+    })();
+
+    // ============================================================
+    // ESC HTML UTILITY & PROBLEMS MODAL HANDLERS
+    // ============================================================
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    window.currentServerNotifications = [];
+
+    window.openProblemsModal = function() {
+      const modal = document.getElementById('problems-modal');
+      const dropdown = document.getElementById('notifications-dropdown');
+      if (dropdown) dropdown.style.display = 'none';
+      if (modal) {
+        modal.classList.add('active');
+        window.renderProblemsModalContent();
+      }
+    };
+
+    window.closeProblemsModal = function() {
+      const modal = document.getElementById('problems-modal');
+      if (modal) modal.classList.remove('active');
+    };
+
+    window.renderProblemsModalContent = function() {
+      const listEl = document.getElementById('problems-modal-list');
+      const countEl = document.getElementById('modal-problems-count');
+      const searchVal = (document.getElementById('problems-modal-search')?.value || '').trim().toLowerCase();
+      const filterType = document.getElementById('problems-modal-filter')?.value || 'all';
+
+      if (!listEl) return;
+
+      let sourceProblems = [];
+      if (window.isEditingTest && window.currentEditorProblems) {
+        sourceProblems = window.currentEditorProblems;
+      } else {
+        sourceProblems = window.currentServerNotifications || [];
+      }
+
+      let filtered = sourceProblems.filter(p => {
+        if (filterType !== 'all') {
+          const typeStr = (p.problem_type || '').toLowerCase();
+          if (filterType === 'option_dup' && !typeStr.includes('варіант')) return false;
+          if (filterType === 'question_dup' && !typeStr.includes('питання')) return false;
+          if (filterType === 'matching_dup' && !typeStr.includes('відповідність')) return false;
+        }
+        if (searchVal) {
+          const haystack = `${p.test_title || ''} ${p.question_text || ''} ${p.message || ''} ${p.problem_detail || ''}`.toLowerCase();
+          if (!haystack.includes(searchVal)) return false;
+        }
+        return true;
+      });
+
+      if (countEl) countEl.textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:3rem 1rem; color:var(--text-muted);">
+            <div style="font-size:3rem; margin-bottom:0.5rem;">🎉</div>
+            <h4 style="margin:0 0 0.25rem 0; color:var(--text);">Проблем не виявлено!</h4>
+            <p style="font-size:0.85rem; margin:0;">Усі перевірені тести не мають відомих дублікатів чи помилок.</p>
+          </div>`;
+        return;
+      }
+
+      listEl.innerHTML = '';
+      filtered.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'problem-card-item';
+        card.innerHTML = `
+          <div class="problem-card-header">
+            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+              <span class="problem-card-test-badge">📘 ${escHtml(p.test_title || 'Тест')}</span>
+              <span class="problem-card-type-badge">⚠️ ${escHtml(p.problem_type || 'Помилка')}</span>
+            </div>
+            <span style="font-size:0.78rem; color:var(--text-dim);">${escHtml(p.question_idx || p.question_num || '')}</span>
+          </div>
+          <div class="problem-card-location">
+            ${escHtml(p.question_num || 'Питання')}: «${escHtml((p.question_text || '').slice(0, 85))}${ (p.question_text || '').length > 85 ? '...' : ''}»
+          </div>
+          <div class="problem-card-detail">
+            ${escHtml(p.problem_detail || p.message)}
+          </div>
+          <div class="problem-card-actions">
+            ${window.isEditingTest ? `
+              <button type="button" class="btn btn-sm btn-danger" onclick="deleteProblemQuestionDirect('${p.target_id || p.question_id}')" style="font-size:0.8rem;">
+                🗑️ Видалити це питання
+              </button>
+            ` : ''}
+            <button type="button" class="btn btn-sm btn-primary" onclick="navigateToProblem('${p.link || ''}', '${p.target_id || p.question_id || ''}')" style="font-size:0.8rem;">
+              🎯 Перейти до питання →
+            </button>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+    };
+
+    window.deleteProblemQuestionDirect = function(targetId) {
+      if (!window.isEditingTest || !window.removeQuestion) return;
+      let targetQ = questions.find(q => String(q.db_id) === String(targetId) || String(q._id) === String(targetId));
+      if (targetQ) {
+        removeQuestion(targetQ._id);
+        if (window.showToast) window.showToast('success', 'Питання видалено зі збереженням в історії (Ctrl+Z для скасування)');
+      }
+    };
+
+    window.navigateToProblem = function(link, targetId) {
+      window.closeProblemsModal();
+      if (window.isEditingTest) {
+        if (!window.highlightQuestion || !window.highlightQuestion(targetId)) {
+          if (window.showToast) window.showToast('warning', 'Питання було видалено або не знайдено');
+        }
+      } else if (link) {
+        window.location.href = link;
+      }
+    };
+
+    // Notifications logic
+    (function() {
+      const bell = document.getElementById('nav-notifications');
+      const badge = document.getElementById('notifications-badge');
+      const dropdown = document.getElementById('notifications-dropdown');
+      const list = document.getElementById('notifications-list');
+
+      if (!bell) return;
+
+      function fetchNotifications() {
+        if (!window.location.pathname.startsWith('/teacher')) return;
+        
+        // Якщо вчитель редагує тест наживо, не перекриваємо локальну валідацію старими даними з БД
+        if (window.isEditingTest && window.validateCurrentTestProblems) {
+          window.validateCurrentTestProblems();
+          return;
+        }
+
+        fetch('/teacher/notifications')
+          .then(res => {
+            if (!res.ok) throw new Error('Error fetching notifications');
+            return res.json();
+          })
+          .then(data => {
+            if (data.status === 'ok' && data.count > 0) {
+              window.currentServerNotifications = data.notifications;
+              badge.style.display = 'block';
+              badge.textContent = data.count;
+              list.innerHTML = '';
+
+              // Quick open detailed modal button at top of dropdown
+              const topBar = document.createElement('div');
+              topBar.style.padding = '0.3rem 0.4rem 0.5rem 0.4rem';
+              topBar.style.borderBottom = '1px solid var(--border-light)';
+              topBar.style.marginBottom = '0.4rem';
+              topBar.innerHTML = `<button type="button" onclick="openProblemsModal()" class="btn btn-sm btn-primary" style="width:100%; font-size:0.8rem; padding:0.35rem 0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
+                🔍 Вікно всіх помилок (${data.count})
+              </button>`;
+              list.appendChild(topBar);
+
+              data.notifications.forEach(n => {
+                const item = document.createElement('a');
+                item.href = n.link;
+                item.className = 'notification-item';
+                item.style.textAlign = 'left';
+                item.style.whiteSpace = 'normal';
+                item.style.fontSize = '0.85rem';
+                item.style.padding = '0.6rem 0.75rem';
+                item.style.borderRadius = 'var(--radius-sm)';
+                item.style.background = 'var(--bg-card2)';
+                item.style.border = '1px solid var(--border-light)';
+                item.style.borderLeft = '4px solid var(--warning)';
+                item.style.display = 'flex';
+                item.style.flexDirection = 'column';
+                item.style.gap = '0.25rem';
+                item.style.cursor = 'pointer';
+                item.style.textDecoration = 'none';
+                item.style.transition = 'all 0.15s ease';
+                item.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:var(--warning); font-size:0.8rem;">⚠️ ${escHtml(n.test_title || 'Тест')}</strong>
+                  <span style="font-size:0.75rem; color:var(--primary);">Перейти →</span>
+                </div>
+                <span style="color:var(--text); line-height:1.35; font-size:0.82rem;">${escHtml(n.message)}</span>`;
+
+                item.addEventListener('mouseenter', () => {
+                  item.style.background = 'var(--bg-card)';
+                  item.style.borderColor = 'var(--primary)';
+                });
+                item.addEventListener('mouseleave', () => {
+                  item.style.background = 'var(--bg-card2)';
+                  item.style.borderColor = 'var(--border-light)';
+                  item.style.borderLeftColor = 'var(--warning)';
+                });
+
+                item.addEventListener('click', function(e) {
+                  const targetUrl = new URL(n.link, window.location.origin);
+                  dropdown.style.display = 'none';
+                  
+                  if (targetUrl.pathname === window.location.pathname) {
+                    e.preventDefault();
+                    if (targetUrl.hash) {
+                      history.pushState(null, '', targetUrl.hash);
+                      const qId = targetUrl.hash.replace('#question-', '');
+                      if (window.highlightQuestion) {
+                        if (!window.highlightQuestion(qId) && window.showToast) {
+                          window.showToast('warning', 'Питання не знайдено у списку');
+                        }
+                      }
+                    }
+                  } else {
+                    if (window.TopLoader) window.TopLoader.start();
+                  }
+                });
+
+                list.appendChild(item);
+              });
+            } else {
+              window.currentServerNotifications = [];
+              badge.style.display = 'none';
+              list.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:0.75rem 0.5rem; display:block;">Проблем не виявлено 🎉</span>';
+            }
+            if (window.renderProblemsModalContent) window.renderProblemsModalContent();
+          })
+          .catch(e => console.log('Notifications fetch failed:', e));
+      }
+
+      window.refreshTeacherNotifications = fetchNotifications;
+
+      // Toggle dropdown and refresh list
+      bell.addEventListener('click', function(e) {
+        if (e.target.closest('#notifications-dropdown')) return;
+        const isOpening = dropdown.style.display === 'none' || dropdown.style.display === '';
+        dropdown.style.display = isOpening ? 'block' : 'none';
+        if (isOpening) {
+          fetchNotifications();
+        }
+      });
+
+      // Close if clicked outside
+      document.addEventListener('click', function(e) {
+        if (!bell.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      // Initial fetch on page load
+      fetchNotifications();
+    })();
+
+    // ============================================================
+    // TopLoader (Смужка прогресу завантаження) та Плавні переходи
+    // ============================================================
+    (function() {
+      const bar = document.getElementById('top-loading-bar');
+      const progress = document.getElementById('top-loading-progress');
+      let timer = null;
+      let currentProgress = 0;
+
+      window.TopLoader = {
+        start: function() {
+          if (!bar || !progress) return;
+          if (timer) clearInterval(timer);
+          currentProgress = 15;
+          bar.classList.add('active');
+          progress.style.transition = 'width 0.2s cubic-bezier(0.1, 0.7, 0.1, 1)';
+          progress.style.width = currentProgress + '%';
+
+          timer = setInterval(() => {
+            if (currentProgress < 65) {
+              currentProgress += Math.floor(Math.random() * 8) + 3;
+            } else if (currentProgress < 85) {
+              currentProgress += Math.floor(Math.random() * 3) + 1;
+            } else if (currentProgress < 94) {
+              currentProgress += 0.5;
+            }
+            if (progress) progress.style.width = currentProgress + '%';
+          }, 180);
+        },
+        set: function(percent) {
+          if (!bar || !progress) return;
+          bar.classList.add('active');
+          currentProgress = Math.min(100, Math.max(0, percent));
+          progress.style.width = currentProgress + '%';
+        },
+        done: function() {
+          if (!bar || !progress) return;
+          if (timer) clearInterval(timer);
+          currentProgress = 100;
+          progress.style.transition = 'width 0.15s ease-out';
+          progress.style.width = '100%';
+          setTimeout(() => {
+            bar.classList.remove('active');
+            setTimeout(() => {
+              progress.style.transition = 'none';
+              progress.style.width = '0%';
+            }, 250);
+          }, 180);
+        }
+      };
+
+      // Завершуємо показ смужки при готовності DOM та повному завантаженні
+      document.addEventListener('DOMContentLoaded', () => window.TopLoader.done());
+      window.addEventListener('load', () => window.TopLoader.done());
+
+      // Миттєвий відгук при натисканні на внутрішні посилання (без блимання)
+      document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (!link) return;
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+        if (link.hasAttribute('download') || link.getAttribute('target') === '_blank') return;
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+        try {
+          const targetUrl = new URL(href, window.location.origin);
+          if (targetUrl.origin === window.location.origin && targetUrl.pathname !== window.location.pathname) {
+            window.TopLoader.start();
+            document.body.classList.add('page-is-leaving');
+          }
+        } catch (err) {}
+      });
+
+      // Перехоплення відправки форм для відображення індикатора (тільки якщо не AJAX)
+      document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (form.getAttribute('target') === '_blank') return;
+        if (form.dataset.ajax === 'true' || form.id === 'editTestForm') {
+          return;
+        }
+        window.TopLoader.start();
+        document.body.classList.add('page-is-leaving');
+      });
+
+      // Скидання стану відходу при навігації назад/вперед (bfcache)
+      window.addEventListener('pageshow', function(event) {
+        document.body.classList.remove('page-is-leaving');
+        window.TopLoader.done();
+      });
+    })();
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
