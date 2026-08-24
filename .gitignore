@@ -16,6 +16,9 @@ ENV/
 # Database
 *.sqlite3
 data/*.db
+data/*.db-shm
+data/*.db-wal
+data/last_archive_time.txt
 data/results/*
 !data/results/.gitkeep
 data/archives/*

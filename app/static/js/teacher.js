@@ -488,7 +488,8 @@ function buildQuestionEl(q) {
       <div style="display:flex;gap:.5rem;align-items:center">
         <button type="button" class="btn btn-sm btn-secondary q-move-btn" onclick="event.stopPropagation();moveQuestion(${q._id},-1)" title="Вгору">↑</button>
         <button type="button" class="btn btn-sm btn-secondary q-move-btn" onclick="event.stopPropagation();moveQuestion(${q._id},1)" title="Вниз">↓</button>
-        <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();removeQuestion(${q._id})">✕</button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="event.stopPropagation();duplicateQuestion(${q._id})" title="Дублювати питання">📋</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="event.stopPropagation();removeQuestion(${q._id})" title="Видалити питання">✕</button>
       </div>
     </div>
     <div class="question-editor-body" id="qbody-${q._id}">
@@ -544,6 +545,11 @@ function buildQuestionEl(q) {
 
       <div id="options-area-${q._id}">
         ${buildOptionsHTML(q)}
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.75rem; padding-top:0.75rem; border-top:1px dashed var(--border);">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="duplicateQuestion(${q._id})" title="Дублювати питання">📋 Дублювати питання</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="removeQuestion(${q._id})" title="Видалити питання">✕ Видалити питання</button>
       </div>
     </div>
   `;
@@ -877,6 +883,76 @@ function moveQuestion(id, dir) {
   }
   questions.forEach((q, i) => { q.order_index = i; });
 }
+
+function duplicateQuestion(id) {
+  saveHistoryState();
+  const idx = questions.findIndex(q => q._id === id);
+  if (idx === -1) return;
+
+  const origQ = questions[idx];
+  const local_id = ++questionCounter;
+
+  const copiedOptions = (origQ.options || []).map((o, optIdx) => ({
+    option_text: o.option_text || '',
+    is_correct: !!o.is_correct,
+    order_index: o.order_index ?? optIdx,
+    matching_text: o.matching_text || '',
+    image_url: o.image_url || null,
+    hotspot_x: o.hotspot_x ?? null,
+    hotspot_y: o.hotspot_y ?? null,
+    hotspot_radius: o.hotspot_radius ?? null,
+    db_id: null
+  }));
+
+  const newQ = {
+    _id: local_id,
+    db_id: null,
+    question_text: origQ.question_text || '',
+    question_type: origQ.question_type || 'single_choice',
+    points: origQ.points ?? 1.0,
+    topic: origQ.topic || '',
+    difficulty: origQ.difficulty || 'medium',
+    explanation: origQ.explanation || '',
+    order_index: idx + 1,
+    image_url: origQ.image_url || null,
+    options: copiedOptions,
+  };
+
+  questions.splice(idx + 1, 0, newQ);
+  questions.forEach((q, i) => { q.order_index = i; });
+
+  const container = document.getElementById('questions-container');
+  const isGrouped = document.getElementById('toggle-grouping') && document.getElementById('toggle-grouping').checked;
+
+  if (isGrouped) {
+    regroupQuestions();
+  } else {
+    const el = buildQuestionEl(newQ);
+    const origEl = document.getElementById(`qblock-${id}`);
+    if (origEl && origEl.nextSibling) {
+      container.insertBefore(el, origEl.nextSibling);
+    } else {
+      container.appendChild(el);
+    }
+  }
+
+  updateEmptyMsg();
+  updateCounter();
+  renderTopicsManagement();
+  scheduleValidation(150);
+
+  if (newQ.question_type === 'hotspot' && newQ.image_url) {
+    initHotspotEditor(newQ._id);
+  }
+
+  const targetEl = document.getElementById(`qblock-${local_id}`);
+  if (targetEl) scrollToEl(targetEl);
+
+  if (window.showToast) {
+    window.showToast('success', 'Питання успішно продубльовано 📋');
+  }
+}
+window.duplicateQuestion = duplicateQuestion;
 
 function toggleQuestion(id) {
   const body = document.getElementById(`qbody-${id}`);
