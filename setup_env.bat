@@ -10,54 +10,57 @@ echo   Перевірка та налаштування середовища Sch
 echo ===================================================
 echo.
 
-:: Змінна прапорця, чи було створено нове середовище
-set ENV_CREATED=0
-
-:: Перевірка наявності віртуального середовища
-if exist ".venv\Scripts\activate.bat" (
+:: Перевірка наявності існуючого віртуального середовища
+if exist ".venv\Scripts\python.exe" (
     echo [INFO] Віртуальне середовище (.venv) вже існує.
-) else if exist "venv\Scripts\activate.bat" (
+    goto :INSTALL_DEPS
+)
+if exist "venv\Scripts\python.exe" (
     echo [INFO] Віртуальне середовище (venv) вже існує.
+    goto :INSTALL_DEPS
+)
+
+echo [INFO] Віртуальне середовище не знайдено. Створення нового .venv...
+
+:: Пошук доступного Python у системі
+set "PYTHON_CMD="
+where py >nul 2>nul
+if %errorlevel% equ 0 (
+    set "PYTHON_CMD=py -3"
 ) else (
-    echo [INFO] Віртуальне середовище не знайдено. Створення нового .venv...
-    
-    :: Визначення доступної команди python
-    set PYTHON_CMD=
-    where py >nul 2>nul
+    where python >nul 2>nul
     if %errorlevel% equ 0 (
-        set PYTHON_CMD=py -3
-    ) else (
-        where python >nul 2>nul
-        if %errorlevel% equ 0 (
-            set PYTHON_CMD=python
-        )
+        set "PYTHON_CMD=python"
     )
-
-    if "%PYTHON_CMD%"=="" (
-        echo [ERROR] Python не знайдено в системі! Переконайтеся, що Python встановлено та додано до PATH.
-        pause
-        exit /b 1
-    )
-
-    echo [ACTION] Створення віртуального середовища за допомогою %PYTHON_CMD%...
-    %PYTHON_CMD% -m venv .venv
-    if %errorlevel% neq 0 (
-        echo [ERROR] Помилка під час створення віртуального середовища.
-        pause
-        exit /b 1
-    )
-    set ENV_CREATED=1
-    echo [SUCCESS] Віртуальне середовище успішно створено.
 )
 
+if "%PYTHON_CMD%"=="" (
+    echo [ERROR] Python не знайдено в системі!
+    echo Переконайтеся, що Python 3 встановлено та увімкнено опцію "Add Python to PATH".
+    echo Завантажити Python: https://www.python.org/downloads/
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [ACTION] Створення віртуального середовища за допомогою %PYTHON_CMD%...
+%PYTHON_CMD% -m venv .venv
+if %errorlevel% neq 0 (
+    echo [ERROR] Помилка під час створення віртуального середовища.
+    pause
+    exit /b 1
+)
+echo [SUCCESS] Віртуальне середовище успішно створено.
+
+:INSTALL_DEPS
 :: Визначення шляху до інтерпретатора у venv
-set VENV_PYTHON=.venv\Scripts\python.exe
+set "VENV_PYTHON=.venv\Scripts\python.exe"
 if not exist "%VENV_PYTHON%" (
-    set VENV_PYTHON=venv\Scripts\python.exe
+    set "VENV_PYTHON=venv\Scripts\python.exe"
 )
 
 if not exist "%VENV_PYTHON%" (
-    echo [ERROR] Не вдалося знайти Python у віртуальному середовищі.
+    echo [ERROR] Не вдалося знайти Python у віртуальному середовищі (%VENV_PYTHON%).
     pause
     exit /b 1
 )
