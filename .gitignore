@@ -45,3 +45,4 @@ scratch/*
 # Docker environments and backups
 .env
 backups/
+docker-data/
