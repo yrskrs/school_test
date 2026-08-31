@@ -245,14 +245,20 @@ async def get_notifications(
         models.Test.title.label("test_title"),
         models.Question.id.label("question_id"),
         models.Question.question_text.label("question_text"),
-        models.AnswerOption.option_text,
+        func.max(models.AnswerOption.option_text).label("option_text"),
         func.count(models.AnswerOption.id).label("count")
     ).join(models.Question, models.Test.id == models.Question.test_id) \
      .join(models.AnswerOption, models.Question.id == models.AnswerOption.question_id) \
      .filter(models.Test.teacher_id == teacher.id) \
      .filter(models.AnswerOption.option_text != None) \
      .filter(func.trim(models.AnswerOption.option_text) != "") \
-     .group_by(models.Question.id, func.lower(func.trim(models.AnswerOption.option_text))) \
+     .group_by(
+         models.Test.id,
+         models.Test.title,
+         models.Question.id,
+         models.Question.question_text,
+         func.lower(func.trim(models.AnswerOption.option_text))
+     ) \
      .having(func.count(models.AnswerOption.id) > 1) \
      .all()
 

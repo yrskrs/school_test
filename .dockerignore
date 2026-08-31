@@ -21,3 +21,4 @@ backups/
 data/school_testing.db
 data/school_testing.db-shm
 data/school_testing.db-wal
+docker-data/
