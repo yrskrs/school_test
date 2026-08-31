@@ -1,15 +1,17 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 class Settings:
     APP_NAME: str = "ШколярТест — Система шкільного тестування"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
 
     # Database
-    DATABASE_URL: str = f"sqlite:///{BASE_DIR / 'data' / 'school_testing.db'}"
+    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'data' / 'school_testing.db'}")
 
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-this-secret-key-in-production-please")

@@ -41,3 +41,7 @@ app/static/tests/*
 # Scratch files (keep .gitkeep)
 scratch/*
 !scratch/.gitkeep
+
+# Docker environments and backups
+.env
+backups/

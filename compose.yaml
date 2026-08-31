@@ -1,0 +1,43 @@
+services:
+  app:
+    build: .
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    volumes:
+      - app_data:/app/data
+      - app_uploads:/app/app/static/tests
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - schooltest_net
+
+  postgres:
+    image: postgres:16
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-schooltest}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-schooltest}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - schooltest_net
+
+volumes:
+  postgres_data:
+  app_data:
+  app_uploads:
+
+networks:
+  schooltest_net:

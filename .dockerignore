@@ -1,0 +1,23 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+.git/
+.gitignore
+.mypy_cache/
+.ruff_cache/
+scratch/
+backups/
+
+# Ignore local database
+data/school_testing.db
+data/school_testing.db-shm
+data/school_testing.db-wal
