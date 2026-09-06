@@ -21,7 +21,9 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 @router.get("/", response_class=HTMLResponse)
-async def root(request: Request):
+async def root(request: Request, db: Session = Depends(get_db)):
+    if crud.count_teachers(db) == 0:
+        return RedirectResponse(url="/setup", status_code=303)
     return RedirectResponse(url="/student/login")
 
 
@@ -31,6 +33,8 @@ async def root(request: Request):
 
 @router.get("/student/login", response_class=HTMLResponse)
 async def student_login_page(request: Request, code: Optional[str] = None, db: Session = Depends(get_db)):
+    if crud.count_teachers(db) == 0:
+        return RedirectResponse(url="/setup", status_code=303)
     auto_session = None
     if not code:
         # Шукаємо закріплену сесію (головну)

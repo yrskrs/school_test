@@ -162,6 +162,7 @@ function updateNavigator() {
       btn.disabled = false;
     }
   });
+  updateAnsweredCount();
 }
 
 function hasAnswer(questionId) {
@@ -216,6 +217,10 @@ function renderQuestion(index) {
 
   document.getElementById('current-q-num').textContent = currentQueueIdx + 1;
   document.getElementById('total-q-num').textContent   = questionQueue.length;
+  const sideCurrent = document.getElementById('sidebar-current-q');
+  const sideTotal = document.getElementById('sidebar-total-q');
+  if (sideCurrent) sideCurrent.textContent = currentQueueIdx + 1;
+  if (sideTotal) sideTotal.textContent = questionQueue.length;
   document.getElementById('progress-bar').style.width = `${((currentQueueIdx + 1) / (questionQueue.length || 1)) * 100}%`;
 
   const card = document.getElementById('question-card');
@@ -693,11 +698,20 @@ function goToQuestion(i) {
 
 function updateAnsweredCount() {
   let count = 0;
+  let skipped = 0;
   questions.forEach(q => {
     if (hasAnswer(q.id)) count++;
+    else if (skippedQuestions.has(q.id)) skipped++;
   });
   const total = document.getElementById('answered-count');
   if (total) total.textContent = count;
+
+  const statAns = document.getElementById('stat-answered-count');
+  const statSkip = document.getElementById('stat-skipped-count');
+  const statRem = document.getElementById('stat-remaining-count');
+  if (statAns) statAns.textContent = count;
+  if (statSkip) statSkip.textContent = skipped;
+  if (statRem) statRem.textContent = Math.max(0, questions.length - count - skipped);
 }
 
 // ---------------------------------------------------------------------------

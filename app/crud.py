@@ -24,6 +24,10 @@ def get_all_teachers(db: Session) -> List[models.Teacher]:
     return db.query(models.Teacher).order_by(models.Teacher.id.asc()).all()
 
 
+def count_teachers(db: Session) -> int:
+    return db.query(models.Teacher).count()
+
+
 def create_teacher(
     db: Session,
     username: str,

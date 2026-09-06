@@ -20,9 +20,104 @@
     user-select: text;
   }
 
-  /* Visual Navigator button states */
-  .q-nav-btn {
-    width: 36px !important;
+  /* ------------------------------------------------------------- */
+  /* HD Ready & Desktop 2-Column Layout                            */
+  /* ------------------------------------------------------------- */
+  .test-layout-container {
+    display: flex;
+    max-width: 1366px;
+    margin: 0 auto;
+    padding: 0.85rem 1.25rem 5.5rem 1.25rem;
+    gap: 1.25rem;
+    align-items: flex-start;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .test-main-column {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+
+  .test-sidebar-column {
+    width: 320px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0.85rem;
+    z-index: 20;
+  }
+
+  .test-body {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .question-card {
+    margin-bottom: 1rem !important;
+  }
+
+  /* Sidebar styling */
+  .test-sidebar-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .test-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .test-sidebar-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .test-sidebar-badge {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+  }
+
+  /* Sidebar Question navigator grid */
+  .test-sidebar-card .q-nav {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)) !important;
+    gap: 0.45rem !important;
+    padding: 0.25rem 0 !important;
+    background: transparent !important;
+    border-bottom: none !important;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .test-sidebar-card .q-nav::-webkit-scrollbar {
+    width: 5px;
+  }
+  .test-sidebar-card .q-nav::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border-radius: 4px;
+  }
+
+  .test-sidebar-card .q-nav-btn {
+    width: 100% !important;
     height: 36px !important;
     border-radius: 6px !important;
     font-size: 0.85rem !important;
@@ -34,6 +129,7 @@
     align-items: center !important;
     justify-content: center !important;
     transition: all 0.2s ease !important;
+    margin: 0 !important;
     
     /* Default (Unanswered) state */
     background: var(--border) !important;
@@ -41,7 +137,7 @@
     color: var(--text-muted) !important;
   }
 
-  /* Remove the dot overlay since we are using solid background colors */
+  /* Remove dot overlay */
   .q-nav-btn::after {
     display: none !important;
   }
@@ -90,6 +186,122 @@
     background: #e5e7eb !important;
     border-color: #d1d5db !important;
     color: #6b7280 !important;
+  }
+
+  /* Sidebar Legend */
+  .test-sidebar-card .q-nav-legend {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.45rem 0.5rem !important;
+    padding: 0.65rem 0 0 0 !important;
+    border-top: 1px solid var(--border-light) !important;
+    font-size: 0.74rem !important;
+  }
+
+  .test-sidebar-card .q-nav-legend-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
+    color: var(--text-muted) !important;
+    white-space: nowrap !important;
+  }
+
+  .sidebar-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.75rem;
+    margin-top: 0.25rem;
+  }
+
+  .sidebar-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .sidebar-stat-label {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .sidebar-stat-val {
+    font-weight: 700;
+    font-size: 0.88rem;
+  }
+  .val--success { color: var(--success); }
+  .val--warning { color: var(--warning); }
+  .val--muted { color: var(--text-muted); }
+
+  /* ------------------------------------------------------------- */
+  /* HD Ready optimization (1366x768 / 1280x720 / compact height)  */
+  /* ------------------------------------------------------------- */
+  @media (max-width: 1440px) or (max-height: 800px) {
+    .test-topbar {
+      padding: 0.4rem 1.25rem !important;
+      min-height: auto !important;
+    }
+    .test-topbar-title {
+      font-size: 0.95rem !important;
+    }
+    .timer-box {
+      padding: 0.25rem 0.75rem !important;
+      font-size: 0.88rem !important;
+    }
+    .question-card {
+      padding: 1.25rem 1.65rem !important;
+    }
+    .question-meta {
+      margin-bottom: 0.75rem !important;
+    }
+    .question-text {
+      font-size: 1.05rem !important;
+      margin-bottom: 1rem !important;
+      line-height: 1.45 !important;
+    }
+    .options-list-student {
+      gap: 0.5rem !important;
+    }
+    .option-item {
+      padding: 0.65rem 0.95rem !important;
+      gap: 0.75rem !important;
+    }
+    .option-label {
+      font-size: 0.92rem !important;
+    }
+    .test-nav-buttons {
+      padding: 0.6rem 1rem !important;
+    }
+    .test-nav-buttons button {
+      padding: 0.55rem 1.75rem !important;
+      font-size: 0.92rem !important;
+    }
+  }
+
+  /* ------------------------------------------------------------- */
+  /* Responsive breakpoint: Tablets & Mobile (< 992px)            */
+  /* ------------------------------------------------------------- */
+  @media (max-width: 991px) {
+    .test-layout-container {
+      flex-direction: column;
+      padding: 0.5rem 0.75rem 5.5rem 0.75rem;
+      gap: 0.75rem;
+    }
+    .test-sidebar-column {
+      width: 100%;
+      position: static;
+      order: 2;
+    }
+    .test-sidebar-card .q-nav {
+      max-height: 180px;
+    }
+    .test-sidebar-card .q-nav-legend {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
   }
 </style>
 <!-- Test header bar -->
@@ -149,40 +361,84 @@
   <div class="progress-bar" id="progress-bar" style="width:0%"></div>
 </div>
 
-<!-- Question navigator -->
-<div class="q-nav" id="q-nav"></div>
-<div class="q-nav-legend">
-  <span class="q-nav-legend-item">
-    <span class="q-nav-legend-dot q-nav-legend-dot--answered"></span> Відповідь збережена
-  </span>
-  <span class="q-nav-legend-item">
-    <span class="q-nav-legend-dot q-nav-legend-dot--skipped"></span> Пропущено
-  </span>
-  <span class="q-nav-legend-item">
-    <span class="q-nav-legend-dot q-nav-legend-dot--active"></span> Поточне
-  </span>
-  <span class="q-nav-legend-item">
-    <span class="q-nav-legend-dot q-nav-legend-dot--default"></span> Без відповіді
-  </span>
+<!-- Main 2-column layout container for HD Ready and Desktop -->
+<div class="test-layout-container">
+  <!-- Left Column: Question Area -->
+  <div class="test-main-column">
+    <div class="test-body">
+      <div class="question-card" id="question-card">
+        <div class="question-loading">Завантаження...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Sidebar with Question Navigator & Status -->
+  <aside class="test-sidebar-column">
+    <div class="test-sidebar-card">
+      <div class="test-sidebar-header">
+        <div class="test-sidebar-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Питання тесту</span>
+        </div>
+        <div class="test-sidebar-badge" id="sidebar-q-counter">
+          <span id="sidebar-current-q">1</span> / <span id="sidebar-total-q">0</span>
+        </div>
+      </div>
+
+      <!-- Question navigator grid -->
+      <div class="q-nav" id="q-nav"></div>
+
+      <!-- Navigator legend -->
+      <div class="q-nav-legend">
+        <span class="q-nav-legend-item">
+          <span class="q-nav-legend-dot q-nav-legend-dot--answered"></span> Відповідь
+        </span>
+        <span class="q-nav-legend-item">
+          <span class="q-nav-legend-dot q-nav-legend-dot--skipped"></span> Пропущено
+        </span>
+        <span class="q-nav-legend-item">
+          <span class="q-nav-legend-dot q-nav-legend-dot--active"></span> Поточне
+        </span>
+        <span class="q-nav-legend-item">
+          <span class="q-nav-legend-dot q-nav-legend-dot--default"></span> Без відповіді
+        </span>
+      </div>
+
+      <!-- Status stats -->
+      <div class="sidebar-stats" id="sidebar-stats">
+        <div class="sidebar-stat-item">
+          <span class="sidebar-stat-label">Збережено</span>
+          <strong id="stat-answered-count" class="sidebar-stat-val val--success">0</strong>
+        </div>
+        <div class="sidebar-stat-item">
+          <span class="sidebar-stat-label">Пропущено</span>
+          <strong id="stat-skipped-count" class="sidebar-stat-val val--warning">0</strong>
+        </div>
+        <div class="sidebar-stat-item">
+          <span class="sidebar-stat-label">Залишилось</span>
+          <strong id="stat-remaining-count" class="sidebar-stat-val val--muted">0</strong>
+        </div>
+      </div>
+    </div>
+  </aside>
 </div>
 
-<!-- Question area -->
-<div class="test-body">
-  <div class="question-card" id="question-card">
-    <div class="question-loading">Завантаження...</div>
+<!-- Question action buttons (fixed bottom bar) -->
+<div class="test-nav-buttons">
+  <button class="btn btn-secondary" id="btn-skip" onclick="skipQuestion()">
+    ↷ Пропустити
+  </button>
+  <div id="last-question-text" style="display:none; color:var(--text-muted); font-size:0.85rem; max-width: 250px; text-align:center; align-self:center;">
+    Це останнє завдання. Ви можете завершити тестування кнопкою зверху.
   </div>
-
-  <div class="test-nav-buttons">
-    <button class="btn btn-secondary" id="btn-skip" onclick="skipQuestion()">
-      ↷ Пропустити
-    </button>
-    <div id="last-question-text" style="display:none; color:var(--text-muted); font-size:0.85rem; max-width: 250px; text-align:center; align-self:center;">
-      Це останнє завдання. Ви можете завершити тестування кнопкою зверху.
-    </div>
-    <button class="btn btn-primary" id="btn-next" onclick="nextQuestion()">
-      Відповісти →
-    </button>
-  </div>
+  <button class="btn btn-primary" id="btn-next" onclick="nextQuestion()">
+    Відповісти →
+  </button>
 </div>
 
 <!-- Finish confirm modal -->

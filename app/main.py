@@ -9,7 +9,7 @@ from app.config import settings
 from app.database import create_tables, SessionLocal
 from app import crud
 from app.templating import templates
-from app.routes import api, student, teacher, websocket
+from app.routes import api, setup, student, teacher, websocket
 
 
 # ---------------------------------------------------------------------------
@@ -48,34 +48,6 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
-    # Seed: перший вчитель
-    db = SessionLocal()
-    try:
-        existing = crud.get_teacher_by_username(db, settings.DEFAULT_TEACHER_USERNAME)
-        if not existing:
-            crud.create_teacher(
-                db,
-                username=settings.DEFAULT_TEACHER_USERNAME,
-                full_name=settings.DEFAULT_TEACHER_NAME,
-                password=settings.DEFAULT_TEACHER_PASSWORD,
-            )
-            print(f"[Seed] Створено вчителя: {settings.DEFAULT_TEACHER_USERNAME}")
-
-        # Seed: зразковий тест із sample_data/sample_test.json
-        sample_path = Path(settings.SAMPLE_DATA_DIR) / "sample_test.json"
-        if sample_path.exists():
-            teacher_obj = crud.get_teacher_by_username(db, settings.DEFAULT_TEACHER_USERNAME)
-            existing_tests = crud.get_tests_by_teacher(db, teacher_obj.id)
-            if not existing_tests:
-                from app.services.import_export_service import import_test_from_json
-                try:
-                    import_test_from_json(db, teacher_obj.id, sample_path.read_text(encoding="utf-8"))
-                    print("[Seed] Завантажено зразковий тест")
-                except Exception as exc:
-                    print(f"[Seed] Помилка завантаження зразкового тесту: {exc}")
-    finally:
-        db.close()
-
     yield
 
 
@@ -111,6 +83,7 @@ async def favicon():
     return FileResponse(Path(settings.STATIC_DIR) / "favicon.ico")
 
 # Routers
+app.include_router(setup.router)
 app.include_router(teacher.router)
 app.include_router(student.router)
 app.include_router(api.router)
@@ -120,6 +93,14 @@ app.include_router(websocket.router)
 # ---------------------------------------------------------------------------
 # Global error handlers
 # ---------------------------------------------------------------------------
+
+@app.exception_handler(401)
+async def unauthorized_handler(request: Request, exc):
+    from fastapi.responses import JSONResponse, RedirectResponse
+    if "text/html" in request.headers.get("accept", ""):
+        return RedirectResponse(url="/teacher/login", status_code=303)
+    return JSONResponse(status_code=401, content={"detail": getattr(exc, "detail", "Необхідна авторизація")})
+
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):

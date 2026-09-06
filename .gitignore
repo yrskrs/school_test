@@ -11,7 +11,11 @@ ENV/
 
 # Testing & Logs
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 *.log
+logs/*
+!logs/.gitkeep
 
 # Database
 *.sqlite3

@@ -47,7 +47,9 @@ router = APIRouter(prefix="/teacher")
 # ---------------------------------------------------------------------------
 
 @router.get("/login", response_class=HTMLResponse)
-async def teacher_login_page(request: Request):
+async def teacher_login_page(request: Request, db: Session = Depends(get_db)):
+    if crud.count_teachers(db) == 0:
+        return RedirectResponse(url="/setup", status_code=303)
     return templates.TemplateResponse(
         request,
         "teacher_login.html", {})
@@ -857,6 +859,17 @@ async def monitor_session(
         raise HTTPException(status_code=404, detail="Сесію не знайдено")
 
     attempts = crud.get_attempts_by_session(db, session_id)
+    from collections import Counter
+    name_counts = Counter(a.student_name.lower() for a in attempts)
+    name_seen = {}
+    for a in sorted(attempts, key=lambda x: x.id):
+        low_name = a.student_name.lower()
+        if name_counts[low_name] > 1:
+            name_seen[low_name] = name_seen.get(low_name, 0) + 1
+            a.session_attempt_number = name_seen[low_name]
+        else:
+            a.session_attempt_number = None
+
     return templates.TemplateResponse(
         request,
         "monitor_session.html", {
@@ -1238,9 +1251,14 @@ async def results_list(
     class_name: Optional[str] = None,
     student_name: Optional[str] = None,
     tab: str = "active",
+    view_mode: str = "grouped",
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
+    from datetime import datetime
+    import math
+    from collections import OrderedDict
+
     is_archived = (tab == "archive")
     all_attempts = crud.get_all_finished_attempts(db, teacher.id, is_archived=is_archived)
     sessions = crud.get_all_sessions(db, teacher.id)
@@ -1258,30 +1276,126 @@ async def results_list(
     if session_id and session_id.isdigit():
         attempts = [a for a in attempts if a.session_id == int(session_id)]
     if class_name:
-        attempts = [a for a in attempts if a.session.test.class_name == class_name]
+        attempts = [a for a in attempts if a.session and a.session.test and a.session.test.class_name == class_name]
     if student_name and student_name.strip():
         s_name_lower = student_name.strip().lower()
         attempts = [a for a in attempts if s_name_lower in a.student_name.lower()]
 
-    # Пагінація
-    import math
-    page_size = 20
     total_attempts = len(attempts)
-    total_pages = max(1, math.ceil(total_attempts / page_size))
-    
-    if page < 1:
-        page = 1
-    elif page > total_pages:
-        page = total_pages
 
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    paginated_attempts = attempts[start_idx:end_idx]
+    # Групування за учнем та тестом
+    groups_dict = OrderedDict()
+    for a in attempts:
+        if not a.session or not a.session.test:
+            continue
+        key = (a.student_name.strip().lower(), a.session.test_id)
+        if key not in groups_dict:
+            groups_dict[key] = {
+                "key": f"grp_{len(groups_dict) + 1}",
+                "student_name": a.student_name.strip(),
+                "test": a.session.test,
+                "test_id": a.session.test_id,
+                "class_name": a.session.test.class_name or "",
+                "attempts": [],
+            }
+        groups_dict[key]["attempts"].append(a)
+
+    grouped_results = []
+    for g in groups_dict.values():
+        # Сортуємо спроби хронологічно за часом початку / id (перша спроба -> наступні)
+        att_list = sorted(g["attempts"], key=lambda x: (x.started_at or datetime.min, x.id))
+        g["attempts"] = att_list
+        g["attempts_count"] = len(att_list)
+        g["has_multiple"] = len(att_list) > 1
+        g["first_attempt"] = att_list[0]
+
+        # Остання спроба за часом
+        latest_att = sorted(att_list, key=lambda x: (x.finished_at or x.started_at or datetime.min, x.id))[-1]
+        g["latest_attempt"] = latest_att
+
+        # Найкраща спроба за оцінкою / відсотком
+        best_att = max(att_list, key=lambda x: (
+            (x.score / x.max_score) if (x.score is not None and x.max_score and x.max_score > 0) else -1,
+            x.id
+        ))
+        g["best_attempt"] = best_att
+
+        # Розрахунок відсотків
+        if best_att.score is not None and best_att.max_score and best_att.max_score > 0:
+            g["best_pct"] = int(round(best_att.score / best_att.max_score * 100))
+        else:
+            g["best_pct"] = 0
+
+        if latest_att.score is not None and latest_att.max_score and latest_att.max_score > 0:
+            g["latest_pct"] = int(round(latest_att.score / latest_att.max_score * 100))
+        else:
+            g["latest_pct"] = 0
+
+        first_att = att_list[0]
+        if first_att.score is not None and first_att.max_score and first_att.max_score > 0:
+            g["first_pct"] = int(round(first_att.score / first_att.max_score * 100))
+        else:
+            g["first_pct"] = 0
+
+        # Позначаємо кожну спробу атрибутами для шаблону
+        max_grade = g["test"].max_grade or 12
+        for idx, att in enumerate(att_list, 1):
+            att.attempt_number = idx
+            att.is_best = (att.id == best_att.id and g["has_multiple"])
+            att.is_latest = (att.id == latest_att.id and g["has_multiple"])
+
+            # Відсоток та оцінка
+            if att.score is not None and att.max_score and att.max_score > 0:
+                att.pct = int(round(att.score / att.max_score * 100))
+                att.grade = str(round((att.score / att.max_score) * max_grade))
+            else:
+                att.pct = 0
+                att.grade = "—"
+
+            # Тривалість
+            if att.started_at and att.finished_at:
+                diff_sec = int((att.finished_at - att.started_at).total_seconds())
+                mins = diff_sec // 60
+                secs = diff_sec % 60
+                att.duration_str = f"{mins} хв {secs} с" if mins > 0 else f"{secs} с"
+            else:
+                att.duration_str = "—"
+
+        grouped_results.append(g)
+
+    # Сортуємо групи: спочатку ті, де остання активність була нещодавно
+    grouped_results.sort(
+        key=lambda g: (g["latest_attempt"].finished_at or g["latest_attempt"].started_at or datetime.min, g["latest_attempt"].id),
+        reverse=True
+    )
+
+    total_groups = len(grouped_results)
+    page_size = 20
+
+    if view_mode == "all":
+        total_items = total_attempts
+        total_pages = max(1, math.ceil(total_items / page_size))
+        page = max(1, min(page, total_pages))
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_attempts = attempts[start_idx:end_idx]
+        paginated_groups = []
+    else:
+        view_mode = "grouped"
+        total_items = total_groups
+        total_pages = max(1, math.ceil(total_items / page_size))
+        page = max(1, min(page, total_pages))
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_groups = grouped_results[start_idx:end_idx]
+        paginated_attempts = []
 
     return templates.TemplateResponse(
         request,
         "results.html", {
         "teacher": teacher,
+        "view_mode": view_mode,
+        "grouped_results": paginated_groups,
         "attempts": paginated_attempts,
         "sessions": sessions,
         "filter_classes": filter_classes,
@@ -1293,6 +1407,7 @@ async def results_list(
         "page": page,
         "total_pages": total_pages,
         "total_attempts": total_attempts,
+        "total_groups": total_groups,
     })
 
 # ---------------------------------------------------------------------------
@@ -1488,6 +1603,39 @@ async def result_detail(
     
     test = attempt.session.test
 
+    # Всі спроби цього учня за цим тестом
+    sibling_attempts = (
+        db.query(models.StudentAttempt)
+        .join(models.TestSession)
+        .filter(
+            models.TestSession.test_id == test.id,
+            models.StudentAttempt.student_name == attempt.student_name,
+            models.StudentAttempt.status.in_([
+                models.AttemptStatus.finished,
+                models.AttemptStatus.timeout,
+                models.AttemptStatus.stopped,
+            ])
+        )
+        .order_by(models.StudentAttempt.started_at.asc(), models.StudentAttempt.id.asc())
+        .all()
+    )
+    if sibling_attempts:
+        best_sib = max(sibling_attempts, key=lambda x: (
+            (x.score / x.max_score) if (x.score is not None and x.max_score and x.max_score > 0) else -1,
+            x.id
+        ))
+        max_g = test.max_grade or 12
+        for idx, s in enumerate(sibling_attempts, 1):
+            s.attempt_number = idx
+            s.is_best = (s.id == best_sib.id and len(sibling_attempts) > 1)
+            s.is_current = (s.id == attempt.id)
+            if s.score is not None and s.max_score and s.max_score > 0:
+                s.pct = int(round(s.score / s.max_score * 100))
+                s.grade = str(round((s.score / s.max_score) * max_g))
+            else:
+                s.pct = 0
+                s.grade = "—"
+
     answers_map = {a.question_id: a for a in answers}
     question_map = {q.id: q.question_text for q in test.questions}
 
@@ -1496,6 +1644,7 @@ async def result_detail(
         "result_detail.html", {
         "teacher": teacher,
         "attempt": attempt,
+        "sibling_attempts": sibling_attempts,
         "test": test,
         "answers": answers,
         "answers_map": answers_map,

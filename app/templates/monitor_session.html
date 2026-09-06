@@ -93,7 +93,12 @@
         {% for attempt in attempts %}
         {% set status_str = attempt.status.value | default(attempt.status) %}
         <tr id="row-{{ attempt.id }}">
-          <td><strong>{{ attempt.student_name }}</strong></td>
+          <td>
+            <strong>{{ attempt.student_name }}</strong>
+            {% if attempt.session_attempt_number %}
+              <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #{{ attempt.session_attempt_number }}</span>
+            {% endif %}
+          </td>
           <td>
             <span class="badge badge-status badge-status--{{ status_str }}" id="status-{{ attempt.id }}">
               {% if status_str == 'not_started' %}Не розпочав

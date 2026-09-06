@@ -7,8 +7,8 @@ services:
     ports:
       - "${APP_PORT:-8000}:8000"
     volumes:
-      - ./docker-data/app_data:/app/data
-      - ./docker-data/app_uploads:/app/app/static/tests
+      - app_data:/app/data
+      - app_uploads:/app/app/static/tests
     depends_on:
       postgres:
         condition: service_healthy
@@ -25,7 +25,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
-      - ./docker-data/postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -36,7 +36,10 @@ services:
     networks:
       - schooltest_net
 
-
+volumes:
+  app_data:
+  app_uploads:
+  postgres_data:
 
 networks:
   schooltest_net:

@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Перший запуск — Створення адміністратора{% endblock %}
+{% block navbar %}{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+
+{% block content %}
+<div class="auth-card setup-card" style="max-width: 540px; margin: 2rem auto;">
+  <div class="auth-logo" style="margin-bottom: 0.75rem;">
+    <div style="width: 64px; height: 64px; margin: 0 auto; border-radius: 16px; background: linear-gradient(135deg, var(--primary), #818cf8); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(79, 70, 229, 0.25);">
+      <span style="font-size: 2rem;">🚀</span>
+    </div>
+  </div>
+  
+  <div style="text-align: center; margin-bottom: 1.25rem;">
+    <span style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; background: rgba(79, 70, 229, 0.12); color: var(--primary); margin-bottom: 0.5rem; letter-spacing: 0.05em; text-transform: uppercase;">
+      Перший запуск системи
+    </span>
+    <h1 class="auth-title" style="font-size: 1.7rem; margin-bottom: 0.35rem;">Створення адміністратора</h1>
+    <p class="auth-subtitle" style="font-size: 0.9rem; margin-bottom: 0;">
+      У системі ще немає жодного користувача. Будь ласка, створіть головний обліковий запис адміністратора.
+    </p>
+  </div>
+
+  {% if error %}
+  <div style="padding: 0.85rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.875rem; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; display: flex; align-items: center; gap: 0.6rem;">
+    <span style="font-size: 1.1rem;">⚠️</span>
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/setup" class="auth-form" style="display: flex; flex-direction: column; gap: 1rem;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label for="full_name" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; display: block;">ПІБ адміністратора *</label>
+      <input
+        type="text"
+        id="full_name"
+        name="full_name"
+        placeholder="напр. Адміністратор або Іваненко І. І."
+        value="{{ full_name or 'Адміністратор' }}"
+        required
+        autofocus
+      />
+    </div>
+
+    <div class="form-group" style="margin-bottom: 0;">
+      <label for="username" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; display: block;">Логін для входу *</label>
+      <input
+        type="text"
+        id="username"
+        name="username"
+        placeholder="напр. admin"
+        value="{{ username or 'admin' }}"
+        autocomplete="username"
+        required
+      />
+      <small style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.25rem;">Латинські літери, цифри, знак дефісу чи підкреслення (мін. 3 символи)</small>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="password" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; display: block;">Пароль *</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="••••••••"
+          autocomplete="new-password"
+          required
+        />
+        <small style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.25rem;">Щонайменше 6 символів</small>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="password_confirm" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; display: block;">Підтвердження *</label>
+        <input
+          type="password"
+          id="password_confirm"
+          name="password_confirm"
+          placeholder="••••••••"
+          autocomplete="new-password"
+          required
+        />
+        <small style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.25rem;">Повторіть пароль</small>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 1rem;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="subject" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; display: block;">Предмет (опціонально)</label>
+        <input
+          type="text"
+          id="subject"
+          name="subject"
+          list="subjects_list"
+          placeholder="напр. Інформатика"
+          value="{{ subject or '' }}"
+        />
+        <datalist id="subjects_list">
+          <option value="Інформатика">
+          <option value="Математика">
+          <option value="Фізика">
+          <option value="Хімія">
+          <option value="Біологія">
+          <option value="Історія України">
+          <option value="Українська мова">
+          <option value="Англійська мова">
+          <option value="Географія">
+        </datalist>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label for="classes" style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; display: block;">Класи (опціонально)</label>
+        <input
+          type="text"
+          id="classes"
+          name="classes"
+          placeholder="напр. 5-11"
+          value="{{ classes or '' }}"
+        />
+      </div>
+    </div>
+
+    <div style="margin-top: 0.5rem; padding: 0.85rem; background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+      <label style="display: flex; align-items: flex-start; gap: 0.65rem; cursor: pointer; user-select: none;">
+        <input
+          type="checkbox"
+          name="load_sample_test"
+          id="load_sample_test"
+          value="true"
+          {% if load_sample_test %}checked{% endif %}
+          style="margin-top: 0.2rem; cursor: pointer; width: 16px; height: 16px; accent-color: var(--primary);"
+        />
+        <span style="font-size: 0.85rem; line-height: 1.4;">
+          <strong>Завантажити зразковий тест</strong><br />
+          <span style="color: var(--text-muted); font-size: 0.78rem;">
+            Автоматично імпортувати демонстраційний тест з астрономії (із 8 типами питань та зображеннями) для ознайомлення з можливостями платформи.
+          </span>
+        </span>
+      </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-full" style="padding: 0.85rem; font-size: 1rem; font-weight: 600; margin-top: 0.5rem; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);">
+      🚀 Створити адміністратора та увійти
+    </button>
+  </form>
+
+  <div class="auth-divider" style="margin: 1.25rem 0;"></div>
+  <p class="auth-hint" style="font-size: 0.78rem; line-height: 1.4;">
+    🔒 <strong>Безпека:</strong> Після створення цього облікового запису майстер налаштування буде закрито. Надалі додавати нових вчителів можна буде через панель керування або додаток <code>run_register.py</code>.
+  </p>
+</div>
+
+<style>
+@media (max-width: 640px) {
+  .setup-card {
+    padding: 1.5rem 1.25rem !important;
+  }
+  .setup-card div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+</style>
+{% endblock %}

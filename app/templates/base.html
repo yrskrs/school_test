@@ -3,22 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <script>
+    // Critical inline theme initialization before any external stylesheets load (eliminates white flash/FOUC)
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('theme');
+        if (!savedTheme) {
+          savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.documentElement.style.backgroundColor = (savedTheme === 'light') ? '#f8fafc' : '#0f1117';
+        document.documentElement.style.color = (savedTheme === 'light') ? '#0f172a' : '#e8eaf6';
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    /* Critical base colors to ensure zero flash on page transition */
+    html {
+      background-color: #0f1117;
+      color: #e8eaf6;
+    }
+    html[data-theme="light"] {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    body {
+      background-color: inherit;
+      color: inherit;
+    }
+  </style>
   <meta name="description" content="ШколярТест — Сучасна локальна система шкільного тестування" />
   <title>{% block title %}Головна{% endblock %} — ШколярТест</title>
-  <link rel="stylesheet" href="/static/css/styles.css?v=11" />
+  <link rel="stylesheet" href="/static/css/styles.css?v=13" />
   <link rel="icon" type="image/png" href="/static/favicon.png" />
   <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico" />
   {% block head %}{% endblock %}
   <script>
-    // Запобігання блиманню теми при завантаженні (FOUC) та надійне перемикання з першого кліку
-    (function() {
-      let savedTheme = localStorage.getItem('theme');
-      if (!savedTheme) {
-        savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
-      }
-      document.documentElement.setAttribute('data-theme', savedTheme);
-      document.documentElement.style.backgroundColor = savedTheme === 'light' ? '#f8fafc' : '#0f1117';
-    })();
 
     function updateThemeIcons() {
       const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
@@ -829,7 +850,6 @@
           const targetUrl = new URL(href, window.location.origin);
           if (targetUrl.origin === window.location.origin && targetUrl.pathname !== window.location.pathname) {
             window.TopLoader.start();
-            document.body.classList.add('page-is-leaving');
           }
         } catch (err) {}
       });
@@ -842,12 +862,10 @@
           return;
         }
         window.TopLoader.start();
-        document.body.classList.add('page-is-leaving');
       });
 
       // Скидання стану відходу при навігації назад/вперед (bfcache)
       window.addEventListener('pageshow', function(event) {
-        document.body.classList.remove('page-is-leaving');
         window.TopLoader.done();
       });
     })();

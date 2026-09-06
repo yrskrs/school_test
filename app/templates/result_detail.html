@@ -17,6 +17,37 @@
   </div>
 </div>
 
+{% if sibling_attempts and sibling_attempts | length > 1 %}
+<div class="card" style="margin-bottom: 1.5rem; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.25); padding: 0.85rem 1.25rem;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 1.2rem;">🔄</span>
+      <div>
+        <strong style="font-size: 0.95rem; color: var(--text-color);">Історія спроб:</strong>
+        <span style="font-size: 0.85rem; color: var(--text-muted); margin-left: 0.3rem;">Учень проходив цей тест {{ sibling_attempts | length }} раз(и). Перемикайтеся між спробами:</span>
+      </div>
+    </div>
+    <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center;">
+      {% for s in sibling_attempts %}
+        {% if s.is_current %}
+          <span class="btn btn-sm btn-primary" style="pointer-events: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 6px;">
+            <span>👉 Спроба #{{ s.attempt_number }}</span>
+            <span style="background: rgba(255,255,255,0.25); padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.75rem;">{{ s.grade }} б.</span>
+            {% if s.is_best %}<span>🏆</span>{% endif %}
+          </span>
+        {% else %}
+          <a href="/teacher/results/{{ s.id }}" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 6px;" title="{{ s.started_at.strftime('%d.%m.%Y %H:%M') if s.started_at else '' }}">
+            <span>Спроба #{{ s.attempt_number }}</span>
+            <span style="color: var(--text-muted); font-size: 0.8rem;">({{ s.grade }} б.)</span>
+            {% if s.is_best %}<span>🏆</span>{% endif %}
+          </a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Summary -->
 <div class="stats-grid">
   <div class="stat-card {% if attempt.score is not none and attempt.max_score and (attempt.score / attempt.max_score * 100) >= 70 %}stat-card--green{% else %}stat-card--blue{% endif %}">

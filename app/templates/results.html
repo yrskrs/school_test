@@ -3,7 +3,16 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Результати тестування</h1>
+  <div>
+    <h1>Результати тестування</h1>
+    <p class="page-subtitle" style="color: var(--text-muted); margin-top: 0.25rem; font-size: 0.95rem;">
+      {% if view_mode == 'grouped' %}
+        Згрупований перегляд результатів учнів за тестами
+      {% else %}
+        Повний список усіх окремих спроб проходження
+      {% endif %}
+    </p>
+  </div>
   <div style="display:flex;gap:0.75rem;align-items:center">
     <a href="/teacher/journal" class="btn btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
@@ -16,10 +25,41 @@
   </div>
 </div>
 
-<!-- Tabs -->
-<div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
-  <a href="/teacher/results?tab=active" class="btn {% if tab != 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні результати</a>
-  <a href="/teacher/results?tab=archive" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
+<!-- Tabs & View Mode Switcher -->
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
+  <div class="tabs-container" style="display: flex; gap: 0.5rem; margin: 0;">
+    <a href="/teacher/results?tab=active&view_mode={{ view_mode }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn {% if tab != 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні результати</a>
+    <a href="/teacher/results?tab=archive&view_mode={{ view_mode }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+    <!-- Перемикач: Згруповано / Всі спроби -->
+    <div style="display: inline-flex; background: rgba(125, 125, 125, 0.1); border: 1px solid var(--border-light); border-radius: 8px; padding: 3px; gap: 3px;">
+      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}"
+         class="btn btn-sm {% if view_mode == 'grouped' %}btn-primary{% else %}btn-secondary{% endif %}" 
+         style="border: none; margin: 0; font-size: 0.85rem; padding: 0.4rem 0.85rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem;"
+         title="Групувати проходження одного учня для компактного та зручного перегляду">
+        👥 Згруповано ({{ total_groups }})
+      </a>
+      <a href="/teacher/results?tab={{ tab }}&view_mode=all&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}"
+         class="btn btn-sm {% if view_mode == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" 
+         style="border: none; margin: 0; font-size: 0.85rem; padding: 0.4rem 0.85rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem;"
+         title="Показати кожну спробу окремим рядком списку">
+        📋 Всі спроби ({{ total_attempts }})
+      </a>
+    </div>
+
+    {% if view_mode == 'grouped' and grouped_results %}
+    <div style="display: flex; gap: 0.35rem;">
+      <button type="button" class="btn btn-sm btn-secondary" onclick="expandAllGroups()" title="Розгорнути історію спроб для всіх учнів у списку" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg> Розгорнути всі
+      </button>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="collapseAllGroups()" title="Згорнути всі спроби" style="display: inline-flex; align-items: center; gap: 0.3rem;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"></path></svg> Згорнути всі
+      </button>
+    </div>
+    {% endif %}
+  </div>
 </div>
 
 {% if tab != 'archive' %}
@@ -46,6 +86,9 @@
 <!-- Filter -->
 <div class="card filter-card">
   <form method="get" action="/teacher/results" class="filter-form">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <input type="hidden" name="view_mode" value="{{ view_mode }}">
+    
     <div class="form-group" style="margin:0;min-width:220px">
       <label for="session_filter">Фільтр по сесії</label>
       <select id="session_filter" name="session_id" onchange="this.form.submit()">
@@ -82,7 +125,7 @@
         </datalist>
         <button type="submit" class="btn btn-primary" style="padding: 0 1.2rem; height: 38px;">Шукати</button>
         {% if selected_session_id or selected_class_name or selected_student_name %}
-        <a href="/teacher/results" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; height: 38px; padding: 0 1rem;" title="Скинути фільтри">
+        <a href="/teacher/results?tab={{ tab }}&view_mode={{ view_mode }}" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; height: 38px; padding: 0 1rem;" title="Скинути фільтри">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
         </a>
         {% endif %}
@@ -91,38 +134,66 @@
   </form>
 </div>
 
-{% if attempts %}
-<div class="table-wrapper">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Учень</th>
-        <th class="mobile-hidden">Клас</th>
-        <th>Тест</th>
-        <th style="text-align: center;">Оцінка</th>
-        <th>%</th>
-        <th class="mobile-hidden">Статус</th>
-        <th class="mobile-hidden">Початок</th>
-        <th class="mobile-hidden">Завершення</th>
-        <th>Дії</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for attempt in attempts %}
-      <tr>
-        <td><strong>{{ attempt.student_name }}</strong></td>
-        <td class="mobile-hidden">{{ attempt.session.test.class_name or '—' }}</td>
-        <td>{{ attempt.session.test.title }}</td>
-        <td style="text-align: center;">
-            {% if attempt.score is not none %}
-              <span class="badge" style="background: var(--primary); color: white; font-size: 1.1rem; padding: 0.4rem 0.8rem; font-weight: bold;">
-                {{ attempt | scale_grade }}
-              </span>
-            {% else %}—{% endif %}
-        </td>
-        <td>
-          {% if attempt.score is not none and attempt.max_score %}
-            {% set pct = (attempt.score / attempt.max_score * 100) | round(0) | int %}
+<!-- ======================================================== -->
+<!-- 1. ЗГРУПОВАНИЙ ВИГЛЯД (DEFAULT)                          -->
+<!-- ======================================================== -->
+{% if view_mode == 'grouped' %}
+  {% if grouped_results %}
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Учень</th>
+          <th class="mobile-hidden">Клас</th>
+          <th>Тест</th>
+          <th style="text-align: center;">Оцінка</th>
+          <th>% (Макс)</th>
+          <th>Спроби та динаміка</th>
+          <th class="mobile-hidden">Останнє проходження</th>
+          <th style="text-align: right;">Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in grouped_results %}
+        <tr id="row-{{ group.key }}" class="group-master-row" style="cursor: pointer;" onclick="if(event.target.closest('a, button, form, input')) return; toggleGroupRow('{{ group.key }}');">
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+              <strong>{{ group.student_name }}</strong>
+              {% if group.has_multiple %}
+                <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 9999px; border: 1px solid rgba(59, 130, 246, 0.3);" title="Учень проходив цей тест {{ group.attempts_count }} разів">
+                  {{ group.attempts_count }} спроби
+                </span>
+              {% else %}
+                <span class="badge" style="background: rgba(125, 125, 125, 0.12); color: var(--text-muted); font-size: 0.72rem; padding: 0.15rem 0.45rem; border-radius: 9999px;">
+                  1 спроба
+                </span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="mobile-hidden">{{ group.class_name or '—' }}</td>
+          <td>
+            <div style="font-weight: 500;">{{ group.test.title }}</div>
+          </td>
+          <td style="text-align: center;">
+            {% if group.has_multiple %}
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                <span class="badge" title="Найкраща оцінка з усіх спроб" style="background: #10b981; color: white; font-size: 1.15rem; padding: 0.35rem 0.75rem; font-weight: bold; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                  {{ group.best_attempt | scale_grade }}
+                </span>
+                <span style="font-size: 0.73rem; color: var(--text-muted); white-space: nowrap;">
+                  Краща: <b>{{ group.best_attempt | scale_grade }}</b> &bull; Ост.: <b>{{ group.latest_attempt | scale_grade }}</b>
+                </span>
+              </div>
+            {% else %}
+              <div style="display: flex; justify-content: center;">
+                <span class="badge" style="background: var(--primary); color: white; font-size: 1.15rem; padding: 0.35rem 0.75rem; font-weight: bold; border-radius: 6px;">
+                  {{ group.latest_attempt | scale_grade }}
+                </span>
+              </div>
+            {% endif %}
+          </td>
+          <td>
+            {% set pct = group.best_pct %}
             <span class="pct-badge
               {% if pct >= 90 %}pct-excellent
               {% elif pct >= 70 %}pct-good
@@ -130,87 +201,401 @@
               {% else %}pct-poor{% endif %}">
               {{ pct }}%
             </span>
-          {% else %}—{% endif %}
-        </td>
-        <td class="mobile-hidden">
-          <span class="badge badge-status badge-status--{{ attempt.status.value }}">
-            {% if attempt.status.value == 'finished' %}Завершено
-            {% elif attempt.status.value == 'timeout' %}Час вийшов
-            {% elif attempt.status.value == 'in_progress' %}В процесі
-            {% else %}Не розпочато{% endif %}
-          </span>
-        </td>
-        <td class="mobile-hidden">{{ attempt.started_at.strftime('%d.%m %H:%M') if attempt.started_at else '—' }}</td>
-        <td class="mobile-hidden">{{ attempt.finished_at.strftime('%d.%m %H:%M') if attempt.finished_at else '—' }}</td>
-        <td>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
-            {% if not attempt.is_archived %}
-            <form method="post" action="/teacher/results/{{ attempt.id }}/archive" style="margin:0">
-              <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати">🗃</button>
-            </form>
-            {% else %}
-            <form method="post" action="/teacher/results/{{ attempt.id }}/unarchive" style="margin:0">
-              <button type="submit" class="btn btn-sm btn-primary">Відновити</button>
-            </form>
+            {% if group.has_multiple %}
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap;">
+                {% if group.first_pct != group.latest_pct %}
+                  {{ group.first_pct }}% → {{ group.latest_pct }}%
+                {% else %}
+                  Ост: {{ group.latest_pct }}%
+                {% endif %}
+              </div>
             {% endif %}
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+          </td>
+          <td>
+            {% if group.has_multiple %}
+              <!-- Інтерактивні чіпи спроб учня -->
+              <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
+                {% for a in group.attempts %}
+                  <a href="/teacher/results/{{ a.id }}" 
+                     title="Спроба #{{ a.attempt_number }}: {{ a.grade }} б. ({{ a.pct }}%) — {{ a.started_at.strftime('%d.%m %H:%M') if a.started_at else '' }}"
+                     onclick="event.stopPropagation();"
+                     class="attempt-mini-chip"
+                     style="text-decoration: none; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid {% if a.is_best %}#10b981{% else %}var(--border-light){% endif %}; background: {% if a.is_best %}rgba(16, 185, 129, 0.12){% else %}rgba(125, 125, 125, 0.06){% endif %}; color: var(--text-color); display: inline-flex; align-items: center; gap: 3px; transition: transform 0.15s ease;">
+                    <span style="color: var(--text-muted);">#{{ a.attempt_number }}:</span>
+                    <strong style="{% if a.is_best %}color: #10b981;{% endif %}">{{ a.grade }} б.</strong>
+                    {% if a.is_best %}<span>⭐</span>{% endif %}
+                  </a>
+                {% endfor %}
+              </div>
+            {% else %}
+              <span class="badge badge-status badge-status--{{ group.latest_attempt.status.value }}">
+                {% if group.latest_attempt.status.value == 'finished' %}Завершено
+                {% elif group.latest_attempt.status.value == 'timeout' %}Час вийшов
+                {% elif group.latest_attempt.status.value == 'in_progress' %}В процесі
+                {% else %}Не розпочато{% endif %}
+              </span>
+            {% endif %}
+          </td>
+          <td class="mobile-hidden">
+            {{ group.latest_attempt.finished_at.strftime('%d.%m %H:%M') if group.latest_attempt.finished_at else '—' }}
+          </td>
+          <td style="text-align: right;">
+            <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+              {% if group.has_multiple %}
+                <button type="button" class="btn btn-sm btn-primary toggle-btn" 
+                        onclick="event.stopPropagation(); toggleGroupRow('{{ group.key }}');" 
+                        id="btn-{{ group.key }}" 
+                        style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; padding: 0.35rem 0.65rem;">
+                  <span id="txt-{{ group.key }}">Спроби ({{ group.attempts_count }})</span>
+                  <svg id="svg-{{ group.key }}" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="transition: transform 0.25s ease;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                  </svg>
+                </button>
+                <a href="/teacher/results/{{ group.best_attempt.id }}" class="btn btn-sm btn-secondary" title="Деталі найкращої спроби" style="padding: 0.35rem 0.6rem; font-size: 0.82rem;">
+                  Краща
+                </a>
+              {% else %}
+                <a href="/teacher/results/{{ group.latest_attempt.id }}" class="btn btn-sm btn-secondary" style="padding: 0.35rem 0.6rem; font-size: 0.82rem;">
+                  Деталі
+                </a>
+                {% if not group.latest_attempt.is_archived %}
+                <form method="post" action="/teacher/results/{{ group.latest_attempt.id }}/archive" style="margin:0">
+                  <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати" style="padding: 0.35rem 0.5rem; font-size: 0.82rem;">🗃</button>
+                </form>
+                {% else %}
+                <form method="post" action="/teacher/results/{{ group.latest_attempt.id }}/unarchive" style="margin:0">
+                  <button type="submit" class="btn btn-sm btn-primary" style="padding: 0.35rem 0.5rem; font-size: 0.82rem;">Відновити</button>
+                </form>
+                {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
 
-<!-- Пагінація -->
-{% if total_pages > 1 %}
-<div class="pagination-container" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
-  {% if page > 1 %}
-    <a href="/teacher/results?tab={{ tab }}&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
-  {% else %}
-    <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">« Назад</button>
-  {% endif %}
+        <!-- Вкладена панель із повною історією спроб учня -->
+        {% if group.has_multiple %}
+        <tr id="details-{{ group.key }}" class="group-details-row" style="display: none;">
+          <td colspan="8" style="padding: 0.5rem 1rem 1rem 1rem; border-top: none; background: rgba(59, 130, 246, 0.03);">
+            <div class="card group-details-card" style="margin: 0; background: var(--bg-card, #ffffff); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 0.85rem 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="font-size: 0.9rem; font-weight: 600; color: var(--text-color); display: flex; align-items: center; gap: 0.4rem;">
+                  <span>📋 Всі спроби учня:</span>
+                  <span style="color: var(--primary);">{{ group.student_name }}</span>
+                  <span style="font-weight: normal; color: var(--text-muted);">&bull; {{ group.test.title }}</span>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">
+                  Кількість спроб: <strong style="color: var(--text-color);">{{ group.attempts_count }}</strong> &bull; Найкраща оцінка: <strong style="color: #10b981;">{{ group.best_attempt | scale_grade }}</strong>
+                </div>
+              </div>
 
-  <div style="display: flex; gap: 0.35rem;">
-    {% for p in range(1, total_pages + 1) %}
-      {% if p == page %}
-        <span class="btn btn-primary btn-sm" style="padding: 0.4rem 0.8rem; pointer-events: none; font-weight: 600; background: var(--primary);">{{ p }}</span>
-      {% else %}
-        <a href="/teacher/results?tab={{ tab }}&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
-      {% endif %}
-    {% endfor %}
+              <div class="table-wrapper" style="margin: 0; overflow-x: auto;">
+                <table class="data-table data-table--compact" style="width: 100%; font-size: 0.85rem; margin: 0;">
+                  <thead>
+                    <tr style="background: rgba(125, 125, 125, 0.04);">
+                      <th style="width: 130px;">Спроба</th>
+                      <th>Сесія</th>
+                      <th>Початок</th>
+                      <th>Завершення</th>
+                      <th>Тривалість</th>
+                      <th style="text-align: center;">Оцінка</th>
+                      <th>Бали (%)</th>
+                      <th>Статус</th>
+                      <th style="text-align: right;">Дії</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for att in group.attempts %}
+                    <tr style="{% if att.is_best %}background: rgba(16, 185, 129, 0.06);{% endif %}">
+                      <td>
+                        <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                          <strong>Спроба #{{ att.attempt_number }}</strong>
+                          {% if att.is_best %}
+                            <span class="badge" style="background: #10b981; color: white; font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600;">🏆 Краща</span>
+                          {% endif %}
+                          {% if att.is_latest %}
+                            <span class="badge" style="background: var(--info, #3b82f6); color: white; font-size: 0.68rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 500;">🕒 Остання</span>
+                          {% endif %}
+                        </div>
+                      </td>
+                      <td>
+                        <span class="badge badge-code" style="font-size: 0.75rem; padding: 0.15rem 0.4rem;">{{ att.session.access_code }}</span>
+                      </td>
+                      <td>{{ att.started_at.strftime('%d.%m.%Y %H:%M') if att.started_at else '—' }}</td>
+                      <td>{{ att.finished_at.strftime('%d.%m.%Y %H:%M') if att.finished_at else '—' }}</td>
+                      <td>{{ att.duration_str }}</td>
+                      <td style="text-align: center;">
+                        <span class="badge" style="background: {% if att.is_best %}#10b981{% else %}var(--primary){% endif %}; color: white; font-weight: bold; font-size: 0.95rem; padding: 0.2rem 0.55rem; border-radius: 5px;">
+                          {{ att.grade }}
+                        </span>
+                      </td>
+                      <td>
+                        <strong>{{ att.score | round(1) if att.score is not none else '—' }}</strong> / {{ att.max_score | round(1) if att.max_score else '—' }}
+                        <span class="pct-badge {% if att.pct >= 90 %}pct-excellent{% elif att.pct >= 70 %}pct-good{% elif att.pct >= 50 %}pct-ok{% else %}pct-poor{% endif %}" style="font-size: 0.72rem; padding: 0.1rem 0.35rem; margin-left: 0.35rem;">
+                          {{ att.pct }}%
+                        </span>
+                      </td>
+                      <td>
+                        <span class="badge badge-status badge-status--{{ att.status.value }}" style="font-size: 0.72rem; padding: 0.15rem 0.45rem;">
+                          {% if att.status.value == 'finished' %}Завершено
+                          {% elif att.status.value == 'timeout' %}Час вийшов
+                          {% elif att.status.value == 'stopped' %}Зупинено
+                          {% elif att.status.value == 'in_progress' %}В процесі
+                          {% else %}Не розпочато{% endif %}
+                        </span>
+                      </td>
+                      <td style="text-align: right;">
+                        <div style="display: flex; gap: 0.35rem; justify-content: flex-end; align-items: center;">
+                          <a href="/teacher/results/{{ att.id }}" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.25rem 0.6rem;">
+                            🔍 Деталі
+                          </a>
+                          {% if not att.is_archived %}
+                          <form method="post" action="/teacher/results/{{ att.id }}/archive" style="margin:0">
+                            <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати цю спробу" style="font-size: 0.78rem; padding: 0.25rem 0.5rem;">🗃</button>
+                          </form>
+                          {% else %}
+                          <form method="post" action="/teacher/results/{{ att.id }}/unarchive" style="margin:0">
+                            <button type="submit" class="btn btn-sm btn-primary" title="Відновити цю спробу" style="font-size: 0.78rem; padding: 0.25rem 0.5rem;">Відновити</button>
+                          </form>
+                          {% endif %}
+                        </div>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
-  {% if page < total_pages %}
-    <a href="/teacher/results?tab={{ tab }}&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
-  {% else %}
-    <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">Далі »</button>
-  {% endif %}
-</div>
-{% endif %}
+  <!-- Підсумок та пагінація згрупованого вигляду -->
+  {% if total_pages > 1 %}
+  <div class="pagination-container" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+    {% if page > 1 %}
+      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
+    {% else %}
+      <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">« Назад</button>
+    {% endif %}
 
-<p class="text-muted" style="margin-top:0.5rem">Всього: {{ total_attempts }} результатів</p>
+    <div style="display: flex; gap: 0.35rem;">
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+          <span class="btn btn-primary btn-sm" style="padding: 0.4rem 0.8rem; pointer-events: none; font-weight: 600; background: var(--primary);">{{ p }}</span>
+        {% else %}
+          <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if page < total_pages %}
+      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
+    {% else %}
+      <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">Далі »</button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+    <p class="text-muted" style="margin: 0;">
+      Показано учнів з тестами: <strong>{{ total_groups }}</strong> (загалом спроб: <strong>{{ total_attempts }}</strong>)
+    </p>
+    <div style="font-size: 0.85rem; color: var(--text-muted);">
+      💡 Натисніть на рядок або кнопку «Спроби», щоб переглянути історію всіх проходжень учня
+    </div>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+    <h3>Результатів ще немає</h3>
+    <p>Запустіть тестову сесію та зачекайте, поки учні пройдуть тест</p>
+    <a href="/teacher/sessions" class="btn btn-primary">До сесій</a>
+  </div>
+  {% endif %}
+
+<!-- ======================================================== -->
+<!-- 2. ПОВНИЙ СПИСОК ВСІХ СПРОБ (FLAT LIST VIEW)            -->
+<!-- ======================================================== -->
 {% else %}
-<div class="empty-state">
-  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
-    <line x1="6" y1="20" x2="6" y2="14"/>
-  </svg>
-  <h3>Результатів ще немає</h3>
-  <p>Запустіть тестову сесію та зачекайте, поки учні пройдуть тест</p>
-  <a href="/teacher/sessions" class="btn btn-primary">До сесій</a>
-</div>
+  {% if attempts %}
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Учень</th>
+          <th class="mobile-hidden">Клас</th>
+          <th>Тест</th>
+          <th style="text-align: center;">Оцінка</th>
+          <th>%</th>
+          <th class="mobile-hidden">Статус</th>
+          <th class="mobile-hidden">Початок</th>
+          <th class="mobile-hidden">Завершення</th>
+          <th style="text-align: right;">Дії</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for attempt in attempts %}
+        <tr>
+          <td><strong>{{ attempt.student_name }}</strong></td>
+          <td class="mobile-hidden">{{ attempt.session.test.class_name or '—' }}</td>
+          <td>{{ attempt.session.test.title }}</td>
+          <td style="text-align: center;">
+              {% if attempt.score is not none %}
+                <span class="badge" style="background: var(--primary); color: white; font-size: 1.1rem; padding: 0.4rem 0.8rem; font-weight: bold;">
+                  {{ attempt | scale_grade }}
+                </span>
+              {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if attempt.score is not none and attempt.max_score %}
+              {% set pct = (attempt.score / attempt.max_score * 100) | round(0) | int %}
+              <span class="pct-badge
+                {% if pct >= 90 %}pct-excellent
+                {% elif pct >= 70 %}pct-good
+                {% elif pct >= 50 %}pct-ok
+                {% else %}pct-poor{% endif %}">
+                {{ pct }}%
+              </span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="mobile-hidden">
+            <span class="badge badge-status badge-status--{{ attempt.status.value }}">
+              {% if attempt.status.value == 'finished' %}Завершено
+              {% elif attempt.status.value == 'timeout' %}Час вийшов
+              {% elif attempt.status.value == 'in_progress' %}В процесі
+              {% else %}Не розпочато{% endif %}
+            </span>
+          </td>
+          <td class="mobile-hidden">{{ attempt.started_at.strftime('%d.%m %H:%M') if attempt.started_at else '—' }}</td>
+          <td class="mobile-hidden">{{ attempt.finished_at.strftime('%d.%m %H:%M') if attempt.finished_at else '—' }}</td>
+          <td style="text-align: right;">
+            <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+              <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
+              {% if not attempt.is_archived %}
+              <form method="post" action="/teacher/results/{{ attempt.id }}/archive" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати">🗃</button>
+              </form>
+              {% else %}
+              <form method="post" action="/teacher/results/{{ attempt.id }}/unarchive" style="margin:0">
+                <button type="submit" class="btn btn-sm btn-primary">Відновити</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Пагінація повного списку -->
+  {% if total_pages > 1 %}
+  <div class="pagination-container" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+    {% if page > 1 %}
+      <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
+    {% else %}
+      <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">« Назад</button>
+    {% endif %}
+
+    <div style="display: flex; gap: 0.35rem;">
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+          <span class="btn btn-primary btn-sm" style="padding: 0.4rem 0.8rem; pointer-events: none; font-weight: 600; background: var(--primary);">{{ p }}</span>
+        {% else %}
+          <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    {% if page < total_pages %}
+      <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ selected_student_name or '' }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
+    {% else %}
+      <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">Далі »</button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <p class="text-muted" style="margin-top:0.5rem">Всього: <strong>{{ total_attempts }}</strong> окремих спроб</p>
+  {% else %}
+  <div class="empty-state">
+    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+    <h3>Результатів ще немає</h3>
+    <p>Запустіть тестову сесію та зачекайте, поки учні пройдуть тест</p>
+    <a href="/teacher/sessions" class="btn btn-primary">До сесій</a>
+  </div>
+  {% endif %}
 {% endif %}
 
 {% block scripts %}
 <script>
+  // Фільтр учнів з автокомплітом
   document.getElementById('student_filter').addEventListener('input', function(e) {
     const datalist = document.getElementById('student_list');
+    if (!datalist) return;
     const options = Array.from(datalist.options).map(opt => opt.value);
     if (options.includes(e.target.value)) {
       e.target.form.submit();
     }
   });
+
+  // Перемикання розгортання спроб для одного учня
+  function toggleGroupRow(groupKey) {
+    const detailsRow = document.getElementById('details-' + groupKey);
+    const svgIcon = document.getElementById('svg-' + groupKey);
+    if (!detailsRow) return;
+
+    if (detailsRow.style.display === 'none' || detailsRow.style.display === '') {
+      detailsRow.style.display = 'table-row';
+      if (svgIcon) svgIcon.style.transform = 'rotate(180deg)';
+    } else {
+      detailsRow.style.display = 'none';
+      if (svgIcon) svgIcon.style.transform = 'rotate(0deg)';
+    }
+  }
+
+  // Розгорнути всі групи
+  function expandAllGroups() {
+    const detailRows = document.querySelectorAll('.group-details-row');
+    detailRows.forEach(row => {
+      row.style.display = 'table-row';
+    });
+    const icons = document.querySelectorAll('[id^="svg-grp_"]');
+    icons.forEach(icon => {
+      icon.style.transform = 'rotate(180deg)';
+    });
+  }
+
+  // Згорнути всі групи
+  function collapseAllGroups() {
+    const detailRows = document.querySelectorAll('.group-details-row');
+    detailRows.forEach(row => {
+      row.style.display = 'none';
+    });
+    const icons = document.querySelectorAll('[id^="svg-grp_"]');
+    icons.forEach(icon => {
+      icon.style.transform = 'rotate(0deg)';
+    });
+  }
 </script>
+<style>
+  .group-master-row:hover {
+    background: rgba(59, 130, 246, 0.04) !important;
+  }
+  .attempt-mini-chip:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+</style>
 {% endblock %}
 {% endblock %}
