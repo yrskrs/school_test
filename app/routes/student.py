@@ -213,11 +213,15 @@ async def take_test(
     # Підтягуємо збережені відповіді
     existing_answers = crud.get_answers_by_attempt(db, attempt_id)
     saved_answers = {}
+    locked_question_ids = []  # питання, на які вже є реальна відповідь
     for ans in existing_answers:
         if ans.selected_options_json:
             saved_answers[ans.question_id] = json.loads(ans.selected_options_json)
+            locked_question_ids.append(ans.question_id)
         elif ans.answer_text is not None:
             saved_answers[ans.question_id] = ans.answer_text
+            # Порожній текст ("") — означає закінчився час, теж блокуємо
+            locked_question_ids.append(ans.question_id)
 
     # Отримуємо раніше пропущені питання, які досі не мають відповідей
     skipped_event_logs = db.query(models.EventLog).filter(
@@ -247,6 +251,7 @@ async def take_test(
         "test": test,
         "test_payload": test_payload,
         "saved_answers": saved_answers,
+        "locked_question_ids": locked_question_ids,
         "skipped_question_ids": skipped_question_ids,
         "time_remaining_seconds": time_remaining_seconds,
         "session_id": attempt.session_id,
@@ -276,6 +281,17 @@ async def save_answer(
 
     if not question_id:
         raise HTTPException(status_code=400, detail="question_id є обов'язковим")
+
+    # Перевіряємо, чи відповідь на це питання вже збережена (захист від перездачі)
+    existing_answer = crud.get_answer_by_attempt_and_question(db, attempt_id, question_id)
+    if existing_answer and (
+        existing_answer.selected_options_json is not None
+        or existing_answer.answer_text is not None
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Відповідь на це питання вже збережена і не може бути змінена"
+        )
 
     selected_json = json.dumps(selected_options) if selected_options is not None else None
 

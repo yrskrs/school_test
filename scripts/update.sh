@@ -3,35 +3,35 @@
 # Exit on error
 set -e
 
+# Always run from project root directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 echo "Starting application update process..."
 
-echo "1. Checking system status..."
+echo "1. Checking current system status..."
 docker compose ps
 
-echo "2. Pulling latest changes from GitHub..."
-if [ -d .git ]; then
-  git pull origin main || git pull || echo "Notice: git pull skipped or failed, continuing with local files..."
-fi
-
-echo "3. Creating pre-update backup..."
+echo "2. Creating pre-update safety backup..."
 ./scripts/backup.sh || {
   echo "Backup failed! Aborting update to protect data."
   exit 1
 }
 
-echo "4. Building the new application image..."
-# If you use pre-built images, uncomment the next line:
-# docker compose pull
-# If you build locally:
-docker compose build
+echo "3. Pulling latest changes from Git..."
+if [ -d .git ]; then
+  git pull origin main || git pull || echo "Notice: git pull skipped or failed, continuing with current files..."
+fi
 
-echo "5. Starting new containers (this will recreate them with new images)..."
-docker compose up -d
+echo "4. Building updated application image..."
+docker compose build app
 
-echo "6. Waiting for PostgreSQL to be ready..."
-# The healthcheck in compose.yaml will ensure app waits for postgres.
-# We can just wait a few seconds for the app to initialize.
-sleep 5
+echo "5. Starting updated containers..."
+docker compose up -d app
+
+echo "6. Waiting for application to initialize..."
+sleep 4
 
 echo "7. Checking health status..."
 docker compose ps

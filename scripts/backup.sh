@@ -3,9 +3,16 @@
 # Exit on error
 set -e
 
+# Always run from project root directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
+
 # Load environment variables
 if [ -f .env ]; then
-  export $(cat .env | grep -v '^#' | awk '/=/ {print $1}')
+  set -a
+  eval "$(grep -v '^#' .env | grep -v '^\s*$' | sed 's/^/export /')" 2>/dev/null || true
+  set +a
 fi
 
 POSTGRES_DB=${POSTGRES_DB:-schooltest}
@@ -21,7 +28,7 @@ echo "Backing up PostgreSQL database..."
 docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c > "$BACKUP_DIR/database.dump"
 
 echo "Backing up application data (data directory)..."
-# We need to copy from the container to avoid permission issues if running as non-root host
+# Copy from container to avoid host permission issues
 docker compose cp app:/app/data "$BACKUP_DIR/data"
 
 echo "Backing up application uploads (static/tests directory)..."

@@ -526,6 +526,7 @@
   "session_id":     {{ session_id }},
   "test_data":      {{ test_payload      | tojson }},
   "saved_answers":  {{ saved_answers     | tojson }},
+  "locked_questions": {{ locked_question_ids | tojson }},
   "skipped_questions": {{ skipped_question_ids | tojson }},
   "time_remaining": {{ time_remaining_seconds | tojson }},
   "attempt_status": "{{ attempt.status.value }}"
@@ -538,10 +539,11 @@
     window.SESSION_ID    = cfg.session_id;
     window.TEST_DATA     = cfg.test_data;
     window.SAVED_ANSWERS = cfg.saved_answers;
+    window.LOCKED_QUESTIONS = cfg.locked_questions || [];
     window.SKIPPED_QUESTIONS = cfg.skipped_questions;
     window.TIME_REMAINING = cfg.time_remaining;
     window.ATTEMPT_STATUS = cfg.attempt_status;
   }());
 </script>
-<script src="/static/js/student.js?v=18"></script>
+<script src="/static/js/student.js?v=20"></script>
 {% endblock %}

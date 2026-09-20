@@ -1,6 +1,7 @@
 /**
  * student.js — Логіка проходження тесту
- * Змінні з шаблону: ATTEMPT_ID, SESSION_ID, TEST_DATA, SAVED_ANSWERS, TIME_REMAINING
+ * Змінні з шаблону: ATTEMPT_ID, SESSION_ID, TEST_DATA, SAVED_ANSWERS,
+ *                   LOCKED_QUESTIONS, TIME_REMAINING
  */
 
 // ---------------------------------------------------------------------------
@@ -18,8 +19,8 @@ let isOffline     = false;
 let lastFailedAnswer = null;
 let answers       = {};               // { question_id: selectedOptions[] | textValue | dict }
 let sequenceOrders = {};             // local sequence order for display
-let matchingPools = {};              // local shuffled matching options for pool
-let lockedQuestions = new Set();      // per-question timer expired
+let matchingPools = {};              // deterministic matching options from server
+let lockedQuestions = new Set(window.LOCKED_QUESTIONS || []);  // questions with saved answers (from server)
 let skippedQuestions = new Set(window.SKIPPED_QUESTIONS || []);     // manually skipped by student
 let isInitialLoad = true;
 let timedOutQuestions = new Set();    // expired without answer
@@ -64,13 +65,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (q.question_type === 'sequence') {
       const saved = answers[q.id];
       if (Array.isArray(saved) && saved.length === q.options.length) {
+        // Відновлюємо збережений порядок
         sequenceOrders[q.id] = saved.map(id => parseInt(id));
       } else {
-        sequenceOrders[q.id] = shuffleArray(q.options).map(o => o.id);
+        // Використовуємо порядок варіантів, який прийшов з сервера (вже детерміновано перемішаний)
+        sequenceOrders[q.id] = q.options.map(o => o.id);
       }
     } else if (q.question_type === 'matching') {
-      const rightSides = q.options.map(o => o.matching_text).filter(Boolean);
-      matchingPools[q.id] = shuffleArray(rightSides);
+      // Використовуємо matching_pool з сервера (детерміновано перемішаний)
+      matchingPools[q.id] = q.matching_pool || q.options.map(o => o.matching_text).filter(Boolean);
       if (answers[q.id] && typeof answers[q.id] === 'object' && !Array.isArray(answers[q.id])) {
         const formatted = {};
         Object.entries(answers[q.id]).forEach(([k, v]) => {
@@ -83,14 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Locked questions for per-question time limits
-  if (TEST_DATA.time_limit_per_question) {
-    Object.keys(answers).forEach(qid => {
-      lockedQuestions.add(parseInt(qid));
-    });
-  }
-
-  // Build initial queue: all question indices (those not already locked/answered after reload)
+  // Build initial queue: exclude locked (already answered) questions
   initQueue();
 
   buildNavigator();
@@ -115,14 +111,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initQueue() {
   questionQueue = [];
-  if (TEST_DATA.time_limit_per_question) {
-    // Skip already-locked (answered in previous session)
-    questions.forEach((q, i) => {
-      if (!lockedQuestions.has(q.id)) questionQueue.push(i);
-    });
-  } else {
-    questions.forEach((q, i) => questionQueue.push(i));
-  }
+  const skippedIndices = [];
+  questions.forEach((q, i) => {
+    if (lockedQuestions.has(q.id)) return; // пропускаємо вже збережені
+    if (skippedQuestions.has(q.id)) {
+      skippedIndices.push(i); // пропущені додаємо в кінець
+    } else {
+      questionQueue.push(i);
+    }
+  });
+  // Пропущені питання додаємо в кінець черги
+  questionQueue.push(...skippedIndices);
 }
 
 // ---------------------------------------------------------------------------
@@ -152,11 +151,10 @@ function updateNavigator() {
       btn.classList.add('timed-out');
     } else if (skippedQuestions.has(q.id)) {
       btn.classList.add('skipped');
-    } else if (hasAnswer(q.id)) {
+    } else if (lockedQuestions.has(q.id) || hasAnswer(q.id)) {
       btn.classList.add('answered');
     }
     if (lockedQuestions.has(q.id)) {
-      btn.classList.add('locked');
       btn.disabled = true;
     } else {
       btn.disabled = false;
@@ -199,10 +197,6 @@ function renderFromQueue(queueIdx) {
 function renderQuestion(index) {
   if (index < 0 || index >= totalQ) return;
 
-  if (TEST_DATA.time_limit_per_question && currentIndex !== index) {
-    lockedQuestions.add(questions[currentIndex].id);
-  }
-
   const prevQ = questions[currentIndex];
   const nextQ = questions[index];
   if (!isInitialLoad && prevQ && prevQ.id !== nextQ.id) {
@@ -212,16 +206,21 @@ function renderQuestion(index) {
   }
   isInitialLoad = false;
 
+  if (lockedQuestions.has(nextQ?.id)) {
+    advanceToNext();
+    return;
+  }
+
   currentIndex = index;
   const q = questions[index];
 
-  document.getElementById('current-q-num').textContent = currentQueueIdx + 1;
-  document.getElementById('total-q-num').textContent   = questionQueue.length;
+  document.getElementById('current-q-num').textContent = index + 1;
+  document.getElementById('total-q-num').textContent   = totalQ;
   const sideCurrent = document.getElementById('sidebar-current-q');
   const sideTotal = document.getElementById('sidebar-total-q');
-  if (sideCurrent) sideCurrent.textContent = currentQueueIdx + 1;
-  if (sideTotal) sideTotal.textContent = questionQueue.length;
-  document.getElementById('progress-bar').style.width = `${((currentQueueIdx + 1) / (questionQueue.length || 1)) * 100}%`;
+  if (sideCurrent) sideCurrent.textContent = index + 1;
+  if (sideTotal) sideTotal.textContent = totalQ;
+  document.getElementById('progress-bar').style.width = `${((index + 1) / totalQ) * 100}%`;
 
   const card = document.getElementById('question-card');
   card.innerHTML = buildQuestionHTML(q, index);
@@ -463,6 +462,7 @@ function restoreAnswer(q) {
 // Відповіді — hotspot
 // ---------------------------------------------------------------------------
 function handleHotspotClick(event, qId) {
+  if (lockedQuestions.has(qId)) return;
   const img = event.target;
   const rect = img.getBoundingClientRect();
   const scaleX = img.naturalWidth / rect.width;
@@ -480,7 +480,7 @@ function handleHotspotClick(event, qId) {
   
   const val = { x: clickX, y: clickY };
   answers[qId] = val;
-  saveAnswer(qId, null, val);
+  validateAnswer();
 }
 
 function restoreHotspotMarker(qId) {
@@ -504,6 +504,7 @@ function restoreHotspotMarker(qId) {
 // Відповіді — single choice / image choice
 // ---------------------------------------------------------------------------
 function selectSingle(questionId, optionId) {
+  if (lockedQuestions.has(questionId)) return;
   const q = questions.find(q => q.id === questionId);
   if (!q) return;
   // знімаємо виділення з усіх
@@ -513,13 +514,14 @@ function selectSingle(questionId, optionId) {
   if (radio) radio.checked = true;
 
   answers[questionId] = [optionId];
-  saveAnswer(questionId, null, [optionId]);
+  validateAnswer();
 }
 
 // ---------------------------------------------------------------------------
 // Відповіді — multiple choice
 // ---------------------------------------------------------------------------
 function toggleMulti(questionId, optionId) {
+  if (lockedQuestions.has(questionId)) return;
   const q = questions.find(q => q.id === questionId);
   if (!q) return;
 
@@ -537,17 +539,16 @@ function toggleMulti(questionId, optionId) {
     label?.classList.add('selected');
   }
 
-  saveAnswer(questionId, null, answers[questionId]);
+  validateAnswer();
 }
 
 // ---------------------------------------------------------------------------
 // Відповіді — short text
 // ---------------------------------------------------------------------------
-let _textSaveTimer = null;
 function debouncedSaveText(questionId, value) {
+  if (lockedQuestions.has(questionId)) return;
   answers[questionId] = value;
-  clearTimeout(_textSaveTimer);
-  _textSaveTimer = setTimeout(() => saveAnswer(questionId, value, null), 800);
+  validateAnswer();
 }
 
 function updateMatchingDropdowns(questionId) {
@@ -572,6 +573,7 @@ function updateMatchingDropdowns(questionId) {
 }
 
 function saveMatching(questionId, optionId, matchValue) {
+  if (lockedQuestions.has(questionId)) return;
   if (!answers[questionId]) answers[questionId] = {};
   if (matchValue === "") {
     delete answers[questionId][optionId];
@@ -586,14 +588,14 @@ function saveMatching(questionId, optionId, matchValue) {
   }
   
   updateMatchingDropdowns(questionId);
-  saveAnswer(questionId, null, answers[questionId]);
+  validateAnswer();
 }
 
 function unmatchOption(event, questionId, optionId) {
   if (event) event.stopPropagation();
+  if (lockedQuestions.has(questionId)) return;
   if (answers[questionId]) {
     delete answers[questionId][optionId];
-    saveAnswer(questionId, null, answers[questionId]);
     renderQuestion(currentIndex);
   }
 }
@@ -602,6 +604,7 @@ function unmatchOption(event, questionId, optionId) {
 // Відповіді — sequence
 // ---------------------------------------------------------------------------
 function moveSequence(questionId, idx, dir) {
+  if (lockedQuestions.has(questionId)) return;
   const q = questions.find(q => q.id === questionId);
   if (!q) return;
   const currentOrder = answers[questionId] || sequenceOrders[questionId] || q.options.map(o => o.id);
@@ -614,11 +617,12 @@ function moveSequence(questionId, idx, dir) {
   sequenceOrders[questionId] = orderList;
   
   renderQuestion(currentIndex);
-  saveAnswer(questionId, null, orderList);
+  validateAnswer();
 }
 
 // ---------------------------------------------------------------------------
-// AJAX: зберегти відповідь
+// AJAX: зберегти відповідь на сервер
+// Повертає true якщо збереження було успішним, false — якщо ні
 // ---------------------------------------------------------------------------
 async function saveAnswer(questionId, answerText, selectedOptions) {
   const indicator = document.getElementById(`save-indicator-${questionId}`);
@@ -626,8 +630,6 @@ async function saveAnswer(questionId, answerText, selectedOptions) {
     indicator.textContent = 'Збереження...';
     indicator.className = 'save-indicator show';
   }
-
-  validateAnswer();
 
   try {
     const resp = await fetch(`/student/test/${ATTEMPT_ID}/save-answer`, {
@@ -638,19 +640,44 @@ async function saveAnswer(questionId, answerText, selectedOptions) {
     if (resp.ok) {
       if (indicator) { indicator.textContent = 'Збережено ✓'; indicator.className = 'save-indicator saved'; }
       skippedQuestions.delete(questionId);
+      lockedQuestions.add(questionId);
       updateNavigator();
       updateAnsweredCount();
       if (isOffline) goOnline();
+      return true;
     } else {
       if (indicator) { indicator.textContent = 'Помилка збереження'; indicator.className = 'save-indicator error'; }
       if (resp.status >= 500) {
         goOffline({ questionId, answerText, selectedOptions });
       }
+      return false;
     }
   } catch {
     if (indicator) { indicator.textContent = 'Немає з\'єднання'; indicator.className = 'save-indicator error'; }
     goOffline({ questionId, answerText, selectedOptions });
+    return false;
   }
+}
+
+// Допоміжна функція: зберегти поточну відповідь на сервер
+async function saveCurrentAnswer() {
+  const q = questions[currentIndex];
+  if (!q || lockedQuestions.has(q.id)) return true; // вже збережено
+  if (!hasAnswer(q.id)) return false; // немає відповіді
+
+  const type = q.question_type;
+  let answerText = null;
+  let selectedOptions = null;
+
+  if (type === 'short_text') {
+    answerText = answers[q.id];
+  } else if (type === 'hotspot') {
+    selectedOptions = answers[q.id];
+  } else {
+    selectedOptions = answers[q.id];
+  }
+
+  return await saveAnswer(q.id, answerText, selectedOptions);
 }
 
 // ---------------------------------------------------------------------------
@@ -658,6 +685,7 @@ async function saveAnswer(questionId, answerText, selectedOptions) {
 // ---------------------------------------------------------------------------
 function skipQuestion() {
   const q = questions[currentIndex];
+  if (lockedQuestions.has(q.id)) return;
   // Позначаємо як пропущене
   skippedQuestions.add(q.id);
   logBrowserEvent('question_skipped', `question_id=${q.id}`);
@@ -674,19 +702,51 @@ function skipQuestion() {
   }
 }
 
-function nextQuestion(force = false) {
-  if (!force) {
-    const qId = questions[currentIndex]?.id;
-    if (!hasAnswer(qId)) return;
+async function nextQuestion(force = false) {
+  if (isSaving) return;
+  const qId = questions[currentIndex]?.id;
+  if (!force && !hasAnswer(qId)) return;
+  if (lockedQuestions.has(qId) && !force) {
+    // Вже збережено — просто переходимо далі
+    advanceToNext();
+    return;
   }
-  // Якщо відповів — більше не вважається пропущеним
-  skippedQuestions.delete(questions[currentIndex]?.id);
 
-  const nextIdx = currentQueueIdx + 1;
-  if (nextIdx >= questionQueue.length) {
-    finishTest();
+  // Зберігаємо відповідь на сервер перед переходом
+  isSaving = true;
+  const nextBtn = document.getElementById('btn-next');
+  if (nextBtn) {
+    nextBtn.disabled = true;
+    nextBtn.textContent = 'Збереження...';
+  }
+
+  const saved = await saveCurrentAnswer();
+
+  if (nextBtn) {
+    nextBtn.disabled = false;
+    nextBtn.textContent = 'Відповісти →';
+  }
+  isSaving = false;
+
+  if (saved) {
+    // Відповідь збережена — блокуємо і переходимо
+    skippedQuestions.delete(qId);
+    advanceToNext();
   } else {
-    renderFromQueue(nextIdx);
+    // Помилка збереження — залишаємось на місці
+    alert('Не вдалося зберегти відповідь. Перевірте з\'єднання та спробуйте ще раз.');
+  }
+}
+
+function advanceToNext() {
+  // Видаляємо поточне питання з черги (воно збережене та заблоковане)
+  questionQueue.splice(currentQueueIdx, 1);
+  if (questionQueue.length === 0) {
+    finishTest();
+  } else if (currentQueueIdx >= questionQueue.length) {
+    renderFromQueue(0);
+  } else {
+    renderFromQueue(currentQueueIdx);
   }
 }
 
@@ -700,7 +760,7 @@ function updateAnsweredCount() {
   let count = 0;
   let skipped = 0;
   questions.forEach(q => {
-    if (hasAnswer(q.id)) count++;
+    if (lockedQuestions.has(q.id) || hasAnswer(q.id)) count++;
     else if (skippedQuestions.has(q.id)) skipped++;
   });
   const total = document.getElementById('answered-count');
@@ -740,7 +800,7 @@ function resetQTimer() {
     if (qTimerInterval) clearInterval(qTimerInterval);
     qTimeLeft = TEST_DATA.time_limit_per_question;
     updateQTimerDisplay();
-    qTimerInterval = setInterval(() => {
+    qTimerInterval = setInterval(async () => {
       if (isPaused || isOffline) return;
       qTimeLeft--;
       if (qTimeLeft <= 0) {
@@ -749,16 +809,25 @@ function resetQTimer() {
         updateQTimerDisplay();
 
         const q = questions[currentIndex];
+        if (lockedQuestions.has(q.id)) {
+          // Вже збережено — переходимо далі
+          advanceToNext();
+          return;
+        }
+
         lockedQuestions.add(q.id);
 
         if (!hasAnswer(q.id)) {
-          // Помічаємо як закінчився час (сірий)
+          // Помічаємо як закінчився час (сірий) та зберігаємо порожню відповідь
           timedOutQuestions.add(q.id);
           answers[q.id] = "";
-          saveAnswer(q.id, "", null);
+          await saveAnswer(q.id, "", null);
+        } else {
+          // Зберігаємо поточну відповідь
+          await saveCurrentAnswer();
         }
 
-        nextQuestion(true); // force to next in queue
+        advanceToNext();
       } else {
         updateQTimerDisplay();
       }
@@ -864,7 +933,7 @@ function startFullscreenReturnTimer() {
   
   logBrowserEvent('fullscreen_exit');
   
-  fsTimerInterval = setInterval(() => {
+  fsTimerInterval = setInterval(async () => {
     if (isPaused || isOffline) return; // don't count down if paused
     fsTimeLeft--;
     if (timerEl) timerEl.textContent = fsTimeLeft;
@@ -878,17 +947,15 @@ function startFullscreenReturnTimer() {
         lockedQuestions.add(q.id);
         timedOutQuestions.add(q.id);
         answers[q.id] = "";
-        saveAnswer(q.id, "", null);
+        await saveAnswer(q.id, "", null);
       }
       
-      const isLastQuestion = (currentQueueIdx + 1 >= questionQueue.length);
-      
-      nextQuestion(true);
-      
-      if (isLastQuestion) {
+      if (questionQueue.length <= 1) {
         clearInterval(fsTimerInterval);
         fsTimerInterval = null;
+        advanceToNext();
       } else {
+        advanceToNext();
         fsTimeLeft = 10;
         if (timerEl) timerEl.textContent = fsTimeLeft;
         if (violationTimerEl) violationTimerEl.textContent = fsTimeLeft;
@@ -943,6 +1010,11 @@ async function confirmFinish() {
   document.getElementById('confirm-finish-btn').textContent = 'Завершення...';
 
   try {
+    try {
+      await saveCurrentAnswer();
+    } catch (e) {
+      console.warn('Failed to save current answer on finish:', e);
+    }
     const res = await fetch(`/student/test/${ATTEMPT_ID}/finish`, { method: 'POST' });
     if (res.ok) {
       window.location.href = `/student/test/${ATTEMPT_ID}/finished`;
@@ -1169,6 +1241,7 @@ function startOfflinePing() {
 let seqDragState = null;
 
 function startSequenceDrag(e, qId) {
+  if (lockedQuestions.has(qId)) return;
   if (e.target.closest('button')) return;
   if (e.button !== 0 && e.pointerType !== 'touch') return;
 
@@ -1272,8 +1345,8 @@ function onSequencePointerUp(e) {
     answers[qId] = newOrderIds;
     sequenceOrders[qId] = newOrderIds;
 
-    saveAnswer(qId, null, newOrderIds);
     renderQuestion(currentIndex);
+    validateAnswer();
   }
 
   seqDragState = null;
@@ -1285,6 +1358,7 @@ let matchingDragState = null;
 let selectedMatchingCardInfo = null; // { qId, value }
 
 function startMatchingDrag(e, qId, fromOptionId) {
+  if (lockedQuestions.has(qId)) return;
   if (e.target.closest('button')) return;
   if (e.button !== 0 && e.pointerType !== 'touch') return;
 
@@ -1409,6 +1483,7 @@ function onMatchingPointerUp(e) {
 }
 
 function handleMatchingCardClick(e, qId, element) {
+  if (lockedQuestions.has(qId)) return;
   if (matchingDragState && matchingDragState.isDragging) return;
   e.stopPropagation();
 
@@ -1423,6 +1498,7 @@ function handleMatchingCardClick(e, qId, element) {
 }
 
 function handleMatchingZoneClick(e, qId, optionId) {
+  if (lockedQuestions.has(qId)) return;
   if (matchingDragState && matchingDragState.isDragging) return;
 
   if (!selectedMatchingCardInfo || selectedMatchingCardInfo.qId !== qId) return;
