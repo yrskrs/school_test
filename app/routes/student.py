@@ -12,6 +12,7 @@ from app.deps import get_owned_attempt
 from app.security import get_student_attempt_id, set_student_cookie
 from app.services import event_log_service, result_service, session_service, test_service
 from app.templating import templates
+from app.services.testing_policy import MAX_VIOLATIONS, VIOLATION_STOP_PREFIX, lock_attempt, stop_reason, violation_count
 
 router = APIRouter()
 
@@ -287,6 +288,7 @@ async def save_answer(
     question_id = body.get("question_id")
     if type(question_id) is not int or question_id <= 0:
         raise HTTPException(status_code=400, detail="question_id є обов'язковим")
+    lock_attempt(db, attempt)
     existing_answer = crud.get_answer_by_attempt_and_question(db, attempt_id, question_id)
     if not existing_answer or existing_answer.question.test_id != attempt.session.test_id:
         raise HTTPException(status_code=404, detail="Питання не призначене цій спробі")
@@ -339,9 +341,6 @@ async def finish_test(
     attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
 
-    if attempt.status in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
-        return {"status": "already_finished", "redirect": f"/student/test/{attempt_id}/finished"}
-
     body = {}
     try:
         body = await request.json()
@@ -351,8 +350,11 @@ async def finish_test(
     if not isinstance(body, dict) or type(body.get("timeout", False)) is not bool:
         raise HTTPException(422, "Невірний формат завершення тесту")
     is_timeout = body.get("timeout", False)
+    lock_attempt(db, attempt)
+    if attempt.status in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
+        return {"status": "already_finished", "redirect": f"/student/test/{attempt_id}/finished"}
 
-    score, max_score = result_service.grade_all_answers(db, attempt)
+    score, max_score = result_service.grade_all_answers(db, attempt, commit=False)
     status = models.AttemptStatus.timeout if is_timeout else models.AttemptStatus.finished
     crud.finish_attempt(db, attempt, score=score, max_score=max_score, status=status)
 
@@ -411,6 +413,7 @@ async def test_finished_page(
         "answers_map": answers_map,
         "confirmed_question_ids": [a.question_id for a in answers if a.answer_text is not None or a.selected_options_json is not None],
         "percent": percent,
+        "stop_reason": stop_reason(db, attempt_id),
     })
 
 
@@ -425,7 +428,10 @@ async def log_browser_event(
     db: Session = Depends(get_db),
     attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    body = await request.json()
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(422, "Невірний JSON події")
     if not isinstance(body, dict):
         raise HTTPException(422, "Невірний формат події")
     event_type_str = body.get("event_type", "")
@@ -445,50 +451,69 @@ async def log_browser_event(
     if details is not None and (not isinstance(details, str) or len(details) > 2000):
         raise HTTPException(422, "Невірний опис події")
     client_event_id = body.get("client_event_id")
+    suffix = ""
     if client_event_id:
         import re
         if not isinstance(client_event_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", client_event_id):
             raise HTTPException(422, "Невірний ідентифікатор події")
         suffix = f" [event:{client_event_id}]"
-        stored_details = (details or "") + suffix
-        if db.query(models.EventLog).filter(
-            models.EventLog.attempt_id == attempt_id,
-            models.EventLog.details.endswith(suffix, autoescape=True),
-        ).first():
-            return {"status": "already_saved"}
-    else:
-        stored_details = details
-    if event_log_service.log_event(db, attempt_id, event_type, stored_details) is None:
-        raise HTTPException(503, "Подію не збережено. Повторіть запит")
+    stored_details = (details or "") + suffix
 
-    if event_type in (
-        models.EventType.connection_lost,
-        models.EventType.tab_blur,
-        models.EventType.tab_focus,
-        models.EventType.question_skipped,
-        models.EventType.question_returned
-    ):
-        from app.websocket_manager import ws_manager
+    # Serialize event insertion, retry detection and stopping for this attempt.
+    # A no-op UPDATE also takes a write lock on SQLite (FOR UPDATE does not).
+    lock_attempt(db, attempt)
+    duplicate = bool(suffix and db.query(models.EventLog).filter(
+        models.EventLog.attempt_id == attempt_id,
+        models.EventLog.details.endswith(suffix, autoescape=True),
+    ).first())
+    terminal = attempt.status in (
+        models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped,
+    )
+    ignored = event_type == models.EventType.tab_blur and (terminal or attempt.status == models.AttemptStatus.not_started)
+    if not duplicate and not ignored:
+        db.add(models.EventLog(attempt_id=attempt_id, event_type=event_type, details=stored_details))
+        db.flush()
+    count = violation_count(db, attempt_id)
+    stopped_now = not terminal and attempt.status != models.AttemptStatus.not_started and count >= MAX_VIOLATIONS
+    if stopped_now:
+        score, max_score = result_service.grade_all_answers(db, attempt, commit=False)
+        attempt.status = models.AttemptStatus.stopped
+        attempt.finished_at = datetime.now()
+        attempt.score, attempt.max_score = score, max_score
+        db.add(models.EventLog(attempt_id=attempt_id, event_type=models.EventType.stop_test,
+            details=f"{VIOLATION_STOP_PREFIX} Автоматична зупинка після {count} порушень; score={score}/{max_score}"))
+    db.commit()
+
+    from app.websocket_manager import ws_manager
+    if not duplicate and not ignored:
         question_id = None
-        details_str = body.get("details") or ""
-        if details_str.startswith("question_id="):
+        if (details or "").startswith("question_id="):
             try:
-                question_id = int(details_str.split("=")[1])
+                question_id = int(details.split("=", 1)[1].split(";", 1)[0])
             except ValueError:
                 pass
-
         await ws_manager.broadcast(attempt.session_id, {
-            "event": event_type.value,
-            "student_name": attempt.student_name,
-            "attempt_id": attempt_id,
-            "question_id": question_id,
-            "details": body.get("details"),
-            "violation_count": db.query(models.EventLog).filter_by(
-                attempt_id=attempt_id, event_type=models.EventType.tab_blur
-            ).count() if event_type == models.EventType.tab_blur else None,
+            "event": event_type.value, "student_name": attempt.student_name,
+            "attempt_id": attempt_id, "question_id": question_id, "details": details,
+            "violation_count": count if event_type == models.EventType.tab_blur else None,
         })
-
-    return {"status": "ok"}
+    if stopped_now:
+        try:
+            from app.services.result_export_service import generate_result_html
+            from app.services.test_file_service import save_student_result_html
+            save_student_result_html(attempt.session.test, attempt, generate_result_html(db, attempt))
+        except Exception as exc:
+            print(f"Error saving stopped HTML result: {exc}")
+        await ws_manager.send_to_student(attempt_id, {"event": "stop", "reason": "violations"})
+        await ws_manager.broadcast(attempt.session_id, {
+            "event": "stop", "student_name": attempt.student_name, "attempt_id": attempt_id,
+            "status": "stopped", "reason": "violations", "violation_count": count,
+            "details": "Автоматична зупинка після третього порушення",
+            "score": attempt.score, "max_score": attempt.max_score,
+        })
+    return {"status": "already_saved" if duplicate else "ignored" if ignored else "ok",
+            "attempt_status": attempt.status.value, "violation_count": count,
+            "stop_reason": stop_reason(db, attempt_id) if attempt.status == models.AttemptStatus.stopped else None}
 
 
 @router.post("/student/test/{attempt_id}/retake")

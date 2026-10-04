@@ -223,6 +223,64 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         config = json.loads(re.search(r'<script type="application/json" id="page-config">(.*?)</script>', page[1], re.S).group(1))
         self.assertEqual(config['skipped_questions'], [qid])
 
+    async def test_third_violation_stops_only_owned_attempt_and_survives_retry(self):
+        other_attempt = crud.start_attempt(self.db, crud.create_attempt(self.db, self.session.id, "Unaffected Student"))
+        q = self.questions["single_choice"]
+        self.assertEqual((await self.submit(q, [q.options[0].id]))[0], 200)
+        for i in range(1, 4):
+            event = {"event_type": "tab_blur", "details": "fullscreen_exit", "client_event_id": f"exit-{i}"}
+            status, body, _ = await http("POST", f"/student/event/{self.attempt.id}", event, self.student_cookie)
+            data = json.loads(body)
+            self.assertEqual(status, 200, body)
+            self.assertEqual(data["violation_count"], i)
+            self.assertEqual(data["attempt_status"], "stopped" if i == 3 else "in_progress")
+        # The acknowledgement can be lost: replay must neither count nor grade twice.
+        retry = json.loads((await http("POST", f"/student/event/{self.attempt.id}", event, self.student_cookie))[1])
+        self.assertEqual(retry["status"], "already_saved")
+        self.assertEqual(retry["attempt_status"], "stopped")
+        self.assertEqual(retry["stop_reason"], "violations")
+        self.db.expire_all()
+        self.assertEqual(self.attempt.status, models.AttemptStatus.stopped)
+        self.assertIsNotNone(self.attempt.finished_at)
+        self.assertGreater(self.attempt.score, 0)
+        self.assertEqual(other_attempt.status, models.AttemptStatus.in_progress)
+        self.assertEqual(self.db.query(models.EventLog).filter_by(attempt_id=self.attempt.id, event_type=models.EventType.stop_test).count(), 1)
+        late_event = {**event, "client_event_id": "exit-4"}
+        data = json.loads((await http("POST", f"/student/event/{self.attempt.id}", late_event, self.student_cookie))[1])
+        self.assertEqual(data["violation_count"], 3)
+        self.assertEqual((await self.submit(self.questions["short_text"], text="late"))[0], 409)
+        self.assertEqual((await http("GET", f"/student/test/{self.attempt.id}", cookie=self.student_cookie))[0], 307)
+        page = await http("GET", f"/student/test/{self.attempt.id}/finished", cookie=self.student_cookie)
+        self.assertIn("Автоматична зупинка після третього порушення", page[1])
+        state = json.loads((await http("GET", f"/api/attempt/{self.attempt.id}", cookie=self.student_cookie))[1])
+        self.assertEqual(state["stop_reason"], "violations")
+        monitor = json.loads((await http("GET", f"/api/session-status/{self.session.id}", cookie=self.teacher_cookie))[1])
+        self.assertEqual(next(a for a in monitor["attempts"] if a["id"] == self.attempt.id)["violation_count"], 3)
+
+    async def test_concurrent_event_retries_count_once_and_stop_once(self):
+        path = f"/student/event/{self.attempt.id}"
+        event = {"event_type": "tab_blur", "details": "fullscreen_exit", "client_event_id": "concurrent-1"}
+        replies = await asyncio.gather(*(http("POST", path, event, self.student_cookie) for _ in range(3)))
+        self.assertTrue(all(r[0] == 200 for r in replies))
+        self.assertEqual(sorted(json.loads(r[1])["status"] for r in replies), ["already_saved", "already_saved", "ok"])
+        replies = await asyncio.gather(*(http("POST", path, {**event, "client_event_id": f"concurrent-{i}"}, self.student_cookie) for i in range(2, 5)))
+        self.assertTrue(all(r[0] == 200 for r in replies))
+        self.db.expire_all()
+        self.assertEqual(self.attempt.status, models.AttemptStatus.stopped)
+        self.assertEqual(self.db.query(models.EventLog).filter_by(attempt_id=self.attempt.id, event_type=models.EventType.tab_blur).count(), 3)
+        self.assertEqual(self.db.query(models.EventLog).filter_by(attempt_id=self.attempt.id, event_type=models.EventType.stop_test).count(), 1)
+
+    async def test_site_version_and_asset_cache_busting(self):
+        from app.version import __version__
+        status, body, headers = await http("GET", "/api/version")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["version"], __version__)
+        self.assertEqual(headers[b"x-app-version"].decode(), __version__)
+        page = await http("GET", f"/student/test/{self.attempt.id}", cookie=self.student_cookie)
+        self.assertIn(f"v{__version__}", page[1])
+        for asset in ("student.js", "student-cache.js", "styles.css"):
+            self.assertIn(f"{asset}?v={__version__}", page[1])
+
     async def test_payload_has_no_answer_keys_and_private_files(self):
         for q in self.payload["questions"]:
             for option in q["options"]:

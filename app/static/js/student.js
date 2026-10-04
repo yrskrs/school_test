@@ -40,7 +40,10 @@ let timedOutQuestions = new Set();    // expired without answer
 
 // Anti-Cheat
 let violations = Math.max(Number(window.VIOLATION_COUNT) || 0, Number(attemptCache.state.violations) || 0);
-const MAX_VIOLATIONS = 3;
+const MAX_VIOLATIONS = Number(window.MAX_VIOLATIONS) || 3;
+let fullscreenWasActive = false;
+let stoppingForViolations = false;
+let stopEventsReady = false;
 let isViolationShowing = false;
 
 const questions = TEST_DATA.questions;
@@ -121,11 +124,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   connectStudentWebSocket();
   setInterval(fallbackCheckStatus, 5000);
+  // Recover a missed browser fullscreen event without counting an exit twice.
+  setInterval(checkFullscreenState, 500);
 
   document.getElementById('total-count').textContent = totalQ;
   persistAttempt();
   if (Object.keys(pendingAnswers).length || pendingEvents.length || finishIntent) resumeConnection();
   window.addEventListener('beforeunload', event => {
+    if (hasStarted) logBrowserEvent('question_changed', 'action=page_leave');
     persistAttempt();
     if (!testFinished && Object.keys(pendingAnswers).length) { event.preventDefault(); event.returnValue = ''; }
   });
@@ -231,9 +237,9 @@ function validateAnswer() {
   const btnNext = document.getElementById('btn-next');
   if (!btnNext) return;
   const qId = questions[currentIndex]?.id;
-  btnNext.disabled = isSaving || finishInProgress || isPaused || isOffline || !hasAnswer(qId);
+  btnNext.disabled = isSaving || finishInProgress || finishIntent || isPaused || isOffline || !hasAnswer(qId);
   const skip = document.getElementById('btn-skip');
-  if (skip) skip.disabled = isSaving || finishInProgress || isPaused || isOffline || !!pendingAnswers[qId];
+  if (skip) skip.disabled = isSaving || finishInProgress || finishIntent || isPaused || isOffline || !!pendingAnswers[qId];
 }
 
 // ---------------------------------------------------------------------------
@@ -538,6 +544,7 @@ function handleHotspotClick(event, qId) {
   
   const val = { x: clickX, y: clickY };
   answers[qId] = val;
+  logBrowserEvent('question_changed', `question_id=${qId}; action=hotspot_selected`);
   validateAnswer();
 }
 
@@ -572,6 +579,7 @@ function selectSingle(questionId, optionId) {
   if (radio) radio.checked = true;
 
   answers[questionId] = [optionId];
+  logBrowserEvent('question_changed', `question_id=${questionId}; action=option_selected`);
   validateAnswer();
 }
 
@@ -597,6 +605,7 @@ function toggleMulti(questionId, optionId) {
     label?.classList.add('selected');
   }
 
+  logBrowserEvent('question_changed', `question_id=${questionId}; action=option_toggled`);
   validateAnswer();
 }
 
@@ -646,6 +655,7 @@ function saveMatching(questionId, optionId, matchValue) {
   }
   
   updateMatchingDropdowns(questionId);
+  logBrowserEvent('question_changed', `question_id=${questionId}; action=matching_changed`);
   validateAnswer();
 }
 
@@ -655,6 +665,8 @@ function unmatchOption(event, questionId, optionId) {
   if (answers[questionId]) {
     delete answers[questionId][optionId];
     renderQuestion(currentIndex);
+    logBrowserEvent('question_changed', `question_id=${questionId}; action=matching_removed`);
+    validateAnswer();
   }
 }
 
@@ -675,6 +687,7 @@ function moveSequence(questionId, idx, dir) {
   sequenceOrders[questionId] = orderList;
   
   renderQuestion(currentIndex);
+  logBrowserEvent('question_changed', `question_id=${questionId}; action=sequence_moved`);
   validateAnswer();
 }
 
@@ -977,8 +990,10 @@ async function startFullscreenTest() {
   try {
     await requestTestFullscreen();
     hasStarted = true;
+    fullscreenWasActive = isTestFullscreen();
+    logBrowserEvent('tab_focus', 'fullscreen_start');
     document.getElementById('start-overlay').style.display = 'none';
-    if (violations >= MAX_VIOLATIONS) { await confirmFinish(); return; }
+    if (violations >= MAX_VIOLATIONS) { await stopAfterViolations(); return; }
     if (!timerInterval) startTimer();
   } catch {
     alert('Не вдалося увімкнути повноекранний режим. Спробуйте ще раз або зверніться до вчителя.');
@@ -986,12 +1001,11 @@ async function startFullscreenTest() {
 }
 
 async function returnToFullscreen() {
+  if (finishIntent?.reason === 'violations') return stopAfterViolations();
   try {
     await requestTestFullscreen();
-    document.getElementById('fullscreen-block').style.display = 'none';
-    document.getElementById('violation-block').style.display = 'none';
-    isViolationShowing = false;
-    stopFullscreenReturnTimer();
+    checkFullscreenState();
+    clearViolationWarning();
   } catch {
     alert('Не вдалося повернути повноекранний режим. Спробуйте ще раз.');
   }
@@ -1048,43 +1062,44 @@ function startFullscreenReturnTimer() {
 }
 
 function stopFullscreenReturnTimer() {
-  if (fsTimerInterval) {
-    clearInterval(fsTimerInterval);
-    fsTimerInterval = null;
+  if (fsTimerInterval) clearInterval(fsTimerInterval);
+  fsTimerInterval = null;
+}
+
+function isTestFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function clearViolationWarning() {
+  document.getElementById('fullscreen-block').style.display = 'none';
+  document.getElementById('violation-block').style.display = 'none';
+  isViolationShowing = false;
+  stopFullscreenReturnTimer();
+}
+
+function checkFullscreenState() {
+  const active = isTestFullscreen();
+  if (!hasStarted || testFinished || finishIntent?.reason === 'violations') return;
+  if (active === fullscreenWasActive) return;
+  fullscreenWasActive = active;
+  if (active) {
     logBrowserEvent('tab_focus', `fullscreen_return; time_left=${fsTimeLeft}`);
+    clearViolationWarning();
   } else {
-    // If timer wasn't running (e.g. initial start, or already timed out)
-    logBrowserEvent('tab_focus', 'fullscreen_return');
+    // Escape is often consumed by the browser: observe the actual fullscreen
+    // transition, rather than relying on a keydown event.
+    handleViolation('fullscreen_exit', true);
   }
 }
 
-document.addEventListener('fullscreenchange', () => {
-  if (!hasStarted || testFinished || finishIntent) return;
-  if (!document.fullscreenElement) {
-    document.getElementById('fullscreen-block').style.display = 'flex';
-    handleViolation('fullscreen_exit');
-  } else {
-    document.getElementById('fullscreen-block').style.display = 'none';
-    stopFullscreenReturnTimer();
-  }
-});
-
-document.addEventListener('webkitfullscreenchange', () => {
-  if (!hasStarted || testFinished || finishIntent) return;
-  if (!document.webkitFullscreenElement) {
-    document.getElementById('fullscreen-block').style.display = 'flex';
-    handleViolation('fullscreen_exit');
-  } else {
-    document.getElementById('fullscreen-block').style.display = 'none';
-    stopFullscreenReturnTimer();
-  }
-});
+document.addEventListener('fullscreenchange', checkFullscreenState);
+document.addEventListener('webkitfullscreenchange', checkFullscreenState);
 
 function finishTest() {
   document.getElementById('finish-modal').style.display = 'flex';
 }
 function closeFinishModal() {
-  if (finishInProgress || finishIntent?.timeout) return;
+  if (finishInProgress || finishIntent?.timeout || finishIntent?.reason === 'violations') return;
   finishIntent = null;
   persistAttempt();
   validateAnswer();
@@ -1093,6 +1108,7 @@ function closeFinishModal() {
 
 async function confirmFinish(timeout = false) {
   if (finishInProgress || testFinished) return;
+  if (finishIntent?.reason === 'violations') return stopAfterViolations();
   finishIntent = finishIntent || {timeout: timeout === true};
   persistAttempt();
   finishInProgress = true;
@@ -1135,7 +1151,7 @@ async function confirmFinish(timeout = false) {
 function setupBrowserEvents() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      handleViolation();
+      handleViolation('visibility_hidden');
     } else {
       logBrowserEvent('tab_focus');
     }
@@ -1143,7 +1159,7 @@ function setupBrowserEvents() {
   window.addEventListener('blur', () => {
     // Fallback for some window switching
     if (!document.hidden) {
-      handleViolation();
+      handleViolation('window_blur');
     }
   });
   window.addEventListener('focus', () => {
@@ -1156,45 +1172,94 @@ function setupBrowserEvents() {
     resumeConnection();
   });
   
-  // Anti-cheat: Block copy, cut, right-click, selectstart, dragstart
-  document.addEventListener('copy', (e) => e.preventDefault());
-  document.addEventListener('cut', (e) => e.preventDefault());
-  document.addEventListener('contextmenu', (e) => e.preventDefault());
-  document.addEventListener('dragstart', (e) => e.preventDefault());
-  document.addEventListener('selectstart', (e) => {
-    const tag = e.target.tagName.toLowerCase();
-    if (tag !== 'input' && tag !== 'textarea') {
+  // Audit meaningful testing actions without recording arbitrary keystrokes.
+  document.addEventListener('keydown', e => {
+    if (hasStarted && e.key === 'Escape') logBrowserEvent('question_changed', 'action=escape_key');
+  });
+  for (const action of ['copy', 'cut', 'contextmenu', 'dragstart']) {
+    document.addEventListener(action, e => {
       e.preventDefault();
-    }
+      if (hasStarted) logBrowserEvent('question_changed', `action=blocked_${action}`);
+    });
+  }
+  document.addEventListener('paste', () => {
+    if (hasStarted) logBrowserEvent('question_changed', 'action=paste');
+  });
+  document.addEventListener('selectstart', e => {
+    const tag = e.target.tagName.toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea') e.preventDefault();
+  });
+  document.addEventListener('change', e => {
+    if (!hasStarted || !e.target.closest('#question-card')) return;
+    logBrowserEvent('question_changed', `question_id=${questions[currentIndex]?.id}; action=answer_edited`);
   });
 }
 
-function handleViolation(reason = 'tab_blur') {
-  if (!hasStarted || testFinished || finishInProgress || finishIntent || isPaused || isOffline || isViolationShowing) return;
+function handleViolation(reason = 'tab_blur', fullscreenExit = false) {
+  if (!hasStarted || testFinished || finishInProgress || finishIntent) return;
+  if (isPaused) {
+    logBrowserEvent('question_changed', `action=${reason}; paused=true`);
+    return;
+  }
+  // Blur + visibility + fullscreen notifications may describe one exit.
+  // Re-entering fullscreen clears the warning, allowing the next exit to count.
+  if (isViolationShowing && !fullscreenExit) return;
+  if (isViolationShowing && fullscreenExit) {
+    logBrowserEvent('question_changed', 'action=fullscreen_exit; same_warning=true');
+    return;
+  }
   violations++;
   isViolationShowing = true;
-  
+  if (violations >= MAX_VIOLATIONS) finishIntent = {timeout: false, reason: 'violations'};
   persistAttempt();
-  logBrowserEvent('tab_blur', `${reason}: Попередження ${violations}/3`);
-  startFullscreenReturnTimer();
-  
+  logBrowserEvent('tab_blur', `${reason}: Попередження ${violations}/${MAX_VIOLATIONS}`, violations >= MAX_VIOLATIONS);
+  document.getElementById('violation-count').textContent = violations;
+  document.getElementById('violation-block').style.display = 'flex';
   if (violations >= MAX_VIOLATIONS) {
-    alert("Критичне порушення правил тестування! Тест буде автоматично завершено.");
-    confirmFinish();
-  } else {
-    document.getElementById('violation-count').textContent = violations;
-    document.getElementById('violation-block').style.display = 'flex';
+    document.getElementById('violation-message').textContent = 'Три порушення. Проходження тесту зупинено. Зберігаємо відповіді та журнал…';
+    stopFullscreenReturnTimer();
+    validateAnswer();
+    stopAfterViolations();
+  } else startFullscreenReturnTimer();
+}
+
+async function stopAfterViolations() {
+  if (stoppingForViolations || testFinished) return;
+  stoppingForViolations = true;
+  finishIntent = {timeout: false, reason: 'violations'};
+  document.getElementById('violation-block').style.display = 'flex';
+  document.getElementById('violation-message').textContent = 'Три порушення. Проходження тесту зупинено. Зберігаємо відповіді та журнал…';
+  document.getElementById('violation-count').textContent = violations;
+  document.getElementById('violation-return-timer').style.display = 'none';
+  document.getElementById('violation-return-btn').style.display = 'none';
+  stopFullscreenReturnTimer();
+  validateAnswer();
+  // Freeze drafts before the stop event reaches the server. If transmission
+  // fails, preserve them locally; the stop must not depend on saving answers.
+  for (const q of questions) {
+    if (!lockedQuestions.has(q.id) && !pendingAnswers[q.id] && hasAnswer(q.id)) {
+      pendingAnswers[q.id] = JSON.parse(JSON.stringify({question_id: q.id,
+        answer_text: q.question_type === 'short_text' ? answers[q.id] : null,
+        selected_options: q.question_type === 'short_text' ? null : answers[q.id]}));
+    }
   }
+  persistAttempt();
+  try {
+    await flushPendingAnswers();
+    stopEventsReady = true;
+    if (!await flushBrowserEvents()) { goOffline(); return; }
+    await fallbackCheckStatus();
+  } finally { stoppingForViolations = false; }
 }
 
 function dismissViolationModal() { returnToFullscreen(); }
 
-function logBrowserEvent(eventType, details = null) {
+function logBrowserEvent(eventType, details = null, defer = false) {
   if (testFinished) return;
   pendingEvents.push({event_type: eventType, details, client_event_id:
     `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`});
   persistAttempt();
-  if (!isOffline) flushBrowserEvents();
+  if (!isOffline && !defer) flushBrowserEvents();
 }
 
 let flushingEvents = null;
@@ -1203,14 +1268,19 @@ function flushBrowserEvents() {
   flushingEvents = (async () => {
     while (pendingEvents.length) {
       const event = pendingEvents[0];
+      if (finishIntent?.reason === 'violations' && !stopEventsReady && event.event_type === 'tab_blur') return true;
       try {
         const response = await studentFetch(`/student/event/${ATTEMPT_ID}`, {
           method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(event),
         });
-        if (!response.ok) return false;
+        if (!response.ok) { goOffline(); return false; }
+        const result = await response.json().catch(() => ({}));
         pendingEvents.shift();
         persistAttempt();
-      } catch { return false; }
+        if (result.attempt_status === 'stopped') {
+          handleStopEvent(result.stop_reason);
+        }
+      } catch { goOffline(); return false; }
     }
     return true;
   })().finally(() => { flushingEvents = null; });
@@ -1245,7 +1315,7 @@ function connectStudentWebSocket() {
       } else if (data.event === 'resume') {
         handleResumeEvent();
       } else if (data.event === 'stop') {
-        handleStopEvent();
+        handleStopEvent(data.reason);
       }
     } catch (e) {}
   };
@@ -1272,9 +1342,13 @@ function handleResumeEvent() {
   if (Object.keys(pendingAnswers).length || finishIntent) resumeConnection();
 }
 
-function handleStopEvent() {
+function handleStopEvent(reason = null) {
+  if (testFinished) return;
+  const message = reason === 'violations' || finishIntent?.reason === 'violations'
+    ? 'Тест зупинено після третього порушення правил.' : 'Проходження тесту завершено.';
+  stopFullscreenReturnTimer();
   if (Object.keys(pendingAnswers).length || hasUnconfirmedDraft()) {
-    syncError = 'Тест завершено вчителем. Непідтверджені відповіді залишилися на пристрої. Збережіть копію для вчителя.';
+    syncError = `${message} Непідтверджені відповіді залишилися на пристрої. Збережіть копію для вчителя.`;
     isPaused = true;
     persistAttempt();
     document.getElementById('offline-block').style.display = 'flex';
@@ -1283,7 +1357,8 @@ function handleStopEvent() {
   testFinished = true;
   if (timerInterval) clearInterval(timerInterval);
   if (qTimerInterval) clearInterval(qTimerInterval);
-  alert('Проходження тесту завершено вчителем.');
+  attemptCache.clear();
+  alert(message);
   window.location.href = `/student/test/${ATTEMPT_ID}/finished`;
 }
 
@@ -1297,7 +1372,7 @@ async function fallbackCheckStatus() {
     if (data.status === 'paused') {
       if (!isPaused) handlePauseEvent();
     } else if (data.status === 'stopped' || data.status === 'finished' || data.status === 'timeout') {
-      handleStopEvent();
+      handleStopEvent(data.stop_reason);
     } else if (data.status === 'in_progress') {
       if (isPaused) handleResumeEvent();
     }
@@ -1339,7 +1414,7 @@ async function resumeConnection() {
         return;
       }
       if (hasUnconfirmedDraft()) {
-        handleStopEvent();
+        handleStopEvent(data.stop_reason);
         return;
       }
       if (!await flushBrowserEvents()) { goOffline(); return; }
@@ -1358,7 +1433,15 @@ async function resumeConnection() {
     else if (isPaused) handleResumeEvent();
     const currentId = questions[currentIndex]?.id;
     const hadPending = !!pendingAnswers[currentId];
-    if (isPaused || !await flushPendingAnswers()) return;
+    if (finishIntent?.reason === 'violations') {
+      await stopAfterViolations();
+      return;
+    }
+    if (isPaused) {
+      if (!await flushBrowserEvents()) goOffline();
+      return;
+    }
+    if (!await flushPendingAnswers()) return;
     if (!await flushBrowserEvents()) { goOffline(); return; }
     const overlay = document.getElementById('offline-block');
     if (overlay) overlay.style.display = 'none';

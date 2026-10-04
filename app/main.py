@@ -75,6 +75,7 @@ async def add_cache_control_header(request: Request, call_next):
         from fastapi.responses import Response
         return Response(status_code=404)
     response = await call_next(request)
+    response.headers["X-App-Version"] = settings.APP_VERSION
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
     else:

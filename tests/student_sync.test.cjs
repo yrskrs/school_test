@@ -12,13 +12,17 @@ function environment(fetcher = async () => ({ok: true, json: async () => ({statu
   const elements = new Map();
   const listeners = {};
   const intervals = new Map();
+  const windowListeners = {};
+  const dispatch = (name, event = {}) => (listeners[name] || []).forEach(fn => fn(event));
+  const dispatchWindow = (name, event = {}) => (windowListeners[name] || []).forEach(fn => fn(event));
   let timerId = 0;
   const element = () => ({style: {}, dataset: {}, classList: {add() {}, remove() {}, contains() {return false;}},
     querySelector() {return this.child ||= element();}, appendChild() {}, addEventListener(name, fn) {(this.handlers ||= {})[name] = fn;}, textContent: '', disabled: false});
   const document = {getElementById(id) {if (!elements.has(id)) elements.set(id, element()); return elements.get(id);},
     addEventListener(name, fn) {(listeners[name] ||= []).push(fn);}, createElement: element,
-    querySelectorAll: () => [], documentElement: {requestFullscreen: async () => {}}, hidden: false};
-  const context = vm.createContext({document, localStorage: customStorage, addEventListener() {},
+    querySelectorAll: () => [], documentElement: {}, hidden: false, fullscreenElement: null};
+  document.documentElement.requestFullscreen = async () => {document.fullscreenElement = document.documentElement; dispatch('fullscreenchange');};
+  const context = vm.createContext({document, localStorage: customStorage, addEventListener(name, fn) {(windowListeners[name] ||= []).push(fn);},
     ATTEMPT_ID: 42, SESSION_ID: 1, TIME_REMAINING: 120, ATTEMPT_STATUS: 'in_progress',
     TEST_DATA: {questions: [{id: 1, question_type: 'single_choice', question_text: 'Q', options: [{id: 2, option_text: 'A'}]}], time_limit_per_question: 10},
     SAVED_ANSWERS: {}, LOCKED_QUESTIONS: [], SKIPPED_QUESTIONS: [], VIOLATION_COUNT: 0,
@@ -29,7 +33,7 @@ function environment(fetcher = async () => ({ok: true, json: async () => ({statu
   context.window = context;
   vm.runInContext(cacheCode, context);
   vm.runInContext(studentCode, context);
-  return {context, elements, listeners, intervals, run: code => vm.runInContext(code, context)};
+  return {context, elements, listeners, intervals, dispatch, dispatchWindow, run: code => vm.runInContext(code, context)};
 }
 async function runTests() {
   for (const file of ['student-cache.js', 'student.js', 'student-recovery.js', 'teacher-lists.js', 'teacher.js', 'monitor.js']) {
@@ -196,7 +200,105 @@ async function runTests() {
   vm.runInContext(recoveryCode, recovery.context);
   assert.equal(storage.getItem('schooltest:attempt:42:v1'), null);
 
-  console.log('PASS: 13 student scenarios and 6 scripts parsed.');
-  return {passed: true, scenarios: 13, scriptsParsed: 6};
+  storage.removeItem('schooltest:attempt:42:v1');
+  const fullscreenRequests = [];
+  let serverViolations = 0;
+  const fullscreen = environment(async (url, options = {}) => {
+    fullscreenRequests.push({url, body: options.body && JSON.parse(options.body)});
+    if (url.startsWith('/student/event/')) {
+      const body = JSON.parse(options.body);
+      if (body.event_type === 'tab_blur') serverViolations++;
+      return {ok: true, json: async () => ({attempt_status: serverViolations >= 3 ? 'stopped' : 'in_progress', stop_reason: 'violations'})};
+    }
+    return {ok: true, json: async () => ({status: serverViolations >= 3 ? 'stopped' : 'in_progress', stop_reason: 'violations'})};
+  });
+  fullscreen.run('setupBrowserEvents(); answers[1] = [2];');
+  await fullscreen.run('startFullscreenTest()');
+  assert.equal(fullscreen.run('hasStarted'), true);
+  for (let exit = 1; exit <= 3; exit++) {
+    fullscreen.context.document.fullscreenElement = null;
+    fullscreen.dispatch('fullscreenchange'); // Browser consumes Esc: no keydown.
+    fullscreen.dispatch('webkitfullscreenchange'); // Alias must not double count.
+    fullscreen.dispatchWindow('blur');
+    assert.equal(fullscreen.run('violations'), exit);
+    if (exit < 3) {
+      await fullscreen.run('flushBrowserEvents()');
+      assert.equal(fullscreen.elements.get('violation-block').style.display, 'flex');
+      if (exit === 1) await fullscreen.run('returnToFullscreen()');
+      else { // Returning by an external fullscreen control must reset the warning too.
+        fullscreen.context.document.fullscreenElement = fullscreen.context.document.documentElement;
+        fullscreen.dispatch('fullscreenchange');
+      }
+      assert.equal(fullscreen.run('isViolationShowing'), false);
+    }
+  }
+  for (let n = 0; n < 30; n++) await Promise.resolve();
+  await fullscreen.run('flushBrowserEvents()');
+  assert.equal(serverViolations, 3);
+  assert.equal(fullscreen.run('testFinished'), true);
+  assert.equal(fullscreen.elements.get('violation-return-btn').style.display, 'none');
+  assert.equal(fullscreen.elements.get('violation-return-timer').style.display, 'none');
+  assert.equal(fullscreen.context.location.href, '/student/test/42/finished');
+  const thirdEventIndex = fullscreenRequests.findLastIndex(r => r.body?.event_type === 'tab_blur');
+  assert.ok(fullscreenRequests.findIndex(r => r.url.endsWith('save-answer')) < thirdEventIndex);
+  assert.equal(fullscreenRequests.some(r => r.url.endsWith('/finish')), false, 'Violations must stop, not finish normally');
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const offlineExits = environment(async () => {throw Error('offline');});
+  await offlineExits.run('startFullscreenTest()');
+  offlineExits.run('isOffline = true');
+  for (let n = 0; n < 3; n++) {
+    offlineExits.context.document.fullscreenElement = null;
+    offlineExits.dispatch('fullscreenchange');
+    if (n < 2) await offlineExits.run('returnToFullscreen()');
+  }
+  assert.equal(offlineExits.run('violations'), 3);
+  const stoppedCache = JSON.parse(storage.getItem('schooltest:attempt:42:v1'));
+  assert.equal(stoppedCache.finish.reason, 'violations');
+  assert.equal(stoppedCache.events.filter(e => e.event_type === 'tab_blur').length, 3);
+  await offlineExits.run('flushBrowserEvents()');
+  let deliveredExits = 0;
+  const deliveredIds = new Set();
+  const afterOfflineReload = environment(async (url, options = {}) => {
+    if (url.startsWith('/student/event/')) {
+      const event = JSON.parse(options.body);
+      if (event.event_type === 'tab_blur' && !deliveredIds.has(event.client_event_id)) {
+        deliveredExits++; deliveredIds.add(event.client_event_id);
+      }
+      return {ok: true, json: async () => ({attempt_status: deliveredExits >= 3 ? 'stopped' : 'in_progress', stop_reason: 'violations'})};
+    }
+    return {ok: true, json: async () => ({status: deliveredExits >= 3 ? 'stopped' : 'in_progress'})};
+  });
+  assert.equal(afterOfflineReload.run('finishIntent.reason'), 'violations');
+  assert.equal(afterOfflineReload.run('violations'), 3);
+  await afterOfflineReload.run('resumeConnection()');
+  assert.equal(deliveredExits, 3, 'Offline exits reach the server after reload');
+  assert.equal(afterOfflineReload.run('testFinished'), true);
+  assert.equal(storage.getItem('schooltest:attempt:42:v1'), null);
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const missedEvent = environment();
+  await missedEvent.run('startFullscreenTest()');
+  missedEvent.context.document.fullscreenElement = null;
+  missedEvent.run('checkFullscreenState(); checkFullscreenState();');
+  assert.equal(missedEvent.run('violations'), 1, 'Polling recovers missed fullscreenchange once');
+  await missedEvent.run('returnToFullscreen()');
+  missedEvent.run('isPaused = true');
+  missedEvent.context.document.fullscreenElement = null;
+  missedEvent.dispatch('fullscreenchange');
+  assert.equal(missedEvent.run('violations'), 1, 'Teacher pause records action without punishment');
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const telemetry = environment(async () => {throw Error('offline');});
+  telemetry.run('setupBrowserEvents(); hasStarted = true; isOffline = true');
+  let prevented = false;
+  telemetry.dispatch('copy', {preventDefault() {prevented = true;}});
+  telemetry.dispatch('keydown', {key: 'Escape'});
+  assert.equal(prevented, true);
+  assert.equal(telemetry.run('violations'), 0, 'Esc keydown alone is not a fullscreen exit');
+  assert.equal(telemetry.run('pendingEvents.length'), 2);
+
+  console.log('PASS: 17 student scenarios and 6 scripts parsed.');
+  return {passed: true, scenarios: 17, scriptsParsed: 6};
 }
 module.exports = runTests();

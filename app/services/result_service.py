@@ -220,6 +220,7 @@ def grade_answer(
 def grade_all_answers(
     db: Session,
     attempt: models.StudentAttempt,
+    *, commit: bool = True,
 ) -> tuple[float, float]:
     """
     Оцінює всі відповіді спроби.
@@ -242,5 +243,6 @@ def grade_all_answers(
         answer.is_correct = is_correct
         answer.awarded_points = awarded
         total_score += awarded
-    db.commit()
+    if commit:
+        db.commit()
     return total_score, max_score

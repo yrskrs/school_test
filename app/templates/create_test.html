@@ -197,6 +197,6 @@
 
 {% block scripts %}
 {% if not (import_mode is defined and import_mode) %}
-<script src="/static/js/teacher.js?v=1.2"></script>
+<script src="/static/js/teacher.js?v={{ app_version }}"></script>
 {% endif %}
 {% endblock %}

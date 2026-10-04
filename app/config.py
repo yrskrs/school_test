@@ -1,13 +1,14 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from app.version import __version__
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 class Settings:
     APP_NAME: str = "ШколярТест — Система шкільного тестування"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = __version__
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
 
     # Database

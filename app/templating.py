@@ -8,6 +8,7 @@ from jinja2 import Environment, FileSystemLoader
 from starlette.templating import Jinja2Templates
 
 from app.config import settings
+from app.services.testing_policy import MAX_VIOLATIONS
 
 
 def _from_json(s):
@@ -36,3 +37,5 @@ def _scale_grade(attempt):
 templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
 templates.env.filters["from_json"] = _from_json
 templates.env.filters["scale_grade"] = _scale_grade
+
+templates.env.globals.update(app_version=settings.APP_VERSION, max_violations=MAX_VIOLATIONS)

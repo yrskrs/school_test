@@ -22,7 +22,7 @@
     </svg>
   </div>
   <h1 class="finished-title">Тест зупинено</h1>
-  <p class="finished-subtitle">Проходження тесту було зупинено вчителем</p>
+  <p class="finished-subtitle">{{ 'Автоматична зупинка після третього порушення правил' if stop_reason == 'violations' else 'Проходження тесту було зупинено вчителем' }}</p>
   {% else %}
   <div class="finished-icon finished-icon--success">
     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -186,8 +186,8 @@
 
 {% block scripts %}
 <script type="application/json" id="recovery-config">{{ {"attempt_id": attempt.id, "confirmed_ids": confirmed_question_ids} | tojson }}</script>
-<script src="/static/js/student-cache.js?v=2"></script>
-<script src="/static/js/student-recovery.js?v=1"></script>
+<script src="/static/js/student-cache.js?v={{ app_version }}"></script>
+<script src="/static/js/student-recovery.js?v={{ app_version }}"></script>
 {% endblock %}
 
 {% block head %}

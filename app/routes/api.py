@@ -3,10 +3,17 @@ from sqlalchemy.orm import Session
 
 from app import crud, models
 from app.database import get_db
+from app.services.testing_policy import violation_count, stop_reason
 from app.deps import get_current_teacher
 from app.security import get_student_attempt_id, get_teacher_session
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/version")
+async def site_version():
+    from app.config import settings
+    return {"version": settings.APP_VERSION}
 
 
 @router.get("/session-status/{session_id}")
@@ -79,6 +86,8 @@ async def get_attempt(attempt_id: int, request: Request, response: Response, db:
         "started_at": attempt.started_at.isoformat() if attempt.started_at else None,
         "finished_at": attempt.finished_at.isoformat() if attempt.finished_at else None,
         "session_id": attempt.session_id,
+        "violation_count": violation_count(db, attempt_id),
+        "stop_reason": stop_reason(db, attempt_id) if attempt.status == models.AttemptStatus.stopped else None,
     }
 
 
