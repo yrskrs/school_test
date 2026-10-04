@@ -222,6 +222,7 @@ class Scripts(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.commands()[-1], ['docker', 'compose', 'stop', 'app'])
         self.assertIn('left stopped', result.stderr)
+        self.assertIn(['docker', 'compose', 'logs', '--no-color', '--tail=100', 'app'], self.commands())
 
     def test_restore_rejects_bad_checksum_before_docker_mutation(self):
         (self.backup / 'files.tar.gz').write_bytes(b'broken')

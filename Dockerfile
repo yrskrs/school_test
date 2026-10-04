@@ -20,6 +20,9 @@ RUN grep -v "PyQt6" requirements.txt > req_docker.txt \
 # Copy the rest of the application
 COPY . .
 RUN mkdir -p /app/data /app/app/static/tests /app/app/static/uploads
+# Fail the build before deployment if an installed PostgreSQL driver or the
+# application import is broken. This uses synthetic URLs and never connects.
+RUN python scripts/check_runtime.py
 
 # Expose port
 EXPOSE 8000

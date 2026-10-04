@@ -1,0 +1,39 @@
+# Isolated validation only: no host ports, production env file or persistent volumes.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: runtime_check
+      POSTGRES_PASSWORD: synthetic-runtime-check
+      POSTGRES_DB: schooltest_runtime_check
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "runtime_check", "-d", "schooltest_runtime_check"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  app:
+    image: ${RUNTIME_CHECK_IMAGE:-schooltest-runtime-check:local}
+    environment: &runtime_environment
+      DATABASE_URL: postgresql://runtime_check:synthetic-runtime-check@postgres:5432/schooltest_runtime_check
+      SECRET_KEY: synthetic-runtime-check-key
+      DEBUG: "False"
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; assert urllib.request.urlopen('http://127.0.0.1:8000/', timeout=3).status == 200"]
+      interval: 2s
+      timeout: 4s
+      retries: 20
+  checks:
+    image: ${RUNTIME_CHECK_IMAGE:-schooltest-runtime-check:local}
+    environment: *runtime_environment
+    command: ["python", "/checks/runtime_postgres_check.py"]
+    volumes:
+      - ./runtime_postgres_check.py:/checks/runtime_postgres_check.py:ro
+    depends_on:
+      app:
+        condition: service_healthy

@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.database import create_tables, SessionLocal
+from app.database import create_tables, engine
 from app import crud
 from app.templating import templates
 from app.routes import api, setup, student, teacher, websocket
@@ -18,35 +18,15 @@ from app.routes import api, setup, student, teacher, websocket
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Переконуємось, що директорія для БД існує
-    db_path = Path(settings.DATABASE_URL.replace("sqlite:///", ""))
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    # PostgreSQL URLs are connection strings, not filesystem paths.
+    if engine.dialect.name == "sqlite" and engine.url.database not in (None, "", ":memory:"):
+        Path(engine.url.database).parent.mkdir(parents=True, exist_ok=True)
 
     # Створюємо таблиці
     create_tables()
 
-    # Оновлюємо існуючу БД новими колонками (sqlite ALTER TABLE)
-    db = SessionLocal()
-    try:
-        from sqlalchemy import text
-        db.execute(text("ALTER TABLE teachers ADD COLUMN subject VARCHAR(100)"))
-        db.commit()
-    except Exception:
-        pass
-    try:
-        from sqlalchemy import text
-        db.execute(text("ALTER TABLE teachers ADD COLUMN classes VARCHAR(255)"))
-        db.commit()
-    except Exception:
-        pass
-    try:
-        from sqlalchemy import text
-        db.execute(text("ALTER TABLE tests ADD COLUMN use_fuzzy_matching BOOLEAN DEFAULT 0"))
-        db.commit()
-    except Exception:
-        pass
-    finally:
-        db.close()
+    from app.services.startup_schema import ensure_legacy_columns
+    ensure_legacy_columns(engine)
 
     yield
 

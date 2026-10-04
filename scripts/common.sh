@@ -33,6 +33,7 @@ wait_for_app() {
     sleep 2
   done
   printf 'Application readiness check failed. Inspect: docker compose logs --tail=100 app\n' >&2
+  docker compose logs --no-color --tail=100 app >&2 || true
   return 1
 }
 wait_for_postgres() {
