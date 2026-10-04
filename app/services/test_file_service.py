@@ -2,6 +2,8 @@ import os
 import shutil
 import json
 import re
+from pathlib import Path
+from app.config import settings
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app import models
@@ -80,6 +82,12 @@ def test_to_dict(test: models.Test) -> dict:
         "show_correct_answers": test.show_correct_answers,
         "is_formative": test.is_formative,
         "allow_partial_grading": test.allow_partial_grading,
+        "use_fuzzy_matching": test.use_fuzzy_matching,
+        "allow_retake": test.allow_retake,
+        "time_limit_per_question": test.time_limit_per_question,
+        "max_grade": test.max_grade,
+        "random_questions_limit": test.random_questions_limit,
+        "excluded_topics": test.excluded_topics or "[]",
         "questions": [
             {
                 "id": q.id,
@@ -109,7 +117,7 @@ def test_to_dict(test: models.Test) -> dict:
 
 def save_test_locally(test: models.Test):
     folder_name = get_test_folder_name(test)
-    test_dir = os.path.join("app", "static", "tests", folder_name)
+    test_dir = os.path.join("data", "tests", folder_name)
     os.makedirs(test_dir, exist_ok=True)
     
     test_data = test_to_dict(test)
@@ -122,6 +130,20 @@ def delete_test_locally(test: models.Test):
     test_dir = os.path.join("app", "static", "tests", folder_name)
     if os.path.exists(test_dir):
         shutil.rmtree(test_dir)
+    private_dir = os.path.join("data", "tests", folder_name)
+    if os.path.exists(private_dir):
+        shutil.rmtree(private_dir)
+
+
+def resolve_static_image(url):
+    """Only serve raster media inside the configured static directory."""
+    if not isinstance(url, str) or not url.startswith("/static/"):
+        return None
+    root = Path(settings.STATIC_DIR).resolve()
+    path = (root / url.removeprefix("/static/")).resolve()
+    if not path.is_relative_to(root) or path.suffix.lower() not in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}:
+        return None
+    return path if path.is_file() else None
 
 def rename_test_folder(test: models.Test, old_folder_name: str, new_folder_name: str, db: Session):
     if old_folder_name == new_folder_name:
@@ -138,6 +160,11 @@ def rename_test_folder(test: models.Test, old_folder_name: str, new_folder_name:
         except Exception:
             pass
         
+    old_private = Path("data/tests") / old_folder_name
+    new_private = Path("data/tests") / new_folder_name
+    if old_private.exists() and not new_private.exists():
+        shutil.move(str(old_private), str(new_private))
+
     # Rewrite database URLs
     db_updated = False
     old_prefix = f"/static/tests/{old_folder_name}/"

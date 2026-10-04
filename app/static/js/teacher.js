@@ -474,7 +474,7 @@ function buildQuestionEl(q) {
 
   const imageHtml = q.image_url 
     ? `<div style="position:relative;display:inline-block">
-         <img src="${q.image_url}" class="test-image-preview" />
+         <img src="${escHtml(q.image_url)}" class="test-image-preview" />
          <button type="button" class="btn btn-sm btn-danger" style="position:absolute;top:0;right:5px;padding:0 5px;" onclick="updateQField(${q._id}, 'image_url', null);rebuildQuestionBody(${q._id})">✕</button>
        </div>` 
     : `<button type="button" class="image-upload-btn" onclick="triggerUpload('q-${q._id}')">🖼️ Додати зображення</button>
@@ -617,7 +617,7 @@ function buildOptionsHTML(q) {
     const val = q.options.length ? escHtml(q.options[0].option_text) : '';
     const imagePreviewHtml = q.image_url ? `
       <div class="hotspot-editor-container" id="hotspot-editor-${q._id}" style="position:relative; display:inline-block; max-width:100%; margin-bottom:1rem; border:1px solid var(--border-light); border-radius:6px; overflow:hidden;">
-        <img id="hotspot-editor-img-${q._id}" src="${q.image_url}" style="max-width:100%; display:block; user-select:none; -webkit-user-drag:none;" onload="initHotspotEditor(${q._id})" />
+        <img id="hotspot-editor-img-${q._id}" src="${escHtml(q.image_url)}" style="max-width:100%; display:block; user-select:none; -webkit-user-drag:none;" onload="initHotspotEditor(${q._id})" />
         <svg id="hotspot-editor-svg-${q._id}" style="position:absolute; top:0; left:0; width:100%; height:100%; cursor:crosshair;">
           <polygon id="hotspot-poly-${q._id}" fill="rgba(59, 130, 246, 0.3)" stroke="#3b82f6" stroke-width="2" points="" style="display:none" />
           <rect id="hotspot-drag-rect-${q._id}" fill="rgba(59, 130, 246, 0.15)" stroke="#3b82f6" stroke-dasharray="4" stroke-width="1.5" x="0" y="0" width="0" height="0" style="display:none" />
@@ -711,7 +711,7 @@ function optionRowHTML(qid, idx, o, type) {
   const inputType = isMulti ? 'checkbox' : 'radio';
   
   const imgHtml = isImage ? (o.image_url 
-    ? `<img src="${o.image_url}" class="test-image-preview" style="height:40px;width:40px;margin-right:0" />
+    ? `<img src="${escHtml(o.image_url)}" class="test-image-preview" style="height:40px;width:40px;margin-right:0" />
        <button type="button" class="btn btn-sm btn-danger" onclick="updateOptionField(${qid},${idx},'image_url',null);rebuildOptions(${qid})">✕</button>`
     : `<button type="button" class="image-upload-btn" onclick="triggerUpload('o-${qid}-${idx}')">🖼️</button>
        <input type="file" id="upload-o-${qid}-${idx}" style="display:none" accept="image/*" onchange="handleUpload(this, (url) => { updateOptionField(${qid},${idx},'image_url',url); rebuildOptions(${qid}); })" />`

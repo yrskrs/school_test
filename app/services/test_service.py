@@ -140,13 +140,11 @@ def build_test_payload(db: Session, attempt: models.StudentAttempt, shuffle: boo
             "order_index": q.order_index,
             "image_url": q.image_url,
             "matching_pool": matching_pool,
-            "options": [
+            "options": [] if q.question_type in (models.QuestionType.short_text, models.QuestionType.hotspot) else [
                 {
                     "id": o.id, 
                     "option_text": o.option_text, 
-                    "order_index": o.order_index,
                     "image_url": o.image_url,
-                    "matching_text": o.matching_text if q.question_type == models.QuestionType.matching else None
                 }
                 for o in options
             ],

@@ -4,7 +4,8 @@ import json
 import time
 from typing import Optional
 
-from fastapi import Request, Response
+from fastapi import Response
+from starlette.requests import HTTPConnection
 
 from app.config import settings
 
@@ -75,7 +76,7 @@ def create_teacher_session(response: Response, teacher_id: int, username: str) -
     )
 
 
-def get_teacher_session(request: Request) -> Optional[dict]:
+def get_teacher_session(request: HTTPConnection) -> Optional[dict]:
     """Читає і перевіряє cookie вчителя. Повертає dict або None."""
     import base64
     signed = request.cookies.get(settings.SESSION_COOKIE_NAME)
@@ -115,7 +116,7 @@ def set_student_cookie(response: Response, attempt_id: int) -> None:
     )
 
 
-def get_student_attempt_id(request: Request) -> Optional[int]:
+def get_student_attempt_id(request: HTTPConnection) -> Optional[int]:
     """Читає attempt_id учня з cookie. Повертає int або None."""
     signed = request.cookies.get(settings.STUDENT_COOKIE_NAME)
     if not signed:

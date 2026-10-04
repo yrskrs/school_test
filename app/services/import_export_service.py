@@ -48,6 +48,8 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
         "title", "subject", "class_name", "description",
         "time_limit_minutes", "shuffle_questions", "shuffle_options",
         "show_result_after_finish", "show_correct_answers", "is_formative",
+        "time_limit_per_question", "allow_partial_grading", "use_fuzzy_matching",
+        "allow_retake", "max_grade", "random_questions_limit", "excluded_topics",
     }
     test_data = {k: v for k, v in raw.items() if k in allowed_test_fields}
     if "title" not in test_data:
@@ -192,7 +194,10 @@ def export_results_to_csv(attempts: list[models.StudentAttempt]) -> str:
 
 def save_base64_image(base64_str: str, ext: str = ".bmp", temp_session_id: str | None = None) -> str:
     base64_str = "".join(base64_str.split())
-    raw_bytes = base64.b64decode(base64_str)
+    from app.services.media_service import MAX_IMAGE_BYTES, validate_image
+    if len(base64_str) > ((MAX_IMAGE_BYTES + 2) // 3) * 4:
+        raise ValueError("Зображення має бути не більше 10 МБ")
+    raw_bytes = base64.b64decode(base64_str, validate=True)
     try:
         # Виправлення бага MyTestX: бінарні дані BMP були прочитані як рядок cp1251
         # і збережені в XML як UTF-8, а вже потім закодовані у Base64.
@@ -207,6 +212,7 @@ def save_base64_image(base64_str: str, ext: str = ".bmp", temp_session_id: str |
     except UnicodeDecodeError:
         image_data = raw_bytes
 
+    ext = validate_image(image_data, ext)
     filename = f"{uuid.uuid4().hex}{ext}"
     if temp_session_id:
         if not re.match(r"^[a-zA-Z0-9_\-]+$", temp_session_id):

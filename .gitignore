@@ -24,6 +24,7 @@ data/*.db-shm
 data/*.db-wal
 data/last_archive_time.txt
 data/results/*
+data/tests/
 !data/results/.gitkeep
 data/archives/*
 !data/archives/.gitkeep

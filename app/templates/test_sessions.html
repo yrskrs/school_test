@@ -1,339 +1,78 @@
 {% extends "base.html" %}
-{% block title %}{% if page == 'sessions' %}Сесії{% else %}Тести{% endif %}{% endblock %}
-
+{% block title %}{{ 'Сесії тестування' if page == 'sessions' else 'Мої тести' }}{% endblock %}
+{% block body_class %}teacher-list-page{% endblock %}
 {% block content %}
-{% if page == 'tests' %}
-<!-- ===================== TESTS LIST ===================== -->
-<div class="page-header">
-  <h1>Мої тести</h1>
-  <div style="display:flex;gap:0.75rem">
-    <label for="importXmlInput" class="btn btn-secondary" style="cursor: pointer; margin: 0;">
-      Імпорт XML (MyTestX)
-      <input type="file" id="importXmlInput" accept=".xml" style="display:none" onchange="handleXmlImport(event)">
-    </label>
-    <label for="importDocxInput" class="btn btn-secondary" style="cursor: pointer; margin: 0;">
-      Імпорт Word (.docx)
-      <input type="file" id="importDocxInput" accept=".docx" style="display:none" onchange="handleDocxImport(event)">
-    </label>
-    <a href="/teacher/tests/import" class="btn btn-secondary">Імпорт JSON</a>
+{% set is_tests = page == 'tests' %}
+{% set list_path = '/teacher/tests' if is_tests else '/teacher/sessions' %}
+<div class="page-header list-page-header">
+  <div><h1>{{ 'Мої тести' if is_tests else 'Сесії тестування' }}</h1><p class="page-subtitle">{{ 'Підготуйте тест і запустіть його для класу.' if is_tests else 'Активні сесії — першими. Керуйте класом або відкрийте моніторинг.' }}</p></div>
+  <div class="list-header-actions">
+    {% if is_tests %}
+    <details class="list-menu import-menu"><summary class="btn btn-secondary">Імпортувати ▾</summary><div class="list-menu-panel">
+      <label for="importDocxInput" class="menu-action">Word (.docx)<input type="file" id="importDocxInput" accept=".docx" hidden onchange="handleDocxImport(event)"></label>
+      <label for="importXmlInput" class="menu-action">MyTestX (.xml)<input type="file" id="importXmlInput" accept=".xml" hidden onchange="handleXmlImport(event)"></label>
+      <a href="/teacher/tests/import" class="menu-action">JSON</a>
+    </div></details>
     <a href="/teacher/tests/create" class="btn btn-primary">+ Створити тест</a>
+    {% else %}<a href="/teacher/tests" class="btn btn-primary">Запустити тест</a>{% endif %}
   </div>
 </div>
-
-<!-- Tabs -->
-<div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
-  <a href="/teacher/tests?tab=active" class="btn {% if tab != 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні тести</a>
-  <a href="/teacher/tests?tab=archive" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
-</div>
-
-{% if tab != 'archive' %}
-<details class="card filter-card" style="margin-bottom: 1.5rem;">
-  <summary style="cursor: pointer; font-weight: 500; color: var(--text-muted); outline: none;">
-    ▶ Масове архівування (за періодом)
-  </summary>
-  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-    <form method="post" action="/teacher/tests/archive-bulk" class="filter-form" style="margin:0; display:flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;" onsubmit="return confirm('Ви впевнені, що хочете заархівувати всі тести за цей період?')">
-      <div class="form-group" style="margin:0; min-width: 150px;">
-        <label for="tests_start_date">Архівувати з:</label>
-        <input type="date" id="tests_start_date" name="start_date" required>
-      </div>
-      <div class="form-group" style="margin:0; min-width: 150px;">
-        <label for="tests_end_date">ПО:</label>
-        <input type="date" id="tests_end_date" name="end_date" required>
-      </div>
-      <button type="submit" class="btn btn-secondary">🗃 Архівувати період</button>
-    </form>
-  </div>
-</details>
-{% endif %}
-
-{% if tests_with_count %}
-<div class="table-wrapper">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Назва</th>
-        <th class="mobile-hidden">Предмет</th>
-        <th class="mobile-hidden">Клас</th>
-        <th>Питань</th>
-        <th class="mobile-hidden">Час</th>
-        <th class="mobile-hidden">Дата</th>
-        <th>Дії</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in tests_with_count %}
-      <tr>
-        <td><strong>{{ item.test.title }}</strong></td>
-        <td class="mobile-hidden">{{ item.test.subject or '—' }}</td>
-        <td class="mobile-hidden">{{ item.test.class_name or '—' }}</td>
-        <td>
-          <span class="badge badge-count">{{ item.question_count }}</span>
-        </td>
-        <td class="mobile-hidden">
-          {% if item.test.time_limit_minutes %}
-            {{ item.test.time_limit_minutes }} хв
-          {% else %}
-            Без обмежень
-          {% endif %}
-        </td>
-        <td class="mobile-hidden">{{ item.test.created_at.strftime('%d.%m.%Y') }}</td>
-        <td>
-          <div class="action-group" style="flex-wrap: nowrap; gap: 0.25rem;">
-            {% if not item.test.is_archived %}
-            <form method="post" action="/teacher/tests/{{ item.test.id }}/start-session" style="margin:0">
-              <button type="submit" class="btn btn-sm btn-success" title="Запустити тест">▶ Запустити</button>
-            </form>
-            {% else %}
-            <form method="post" action="/teacher/tests/{{ item.test.id }}/unarchive" style="margin:0">
-              <button type="submit" class="btn btn-sm btn-primary" title="Відновити">📦 Відновити</button>
-            </form>
-            {% endif %}
-            
-            <a href="/teacher/tests/{{ item.test.id }}/edit" class="btn btn-sm btn-secondary" title="Редагувати">✏️</a>
-            <a href="/teacher/tests/{{ item.test.id }}/analytics" class="btn btn-sm btn-secondary" title="Аналітика">📈</a>
-            <a href="/teacher/tests/{{ item.test.id }}/export" class="btn btn-sm btn-secondary" title="Експорт JSON" style="text-decoration: none;">📥</a>
-            
-            {% if not item.test.is_archived %}
-            <form method="post" action="/teacher/tests/{{ item.test.id }}/archive" style="margin:0">
-              <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати">🗃</button>
-            </form>
-            {% endif %}
-            
-            <form method="post" action="/teacher/tests/{{ item.test.id }}/delete" onsubmit="return confirm('Видалити тест «{{ item.test.title }}»?')" style="margin:0">
-              <button type="submit" class="btn btn-sm btn-danger" title="Видалити" style="padding: 0.25rem 0.5rem;">🗑️</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-{% if total_pages > 1 or per_page != 20 %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1rem; gap: 1rem; flex-wrap: wrap;">
-  <div class="pagination">
-    {% if current_page > 1 %}
-    <a href="?page={{ current_page - 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Попередня</a>
-    {% endif %}
-    
-    <span style="padding: 0.25rem 0.5rem; color: var(--text-muted);">
-      Сторінка {{ current_page }} з {{ total_pages }}
-    </span>
-    
-    {% if current_page < total_pages %}
-    <a href="?page={{ current_page + 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Наступна</a>
-    {% endif %}
-  </div>
-  
-  <div style="display:flex; align-items:center; gap: 0.5rem;">
-    <label for="per_page_select" style="font-size: 0.9rem; color: var(--text-muted); margin: 0;">Показувати по:</label>
-    <select id="per_page_select" class="form-input" style="width: auto; padding: 0.25rem 1.5rem 0.25rem 0.5rem; height: auto;" onchange="window.location.href='?page=1&per_page='+this.value">
-      <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-      <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-      <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-      <option value="0" {% if per_page == 0 %}selected{% endif %}>Всі</option>
-    </select>
-  </div>
-</div>
-{% endif %}
-
+<nav class="list-tabs" aria-label="Списки">
+  <a href="{{ request.url.include_query_params(tab='active', page=1) }}" class="list-tab {{ 'is-active' if tab != 'archive' }}" {% if tab != 'archive' %}aria-current="page"{% endif %}>{{ 'Мої тести' if is_tests else 'Усі сесії' }} <span>{{ active_count }}</span></a>
+  <a href="{{ request.url.include_query_params(tab='archive', page=1) }}" class="list-tab {{ 'is-active' if tab == 'archive' }}" {% if tab == 'archive' %}aria-current="page"{% endif %}>Архів <span>{{ archive_count }}</span></a>
+</nav>
+<form method="get" action="{{ list_path }}" class="list-filters card">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <div class="form-group list-search"><label for="list-search">Пошук</label><input id="list-search" type="search" name="q" value="{{ search }}" maxlength="100" placeholder="{{ 'Назва тесту або предмет' if is_tests else 'Назва, предмет або код доступу' }}"></div>
+  <div class="form-group"><label for="class-filter">Клас</label><select id="class-filter" name="class_filter"><option value="">Усі класи</option>{% for c in classes %}<option value="{{ c }}" {% if class_filter == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
+  {% if not is_tests %}<div class="form-group"><label for="state-filter">Статус</label><select id="state-filter" name="state"><option value="all" {% if state == 'all' %}selected{% endif %}>Усі статуси</option><option value="running" {% if state == 'running' %}selected{% endif %}>Активні</option><option value="finished" {% if state == 'finished' %}selected{% endif %}>Завершені</option></select></div>{% endif %}
+  <div class="form-group list-page-size"><label for="page-size">На сторінці</label><select id="page-size" name="per_page">{% for size in [10, 20, 50, 100] %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>{% endfor %}</select></div>
+  <div class="list-filter-actions"><button class="btn btn-primary" type="submit">Знайти</button>{% if search or class_filter or state != 'all' %}<a href="{{ list_path }}?tab={{ tab }}" class="btn btn-secondary">Скинути</a>{% endif %}</div>
+</form>
+<div class="list-results-heading"><span>Знайдено: <strong>{{ total_items }}</strong></span><span>{{ 'Нові тести — першими' if is_tests else 'Активні сесії — першими' }}</span></div>
+{% if total_items %}
+<div class="teacher-list-table-wrap"><table class="data-table teacher-list-table">
+  <thead><tr><th>{{ 'Тест' if is_tests else 'Сесія' }}</th><th>{{ 'Питання / час' if is_tests else 'Код / статус' }}</th><th>{{ 'Створено' if is_tests else 'Учні / прогрес' }}</th><th>Дії</th></tr></thead>
+  <tbody>
+  {% if is_tests %}{% for item in tests_with_count %}
+  <tr>
+    <td class="list-title-cell"><a class="list-item-title" href="/teacher/tests/{{ item.test.id }}/edit">{{ item.test.title }}</a><div class="list-item-meta"><span class="badge">{{ item.test.class_name or 'Клас не вказано' }}</span><span>{{ item.test.subject or 'Без предмета' }}</span></div>{% if item.active_session_count %}<a class="list-active-note" href="/teacher/sessions?q={{ item.test.title | urlencode }}&state=running">Активних сесій: {{ item.active_session_count }}</a>{% endif %}</td>
+    <td data-label="Питання / час"><strong>{{ item.question_count }} питань</strong><span class="list-secondary-line">{% if item.test.time_limit_minutes %}{{ item.test.time_limit_minutes }} хв{% else %}Без ліміту часу{% endif %}</span></td>
+    <td data-label="Створено">{{ item.test.created_at.strftime('%d.%m.%Y') }}</td>
+    <td class="list-actions-cell"><div class="list-row-actions">
+      {% if tab != 'archive' %}<form method="post" action="/teacher/tests/{{ item.test.id }}/start-session" {% if item.active_session_count %}data-confirm="Цей тест уже має активну сесію. Створити ще одну?"{% endif %}><button class="btn btn-sm btn-success" type="submit">{{ 'Ще одна сесія' if item.active_session_count else 'Запустити' }}</button></form>{% else %}<form method="post" action="/teacher/tests/{{ item.test.id }}/unarchive" data-preserve-list><button class="btn btn-sm btn-primary" type="submit">Відновити</button></form>{% endif %}
+      <a href="/teacher/tests/{{ item.test.id }}/edit" class="btn btn-sm btn-secondary">Редагувати</a>
+      <details class="list-menu"><summary class="btn btn-sm btn-secondary" aria-label="Інші дії для тесту {{ item.test.title }}">Ще ▾</summary><div class="list-menu-panel">
+        <a href="/teacher/tests/{{ item.test.id }}/analytics" class="menu-action">Результати й аналітика</a><a href="/teacher/tests/{{ item.test.id }}/export" class="menu-action">Експорт JSON</a>
+        {% if tab != 'archive' %}<form method="post" action="/teacher/tests/{{ item.test.id }}/archive" data-preserve-list><button class="menu-action" type="submit">До архіву</button></form>{% endif %}
+        <form method="post" action="/teacher/tests/{{ item.test.id }}/delete" data-confirm="Видалити тест «{{ item.test.title }}» разом із сесіями та результатами?" data-preserve-list><button class="menu-action menu-danger" type="submit">Видалити тест</button></form>
+      </div></details>
+    </div></td>
+  </tr>
+  {% endfor %}{% else %}{% for item in sessions_data %}{% set s = item.session %}
+  <tr class="{{ 'list-running-row' if s.is_active }}">
+    <td class="list-title-cell"><a class="list-item-title" href="/teacher/sessions/{{ s.id }}/monitor">{{ s.test.title }}</a><div class="list-item-meta"><span class="badge">{{ s.test.class_name or 'Клас не вказано' }}</span><span>{{ s.started_at.strftime('%d.%m.%Y · %H:%M') }}</span></div>{% if s.is_pinned %}<span class="list-active-note">Закріплена на сторінці входу учнів</span>{% endif %}</td>
+    <td data-label="Код / статус"><div class="session-code-row"><span class="badge badge-code">{{ s.access_code }}</span>{% if s.is_active %}<button class="btn btn-sm btn-secondary" type="button" data-copy-code="{{ s.access_code }}" title="Скопіювати посилання для учнів">Копіювати</button>{% endif %}</div><span class="badge badge-status badge-status--{{ 'in_progress' if s.is_active else 'finished' }}">{{ 'Активна' if s.is_active else 'Завершена' }}</span></td>
+    <td data-label="Учні / прогрес"><strong>{{ item.attempt_count }} спроб</strong><span class="list-secondary-line">Завершено {{ item.finished_count }} з {{ item.attempt_count }}</span><progress class="session-completion" max="{{ item.attempt_count or 1 }}" value="{{ item.finished_count }}" aria-label="Завершили тест"></progress></td>
+    <td class="list-actions-cell"><div class="list-row-actions"><a href="/teacher/sessions/{{ s.id }}/monitor" class="btn btn-sm {{ 'btn-primary' if s.is_active else 'btn-secondary' }}">{{ 'Моніторинг' if s.is_active else 'Переглянути' }}</a>
+      <details class="list-menu"><summary class="btn btn-sm btn-secondary" aria-label="Керування сесією {{ s.access_code }}">Керування ▾</summary><div class="list-menu-panel">
+        {% if s.is_active %}
+        <button class="menu-action" type="button" data-session-id="{{ s.id }}" data-session-action="pause-all">Поставити всіх на паузу</button><button class="menu-action" type="button" data-session-id="{{ s.id }}" data-session-action="resume-all">Продовжити всім</button>
+        <form method="post" action="/teacher/sessions/{{ s.id }}/{{ 'unpin' if s.is_pinned else 'pin' }}" data-preserve-list><button class="menu-action" type="submit">{{ 'Відкріпити зі сторінки входу' if s.is_pinned else 'Закріпити на сторінці входу' }}</button></form>
+        <button class="menu-action menu-danger" type="button" data-session-id="{{ s.id }}" data-session-action="stop-all">Завершити всім учням</button><form method="post" action="/teacher/sessions/{{ s.id }}/close" data-confirm="Закрити сесію {{ s.access_code }}? Нові учні більше не зможуть приєднатися." data-preserve-list><button class="menu-action menu-danger" type="submit">Закрити вхід до сесії</button></form>
+        {% else %}<a href="/teacher/tests/{{ s.test_id }}/analytics?session_id={{ s.id }}" class="menu-action">Результати й аналітика</a><form method="post" action="/teacher/sessions/{{ s.id }}/{{ 'unarchive' if tab == 'archive' else 'archive' }}" data-preserve-list><button class="menu-action" type="submit">{{ 'Відновити з архіву' if tab == 'archive' else 'До архіву' }}</button></form>{% endif %}
+      </div></details>
+    </div></td>
+  </tr>
+  {% endfor %}{% endif %}
+  </tbody>
+</table></div>
+<nav class="list-pagination" aria-label="Сторінки списку"><span>Сторінка {{ current_page }} з {{ total_pages }}</span><div class="list-row-actions">{% if current_page > 1 %}<a class="btn btn-secondary" href="{{ request.url.include_query_params(page=current_page-1) }}">← Попередня</a>{% endif %}{% if current_page < total_pages %}<a class="btn btn-secondary" href="{{ request.url.include_query_params(page=current_page+1) }}">Наступна →</a>{% endif %}</div></nav>
 {% else %}
-<div class="empty-state">
-  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-    <polyline points="14,2 14,8 20,8"/>
-  </svg>
-  <h3>Тестів ще немає</h3>
-  <p>Створіть перший тест або імпортуйте з JSON</p>
-  <div style="display:flex;gap:0.75rem;justify-content:center">
-    <a href="/teacher/tests/import" class="btn btn-secondary">Імпорт JSON</a>
-    <a href="/teacher/tests/create" class="btn btn-primary">Створити тест</a>
-  </div>
-</div>
+<div class="empty-state card"><h2>{{ 'Нічого не знайдено' if search or class_filter or state != 'all' else ('В архіві ще немає записів' if tab == 'archive' else ('Тестів ще немає' if is_tests else 'Сесій ще немає')) }}</h2><p>{{ 'Змініть пошук або фільтри.' if search or class_filter or state != 'all' else ('Створіть тест або імпортуйте готовий.' if is_tests else 'Запустіть тест зі списку, щоб учні могли приєднатися.') }}</p><a class="btn btn-primary" href="{{ list_path if search or class_filter or state != 'all' else ('/teacher/tests/create' if is_tests else '/teacher/tests') }}">{{ 'Скинути фільтри' if search or class_filter or state != 'all' else ('Створити тест' if is_tests else 'До тестів') }}</a></div>
 {% endif %}
-
-{% else %}
-<!-- ===================== SESSIONS LIST ===================== -->
-<div class="page-header" style="margin-bottom: 1rem;">
-  <h1>Сесії тестування</h1>
-</div>
-
-<div class="tabs-container" style="display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem;">
-  <a href="/teacher/sessions?tab=active" class="btn {% if tab == 'active' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні та Завершені</a>
-  <a href="/teacher/sessions?tab=archive" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
-</div>
-
-{% if sessions_data %}
-<div class="table-wrapper">
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Тест</th>
-        <th>Код доступу</th>
-        <th class="mobile-hidden">Статус</th>
-        <th class="mobile-hidden">Учнів</th>
-        <th class="mobile-hidden">Завершили</th>
-        <th class="mobile-hidden">Розпочато</th>
-        <th>Дії</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in sessions_data %}
-      <tr>
-        <td><strong>{{ item.session.test.title }}</strong></td>
-        <td><span class="badge badge-code">{{ item.session.access_code }}</span></td>
-        <td class="mobile-hidden">
-          {% if item.session.is_active %}
-            <span class="badge badge-status badge-status--in_progress">Активна</span>
-          {% else %}
-            <span class="badge badge-status badge-status--finished">Завершена</span>
-          {% endif %}
-        </td>
-        <td class="mobile-hidden">{{ item.attempt_count }}</td>
-        <td class="mobile-hidden">{{ item.finished_count }}</td>
-        <td class="mobile-hidden">{{ item.session.started_at.strftime('%d.%m.%Y %H:%M') }}</td>
-        <td>
-          <div class="action-group" style="flex-wrap: nowrap; gap: 0.25rem;">
-            {% if item.session.is_active %}
-              <a href="/teacher/sessions/{{ item.session.id }}/monitor" class="btn btn-sm btn-primary" title="Моніторинг">👁️ Моніторинг</a>
-              <form method="post" action="/teacher/sessions/{{ item.session.id }}/close"
-                    onsubmit="return confirm('Завершити сесію?')" style="margin:0">
-                <button type="submit" class="btn btn-sm btn-danger" title="Закрити сесію" style="padding: 0.25rem 0.5rem;">🛑</button>
-              </form>
-              
-              {% if item.session.is_pinned %}
-              <form method="post" action="/teacher/sessions/{{ item.session.id }}/unpin" style="margin:0" title="Відкріпити з головної сторінки сайту">
-                <button type="submit" class="btn btn-sm btn-primary" style="padding: 0.25rem 0.5rem;">⭐️</button>
-              </form>
-              {% else %}
-              <form method="post" action="/teacher/sessions/{{ item.session.id }}/pin" style="margin:0" title="Закріпити на головній сторінці сайту (вхід без коду)">
-                <button type="submit" class="btn btn-sm btn-secondary" style="padding: 0.25rem 0.5rem;">📌</button>
-              </form>
-              {% endif %}
-            {% else %}
-              <a href="/teacher/tests/{{ item.session.test.id }}/analytics?session_id={{ item.session.id }}" class="btn btn-sm btn-secondary" title="Аналітика">📈</a>
-              {% if not item.session.is_archived %}
-              <form method="post" action="/teacher/sessions/{{ item.session.id }}/archive" style="margin:0">
-                <button type="submit" class="btn btn-sm btn-secondary" title="Архівувати">🗃</button>
-              </form>
-              {% else %}
-              <form method="post" action="/teacher/sessions/{{ item.session.id }}/unarchive" style="margin:0">
-                <button type="submit" class="btn btn-sm btn-success" title="Відновити">📦 Відновити</button>
-              </form>
-              {% endif %}
-            {% endif %}
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-{% if total_pages > 1 or per_page != 20 %}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-top: 1rem; gap: 1rem; flex-wrap: wrap;">
-  <div class="pagination">
-    {% if current_page > 1 %}
-    <a href="?tab={{ tab }}&page={{ current_page - 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Попередня</a>
-    {% endif %}
-    
-    <span style="padding: 0.25rem 0.5rem; color: var(--text-muted);">
-      Сторінка {{ current_page }} з {{ total_pages }}
-    </span>
-    
-    {% if current_page < total_pages %}
-    <a href="?tab={{ tab }}&page={{ current_page + 1 }}&per_page={{ per_page }}" class="btn btn-sm btn-secondary">Наступна</a>
-    {% endif %}
-  </div>
-  
-  <div style="display:flex; align-items:center; gap: 0.5rem;">
-    <label for="per_page_select" style="font-size: 0.9rem; color: var(--text-muted); margin: 0;">Показувати по:</label>
-    <select id="per_page_select" class="form-input" style="width: auto; padding: 0.25rem 1.5rem 0.25rem 0.5rem; height: auto;" onchange="window.location.href='?tab={{ tab }}&page=1&per_page='+this.value">
-      <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
-      <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-      <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
-      <option value="0" {% if per_page == 0 %}selected{% endif %}>Всі</option>
-    </select>
-  </div>
-</div>
+{% if is_tests and tab != 'archive' %}
+<details class="card list-bulk-archive"><summary>Архівування тестів за періодом</summary><p class="form-hint">Для прибирання старих тестів зі списку. Результати залишаться в системі.</p><form method="post" action="/teacher/tests/archive-bulk" class="list-bulk-form" data-confirm="Перемістити всі тести за вибраний період до архіву?" data-preserve-list><div class="form-group"><label for="tests-start">Від</label><input type="date" id="tests-start" name="start_date" required></div><div class="form-group"><label for="tests-end">До</label><input type="date" id="tests-end" name="end_date" required></div><button class="btn btn-secondary" type="submit">Архівувати період</button></form></details>
 {% endif %}
-
-{% else %}
-<div class="empty-state">
-  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-    <circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>
-  </svg>
-  <h3>Сесій ще немає</h3>
-  <p>Запустіть тест, щоб створити сесію</p>
-  <a href="/teacher/tests" class="btn btn-primary">До списку тестів</a>
-</div>
-{% endif %}
-{% endif %}
-
-<script>
-async function handleXmlImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  showImportOverlay('Імпортування XML-тесту');
-
-  try {
-    const res = await fetch('/teacher/tests/import/xml', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
-    } else {
-      hideImportOverlay();
-      const err = await res.json();
-      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
-    }
-  } catch (error) {
-    hideImportOverlay();
-    alert('Помилка мережі при завантаженні файлу');
-  }
-  
-  event.target.value = ''; // скидаємо файл
-}
-
-async function handleDocxImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  showImportOverlay('Імпортування Word-тесту');
-
-  try {
-    const res = await fetch('/teacher/tests/import/docx', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
-    } else {
-      hideImportOverlay();
-      const err = await res.json();
-      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
-    }
-  } catch (error) {
-    hideImportOverlay();
-    alert('Помилка мережі при завантаженні файлу');
-  }
-  
-  event.target.value = ''; // скидаємо файл
-}
-
-</script>
 {% endblock %}
+{% block scripts %}<script src="/static/js/teacher-lists.js?v=1"></script>{% endblock %}

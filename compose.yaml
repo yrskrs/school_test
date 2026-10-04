@@ -9,6 +9,7 @@ services:
     volumes:
       - app_data:/app/data
       - app_uploads:/app/app/static/tests
+      - app_general_uploads:/app/app/static/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,6 +40,7 @@ services:
 volumes:
   app_data:
   app_uploads:
+  app_general_uploads:
   postgres_data:
 
 networks:

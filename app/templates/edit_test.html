@@ -9,7 +9,6 @@
   </div>
   <div class="action-group" style="display:flex; gap:0.75rem; align-items:center;">
     <a href="/teacher/tests/{{ test.id }}/export" class="btn btn-secondary">📥 Експорт JSON</a>
-    <button type="submit" form="deleteTestForm" class="btn btn-danger" onclick="return confirm('Видалити тест «{{ test.title }}»? Це також видалить всі сесії та результати!')">Видалити тест</button>
     <a href="/teacher/tests" class="btn btn-secondary">Скасувати</a>
     <button type="submit" form="editTestForm" class="btn btn-primary" id="save-btn-top" onclick="return prepareSubmit()">Зберегти зміни</button>
   </div>
@@ -137,7 +136,7 @@
     </div>
   </div>
 
-  <div class="form-actions">
+  <div class="form-actions editor-sticky-actions">
     <div style="display:flex;gap:0.75rem">
       <button type="button" class="btn btn-secondary" onclick="addQuestion()">+ Додати питання</button>
     </div>
@@ -163,12 +162,12 @@
 
 {% block scripts %}
 <script id="initial-test-data" type="application/json">
-  {{ test_json | safe }}
+  {{ test_json | from_json | tojson }}
 </script>
 <script>
   const INITIAL_TEST_DATA = JSON.parse(document.getElementById('initial-test-data').textContent);
 </script>
-<script src="/static/js/teacher.js?v=1.1"></script>
+<script src="/static/js/teacher.js?v=1.2"></script>
 <script>
   document.getElementById('editTestForm').addEventListener('submit', async (e) => {
     e.preventDefault();

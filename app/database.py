@@ -20,6 +20,8 @@ engine = create_engine(
 if is_sqlite:
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
+        # SQLite's built-in lower() does not fold Ukrainian letters.
+        dbapi_connection.create_function("unicode_casefold", 1, lambda value: str(value).casefold() if value is not None else None, deterministic=True)
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA synchronous=NORMAL")

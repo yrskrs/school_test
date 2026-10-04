@@ -4,6 +4,7 @@ import os
 from sqlalchemy.orm import Session
 from app import crud, models
 from app.templating import templates
+from app.services.test_file_service import resolve_static_image
 
 def get_base64_image(image_url: str) -> str:
     """
@@ -16,9 +17,9 @@ def get_base64_image(image_url: str) -> str:
         return image_url  # Якщо це зовнішній URL, повертаємо як є
 
     # Перетворюємо /static/... на app/static/...
-    filepath = os.path.join("app", image_url.lstrip("/"))
+    filepath = resolve_static_image(image_url)
     
-    if not os.path.exists(filepath):
+    if not filepath:
         return ""
         
     try:

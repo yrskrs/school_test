@@ -35,6 +35,7 @@ from app.services.test_file_service import (
     get_test_folder_name,
     rename_test_folder,
     generate_new_folder_name,
+    resolve_static_image,
 )
 
 from app.services.logger_service import log_teacher_action, check_and_create_archive
@@ -64,7 +65,7 @@ async def teacher_login(
     db: Session = Depends(get_db),
 ):
     teacher = crud.get_teacher_by_username(db, username)
-    if not teacher or not verify_password(password, teacher.hashed_password):
+    if not teacher or not teacher.is_active or not verify_password(password, teacher.hashed_password):
         log_teacher_action(db, username, "Невідомий користувач", "login_failed", f"Невдала спроба входу для логіну: '{username}'", None)
         return templates.TemplateResponse(
             request,
@@ -322,43 +323,17 @@ async def teacher_tests_list(
     page: int = 1,
     per_page: int = 20,
     tab: str = "active",
+    q: str = "",
+    class_filter: str = "",
+    state: str = "all",
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
-    is_archived = (tab == "archive")
-    tests = crud.get_tests_by_teacher(db, teacher.id, is_archived=is_archived)
-    tests_with_count = []
-    for t in tests:
-        tests_with_count.append({
-            "test": t,
-            "question_count": len(t.questions),
-        })
-    
-    import math
-    total_tests = len(tests_with_count)
-    total_pages = 1
-    if per_page > 0:
-        total_pages = max(1, math.ceil(total_tests / per_page))
-        if page < 1: page = 1
-        elif page > total_pages: page = total_pages
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        paginated_tests = tests_with_count[start_idx:end_idx]
-    else:
-        paginated_tests = tests_with_count
-        
-    return templates.TemplateResponse(
-        request,
-        "test_sessions.html", {
-        "teacher": teacher,
-        "tests_with_count": paginated_tests,
-        "page": "tests",
-        "current_page": page,
-        "total_pages": total_pages,
-        "total_tests": total_tests,
-        "per_page": per_page,
-        "tab": tab,
-    })
+    from app.services.teacher_list_service import build_list
+    context = build_list(db, teacher.id, "tests", page=page, per_page=per_page,
+                         tab=tab, search=q, class_filter=class_filter, state=state)
+    context["teacher"] = teacher
+    return templates.TemplateResponse(request, "test_sessions.html", context)
 
 
 # ---------------------------------------------------------------------------
@@ -392,7 +367,7 @@ async def create_test(
     time_limit_per_question: Optional[str] = Form(None),
     shuffle_questions: bool = Form(False),
     shuffle_options: bool = Form(False),
-    show_result_after_finish: bool = Form(True),
+    show_result_after_finish: bool = Form(False),
     show_correct_answers: bool = Form(False),
     is_formative: bool = Form(False),
     use_fuzzy_matching: bool = Form(False),
@@ -499,7 +474,7 @@ async def edit_test(
     time_limit_per_question: Optional[str] = Form(None),
     shuffle_questions: bool = Form(False),
     shuffle_options: bool = Form(False),
-    show_result_after_finish: bool = Form(True),
+    show_result_after_finish: bool = Form(False),
     show_correct_answers: bool = Form(False),
     is_formative: bool = Form(False),
     use_fuzzy_matching: bool = Form(False),
@@ -768,47 +743,17 @@ async def sessions_list(
     page: int = 1,
     per_page: int = 20,
     tab: str = "active",
+    q: str = "",
+    class_filter: str = "",
+    state: str = "all",
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
-    is_archived = (tab == "archive")
-    sessions = crud.get_all_sessions(db, teacher.id, is_archived=is_archived)
-    sessions_data = []
-    for s in sessions:
-        sessions_data.append({
-            "session": s,
-            "attempt_count": len(s.attempts),
-            "finished_count": sum(
-                1 for a in s.attempts
-                if a.status in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped)
-            ),
-        })
-        
-    import math
-    total_sessions = len(sessions_data)
-    total_pages = 1
-    if per_page > 0:
-        total_pages = max(1, math.ceil(total_sessions / per_page))
-        if page < 1: page = 1
-        elif page > total_pages: page = total_pages
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        paginated_sessions = sessions_data[start_idx:end_idx]
-    else:
-        paginated_sessions = sessions_data
-
-    return templates.TemplateResponse(
-        request,
-        "test_sessions.html", {
-        "teacher": teacher,
-        "sessions_data": paginated_sessions,
-        "page": "sessions",
-        "current_page": page,
-        "total_pages": total_pages,
-        "total_sessions": total_sessions,
-        "per_page": per_page,
-        "tab": tab,
-    })
+    from app.services.teacher_list_service import build_list
+    context = build_list(db, teacher.id, "sessions", page=page, per_page=per_page,
+                         tab=tab, search=q, class_filter=class_filter, state=state)
+    context["teacher"] = teacher
+    return templates.TemplateResponse(request, "test_sessions.html", context)
 
 
 @router.post("/sessions/{session_id}/archive")
@@ -860,6 +805,11 @@ async def monitor_session(
 
     attempts = crud.get_attempts_by_session(db, session_id)
     from collections import Counter
+    from sqlalchemy import func
+    violation_counts = dict(db.query(models.EventLog.attempt_id, func.count(models.EventLog.id)).join(
+        models.StudentAttempt
+    ).filter(models.StudentAttempt.session_id == session_id,
+             models.EventLog.event_type == models.EventType.tab_blur).group_by(models.EventLog.attempt_id).all())
     name_counts = Counter(a.student_name.lower() for a in attempts)
     name_seen = {}
     for a in sorted(attempts, key=lambda x: x.id):
@@ -876,6 +826,7 @@ async def monitor_session(
         "teacher": teacher,
         "session": session,
         "attempts": attempts,
+        "violation_counts": violation_counts,
         "test": session.test,
     })
 
@@ -1926,6 +1877,7 @@ def _test_to_dict(test: models.Test) -> dict:
         "show_correct_answers": test.show_correct_answers,
         "is_formative": test.is_formative,
         "allow_partial_grading": test.allow_partial_grading,
+        "use_fuzzy_matching": test.use_fuzzy_matching,
         "allow_retake": test.allow_retake,
         "max_grade": test.max_grade,
         "random_questions_limit": test.random_questions_limit,
@@ -1980,8 +1932,8 @@ async def export_test_json(
     
     def add_image_to_embedded(url):
         if not url: return
-        local_path = os.path.join("app", url.lstrip("/"))
-        if os.path.exists(local_path) and os.path.isfile(local_path):
+        local_path = resolve_static_image(url)
+        if local_path:
             filename = os.path.basename(local_path)
             if filename not in embedded_images:
                 try:
@@ -2026,12 +1978,18 @@ async def upload_image(
     if not file.filename:
         raise HTTPException(status_code=400, detail="Файл не вибрано")
     
-    ext = os.path.splitext(file.filename)[1]
+    from app.services.media_service import MAX_IMAGE_BYTES, validate_image
+    ext = os.path.splitext(file.filename)[1].lower()
+    content = await file.read(MAX_IMAGE_BYTES + 1)
+    try:
+        ext = validate_image(content, ext)
+    except ValueError as error:
+        raise HTTPException(413 if len(content) > MAX_IMAGE_BYTES else 415, str(error))
     unique_filename = f"{uuid.uuid4().hex}{ext}"
     
     if test_id:
         test = crud.get_test_by_id(db, test_id)
-        if not test:
+        if not test or test.teacher_id != teacher.id:
             raise HTTPException(status_code=404, detail="Тест не знайдено")
         folder_name = get_test_folder_name(test)
         upload_dir = os.path.join("app", "static", "tests", folder_name)
@@ -2048,7 +2006,7 @@ async def upload_image(
     os.makedirs(upload_dir, exist_ok=True)
     file_path = os.path.join(upload_dir, unique_filename)
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(content)
         
     return {"url": url_path}
 
@@ -2471,5 +2429,3 @@ async def view_archive(
         return {"status": "error", "message": f"Помилка розпізнавання JSON: {str(e)}"}
 
     return {"status": "ok", "filename": source_name, "logs": logs_list}
-
-

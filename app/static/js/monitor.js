@@ -131,21 +131,7 @@ function handleWsEvent(data) {
       break;
 
     case 'tab_blur':
-      let nameEl = document.getElementById(`name-${attemptId}`);
-      if (nameEl) {
-        let warningBadge = document.getElementById(`warning-${attemptId}`);
-        if (!warningBadge) {
-          warningBadge = document.createElement('span');
-          warningBadge.id = `warning-${attemptId}`;
-          warningBadge.title = "Учень перемикав вкладки або згортав браузер";
-          warningBadge.style.cursor = "help";
-          warningBadge.innerHTML = ' ⚠️ <span style="font-size:0.75rem; font-weight:bold; color:var(--warning)" class="blur-count">1</span>';
-          nameEl.parentNode.appendChild(warningBadge);
-        } else {
-          let countSpan = warningBadge.querySelector('.blur-count');
-          countSpan.textContent = parseInt(countSpan.textContent) + 1;
-        }
-      }
+      updateStudentRow(attemptId, {violation_count: data.violation_count});
       break;
 
     case 'connection_lost':
@@ -223,6 +209,19 @@ function updateStudentRow(attemptId, data) {
 
   const nameEl = document.getElementById(`name-${attemptId}`);
   if (nameEl && data.student_name) nameEl.textContent = data.student_name;
+  if (Number.isInteger(data.violation_count)) {
+    let badge = document.getElementById(`warning-${attemptId}`);
+    if (!badge && nameEl) {
+      badge = document.createElement('span');
+      badge.id = `warning-${attemptId}`;
+      badge.title = 'Виходи з повноекранного режиму або перемикання вікон';
+      nameEl.parentNode.appendChild(badge);
+    }
+    if (badge) { badge.hidden = !data.violation_count; badge.textContent = ` ⚠️ ${data.violation_count}`; }
+    const mobileBadge = document.getElementById(`mwarning-${attemptId}`);
+    if (mobileBadge) { mobileBadge.hidden = !data.violation_count; mobileBadge.textContent = `⚠️ ${data.violation_count}`; }
+  }
+
 
   if (data.status) {
     const statusEl = document.getElementById(`status-${attemptId}`);
@@ -370,6 +369,7 @@ async function fetchSessionStatus() {
     data.attempts.forEach(a => {
       updateStudentRow(a.id, {
         student_name: a.student_name,
+        violation_count: a.violation_count,
         status: a.status,
         score: a.score,
         max_score: a.max_score,
@@ -379,7 +379,7 @@ async function fetchSessionStatus() {
     });
 
     document.getElementById('student-count').textContent = data.attempts.length;
-    const finished = data.attempts.filter(a => ['finished', 'timeout'].includes(a.status)).length;
+    const finished = data.attempts.filter(a => ['finished', 'timeout', 'stopped'].includes(a.status)).length;
     document.getElementById('finished-count').textContent = finished;
   } catch { /* ігнорується */ }
 }

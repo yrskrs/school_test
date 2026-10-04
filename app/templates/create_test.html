@@ -182,7 +182,7 @@
     </div>
   </div>
 
-  <div class="form-actions">
+  <div class="form-actions editor-sticky-actions">
     <div style="display:flex;gap:0.75rem">
       <button type="button" class="btn btn-secondary" onclick="addQuestion()">+ Додати питання</button>
     </div>
@@ -197,6 +197,6 @@
 
 {% block scripts %}
 {% if not (import_mode is defined and import_mode) %}
-<script src="/static/js/teacher.js?v=1.1"></script>
+<script src="/static/js/teacher.js?v=1.2"></script>
 {% endif %}
 {% endblock %}

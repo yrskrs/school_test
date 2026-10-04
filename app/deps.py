@@ -80,3 +80,15 @@ def get_current_attempt(
             detail="Спробу не знайдено.",
         )
     return attempt
+
+
+def get_owned_attempt(
+    attempt_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> models.StudentAttempt:
+    """An attempt URL is usable only with its signed browser session."""
+    attempt = get_current_attempt(request, db)
+    if attempt.id != attempt_id:
+        raise HTTPException(status_code=404, detail="Спробу не знайдено")
+    return attempt

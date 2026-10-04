@@ -1,42 +1,50 @@
-#!/bin/bash
-
-# Exit on error
-set -e
-
-# Always run from project root directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-cd "$PROJECT_ROOT"
-
-# Load environment variables
-if [ -f .env ]; then
-  set -a
-  eval "$(grep -v '^#' .env | grep -v '^\s*$' | sed 's/^/export /')" 2>/dev/null || true
-  set +a
+#!/usr/bin/env bash
+# A consistent PostgreSQL + files snapshot; no shell evaluation of .env.
+set -Eeuo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+OUTPUT=""
+KEEP_STOPPED=false
+while (($#)); do
+  case "$1" in
+    --output) (($# >= 2)) || fail "--output requires a directory"; OUTPUT="$2"; shift 2 ;;
+    --keep-stopped) KEEP_STOPPED=true; shift ;;
+    *) fail "Usage: scripts/backup.sh [--output DIRECTORY] [--keep-stopped]" ;;
+  esac
+done
+require_tools
+CONTAINER="$(app_container)"
+[[ -n "$CONTAINER" ]] || fail "Create the app container before backing up."
+WAS_RUNNING=false
+app_running && WAS_RUNNING=true
+STOPPED=false
+COMPLETE=false
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if $STOPPED && $WAS_RUNNING && { ! $KEEP_STOPPED || ! $COMPLETE; }; then
+    docker compose start app || status=1
+  fi
+  if ((status != 0)); then printf 'Backup failed; do not use the incomplete directory: %s\n' "$OUTPUT" >&2; fi
+  exit "$status"
+}
+trap cleanup EXIT
+if [[ -z "$OUTPUT" ]]; then OUTPUT="$(new_backup_path)"; else mkdir -p "$OUTPUT"; fi
+[[ -z "$(ls -A "$OUTPUT")" ]] || fail "Backup directory must be empty."
+OUTPUT="$(cd "$OUTPUT" && pwd)"
+if $WAS_RUNNING; then
+  STOPPED=true
+  docker compose stop app
 fi
-
-POSTGRES_DB=${POSTGRES_DB:-schooltest}
-POSTGRES_USER=${POSTGRES_USER:-appuser}
-
-TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-BACKUP_DIR="backups/$TIMESTAMP"
-
-echo "Creating backup directory: $BACKUP_DIR"
-mkdir -p "$BACKUP_DIR"
-
-echo "Backing up PostgreSQL database..."
-docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c > "$BACKUP_DIR/database.dump"
-
-echo "Backing up application data (data directory)..."
-# Copy from container to avoid host permission issues
-docker compose cp app:/app/data "$BACKUP_DIR/data"
-
-echo "Backing up application uploads (static/tests directory)..."
-docker compose cp app:/app/app/static/tests "$BACKUP_DIR/tests"
-
-echo "Compressing files..."
-tar -czf "$BACKUP_DIR/files.tar.gz" -C "$BACKUP_DIR" data tests
-rm -rf "$BACKUP_DIR/data" "$BACKUP_DIR/tests"
-
-echo "Backup completed successfully!"
-echo "Backup location: $BACKUP_DIR"
+printf 'Creating consistent backup: %s\n' "$OUTPUT"
+docker compose exec -T postgres sh -c 'exec pg_dump -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-schooltest}" -F c' > "$OUTPUT/database.dump"
+docker compose cp app:/app/data "$OUTPUT/data"
+docker compose cp app:/app/app/static/tests "$OUTPUT/tests"
+docker compose cp app:/app/app/static/uploads "$OUTPUT/uploads"
+tar -czf "$OUTPUT/files.tar.gz" -C "$OUTPUT" data tests uploads
+COMMIT="$(git rev-parse HEAD 2>/dev/null || printf unknown)"
+IMAGE="$(docker inspect --format '{{.Image}}' "$CONTAINER")"
+python3 "$SCRIPT_DIR/backup_bundle.py" create "$OUTPUT" --commit "$COMMIT" --image "$IMAGE"
+python3 "$SCRIPT_DIR/backup_bundle.py" verify "$OUTPUT"
+rm -rf -- "$OUTPUT/data" "$OUTPUT/tests" "$OUTPUT/uploads"
+COMPLETE=true
+printf 'Backup completed: %s\n' "$OUTPUT"

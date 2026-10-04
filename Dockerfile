@@ -19,6 +19,7 @@ RUN grep -v "PyQt6" requirements.txt > req_docker.txt \
 
 # Copy the rest of the application
 COPY . .
+RUN mkdir -p /app/data /app/app/static/tests /app/app/static/uploads
 
 # Expose port
 EXPOSE 8000

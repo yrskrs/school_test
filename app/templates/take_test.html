@@ -357,6 +357,10 @@
 </div>
 
 <!-- Progress bar -->
+<div class="student-sync-status" id="student-sync-status" data-state="saved" role="status" aria-live="polite">
+  <span>Перевіряємо збереження відповідей…</span>
+  <button type="button" class="btn btn-sm btn-secondary" onclick="resumeConnection()">Перевірити зв’язок</button>
+</div>
 <div class="progress-bar-wrap">
   <div class="progress-bar" id="progress-bar" style="width:0%"></div>
 </div>
@@ -480,7 +484,7 @@
 </div>
 
 <!-- Pause Warning Modal -->
-<div class="modal-overlay" id="pause-block" style="display:none; background: rgba(0,0,0,0.9); z-index: 9999;">
+<div class="modal-overlay" id="pause-block" style="display:none; background: rgba(0,0,0,0.9); z-index: 10003;">
   <div class="modal-box text-center">
     <h2 style="color:var(--warning)">Тест призупинено</h2>
     <p>Вчитель призупинив проходження тесту.</p>
@@ -489,7 +493,7 @@
 </div>
 
 <!-- Offline Connection Lost Modal -->
-<div class="modal-overlay" id="offline-block" style="display:none; background: rgba(0,0,0,0.95); z-index: 10001; backdrop-filter: blur(5px);">
+<div class="modal-overlay" id="offline-block" style="display:none; background: rgba(0,0,0,0.95); z-index: 10004; backdrop-filter: blur(5px);">
   <div class="modal-box text-center" style="max-width: 450px;">
     <div class="import-spinner-wrapper" style="margin: 0 auto 1.5rem auto; width: 60px; height: 60px; position: relative;">
       <div class="import-spinner-glow" style="position: absolute; inset: -4px; background: radial-gradient(circle, var(--warning) 0%, transparent 70%); filter: blur(8px); opacity: 0.5;"></div>
@@ -497,7 +501,9 @@
     </div>
     <h2 style="color:var(--warning); margin-bottom: 1rem;">Зв'язок із сервером втрачено</h2>
     <p style="margin-bottom: 0.5rem; font-weight: 500;">Проходження тесту та таймери автоматично призупинено.</p>
-    <p style="color: var(--text-muted); font-size: 0.9rem;">Очікуємо на відновлення з'єднання з комп'ютером вчителя. Тест продовжиться автоматично, щойно мережа з'явиться.</p>
+    <p style="color: var(--text-muted); font-size: 0.9rem;" id="offline-message">Залиште сторінку відкритою. Після відновлення зв’язку система повторно надішле відповіді.</p>
+    <button type="button" class="btn btn-secondary" onclick="resumeConnection()">Перевірити зв’язок зараз</button>
+    <button type="button" class="btn btn-secondary" onclick="attemptCache.download()">Зберегти копію відповідей</button>
   </div>
 </div>
 <!-- Anti-Cheat Violation Modal -->
@@ -529,7 +535,8 @@
   "locked_questions": {{ locked_question_ids | tojson }},
   "skipped_questions": {{ skipped_question_ids | tojson }},
   "time_remaining": {{ time_remaining_seconds | tojson }},
-  "attempt_status": "{{ attempt.status.value }}"
+  "attempt_status": "{{ attempt.status.value }}",
+  "violation_count": {{ violation_count | default(0) }}
 }
 </script>
 <script>
@@ -543,7 +550,9 @@
     window.SKIPPED_QUESTIONS = cfg.skipped_questions;
     window.TIME_REMAINING = cfg.time_remaining;
     window.ATTEMPT_STATUS = cfg.attempt_status;
+    window.VIOLATION_COUNT = cfg.violation_count;
   }());
 </script>
-<script src="/static/js/student.js?v=20"></script>
+<script src="/static/js/student-cache.js?v=2"></script>
+<script src="/static/js/student.js?v=21"></script>
 {% endblock %}

@@ -1,101 +1,55 @@
-#!/bin/bash
-
-# Exit on error
-set -e
-
-# Always run from project root directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-cd "$PROJECT_ROOT"
-
-# Check if backup path is provided
-if [ -z "$1" ]; then
-  echo "Usage: ./scripts/restore.sh <path_to_backup_directory> [-y|--yes]"
-  echo "Example: ./scripts/restore.sh backups/2026-08-31_21-00-00"
-  exit 1
-fi
-
-BACKUP_DIR=$1
+#!/usr/bin/env bash
+set -Eeuo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
+(($#)) || fail "Usage: scripts/restore.sh BACKUP_DIRECTORY [-y|--yes]"
+BACKUP_DIR="$1"
+shift
 FORCE_CONFIRM=false
-
-if [ "$2" = "-y" ] || [ "$2" = "--yes" ] || [ "$RESTORE_FORCE" = "1" ]; then
-  FORCE_CONFIRM=true
+[[ "${RESTORE_FORCE:-0}" == 1 ]] && FORCE_CONFIRM=true
+while (($#)); do
+  case "$1" in -y|--yes) FORCE_CONFIRM=true; shift ;; *) fail "Unknown option: $1" ;; esac
+done
+[[ -d "$BACKUP_DIR" ]] || fail "Backup directory does not exist."
+BACKUP_DIR="$(cd "$BACKUP_DIR" && pwd)"
+require_tools
+# Verify checksums, dump header, gzip and every archive path BEFORE touching DB.
+python3 "$SCRIPT_DIR/backup_bundle.py" verify "$BACKUP_DIR"
+if ! $FORCE_CONFIRM; then
+  read -r -p "Overwrite database and files from $BACKUP_DIR? (y/n): " confirm
+  [[ "$confirm" == y || "$confirm" == Y || "$confirm" == yes || "$confirm" == YES ]] || { printf 'Restore cancelled.\n'; exit 0; }
 fi
-
-if [ ! -d "$BACKUP_DIR" ]; then
-  echo "Error: Directory $BACKUP_DIR does not exist."
-  exit 1
-fi
-
-if [ ! -f "$BACKUP_DIR/database.dump" ]; then
-  echo "Error: $BACKUP_DIR/database.dump not found."
-  exit 1
-fi
-
-if [ ! -f "$BACKUP_DIR/files.tar.gz" ]; then
-  echo "Error: $BACKUP_DIR/files.tar.gz not found."
-  exit 1
-fi
-
-# Load environment variables
-if [ -f .env ]; then
-  set -a
-  eval "$(grep -v '^#' .env | grep -v '^\s*$' | sed 's/^/export /')" 2>/dev/null || true
-  set +a
-fi
-
-POSTGRES_DB=${POSTGRES_DB:-schooltest}
-POSTGRES_USER=${POSTGRES_USER:-appuser}
-
-if [ "$FORCE_CONFIRM" != "true" ]; then
-  read -p "WARNING: This will overwrite the current database and files. Are you sure? (y/n): " confirm
-  if [[ $confirm != [yY] && $confirm != [yY][eE][sS] ]]; then
-    echo "Restore cancelled."
-    exit 0
+docker compose up -d postgres
+wait_for_postgres
+docker compose exec -T postgres pg_restore --list < "$BACKUP_DIR/database.dump" >/dev/null
+# Supports a fresh server, but requires the matching code/image to be prepared.
+if [[ -z "$(app_container)" ]]; then docker compose create app; fi
+SAFETY_DIR="$(new_backup_path)"
+"$SCRIPT_DIR/backup.sh" --output "$SAFETY_DIR" --keep-stopped
+SUCCESS=false
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if ! $SUCCESS; then
+    docker compose stop app || true
+    printf 'Restore failed. App left stopped to avoid serving incomplete data.\nSafety backup: %s\n' "$SAFETY_DIR" >&2
   fi
-fi
-
-echo "Creating an automatic backup of the current state before restore..."
-./scripts/backup.sh || echo "Warning: Automatic backup failed. Continuing with restore anyway..."
-
-echo "Stopping application container to avoid database conflicts..."
+  exit "$status"
+}
+trap cleanup EXIT
+# backup.sh has stopped the app, including when it was running initially.
 docker compose stop app
-
-echo "Restoring PostgreSQL database..."
-# Terminate existing connections to database so DROP DATABASE will not fail
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$POSTGRES_DB' AND pid <> pg_backend_pid();" 2>/dev/null || true
-
-# Drop and recreate the database
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\" WITH (FORCE);" 2>/dev/null || \
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -c "DROP DATABASE IF EXISTS \"$POSTGRES_DB\";"
-
-docker compose exec -T postgres psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE \"$POSTGRES_DB\" OWNER \"$POSTGRES_USER\";"
-
-# Restore the dump
-docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" -1 < "$BACKUP_DIR/database.dump"
-
-echo "Restoring files..."
-mkdir -p "$BACKUP_DIR/tmp_restore"
-tar -xzf "$BACKUP_DIR/files.tar.gz" -C "$BACKUP_DIR/tmp_restore"
-
-# Transfer data and upload files cleanly using docker compose cp
-if [ -d "$BACKUP_DIR/tmp_restore/data" ]; then
-  echo "Transferring data files..."
-  docker compose cp "$BACKUP_DIR/tmp_restore/data/." app:/app/data/
-fi
-
-if [ -d "$BACKUP_DIR/tmp_restore/tests" ]; then
-  echo "Transferring upload files..."
-  docker compose cp "$BACKUP_DIR/tmp_restore/tests/." app:/app/app/static/tests/
-fi
-
-rm -rf "$BACKUP_DIR/tmp_restore"
-
-echo "Starting application container..."
-docker compose start app
-
-# Wait for application to become ready
-sleep 3
-docker compose ps
-
-echo "Restore completed successfully!"
+# psql variables quote identifiers/literals; .env is read by Compose, never eval.
+docker compose exec -T postgres sh -c 'exec psql -X -v ON_ERROR_STOP=1 -U "${POSTGRES_USER:-postgres}" -d postgres --set=db_name="${POSTGRES_DB:-schooltest}" --set=db_owner="${POSTGRES_USER:-postgres}"' <<'SQL'
+-- ON_ERROR_STOP aborts before DROP for a system database.
+SELECT 1 / CASE WHEN :'db_name' IN ('postgres', 'template0', 'template1') THEN 0 ELSE 1 END;
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = :'db_name' AND pid <> pg_backend_pid();
+DROP DATABASE IF EXISTS :"db_name" WITH (FORCE);
+CREATE DATABASE :"db_name" OWNER :"db_owner";
+SQL
+docker compose exec -T postgres sh -c 'exec pg_restore --exit-on-error --single-transaction -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-schooltest}"' < "$BACKUP_DIR/database.dump"
+RESTORE_CODE="$(cat "$SCRIPT_DIR/backup_bundle.py")"
+docker compose run --rm --no-deps -T app python -c "$RESTORE_CODE" restore-files < "$BACKUP_DIR/files.tar.gz"
+docker compose up -d --no-build --no-deps app
+wait_for_app
+SUCCESS=true
+printf 'Restore completed and HTTP readiness confirmed.\nSafety backup: %s\nCode/image was not rolled back; verify compatibility with the restored data.\n' "$SAFETY_DIR"

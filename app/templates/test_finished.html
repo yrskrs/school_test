@@ -36,13 +36,16 @@
 
   <div class="finished-actions" style="margin: 1.5rem 0; display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;">
     <a href="/student/login" class="btn btn-secondary">Головна сторінка</a>
-    {% if test.allow_retake %}
-    <form action="/student/login" method="post" style="margin:0;">
-      <input type="hidden" name="student_name" value="{{ attempt.student_name }}">
-      <input type="hidden" name="access_code" value="{{ attempt.session.access_code }}">
+    {% if test.allow_retake and attempt.session.is_active %}
+    <form action="/student/test/{{ attempt.id }}/retake" method="post" style="margin:0;">
       <button type="submit" class="btn btn-primary">Повторно пройти тест</button>
     </form>
     {% endif %}
+  </div>
+
+  <div class="card" id="local-recovery" hidden>
+    <p>На цьому пристрої залишилися відповіді, які сервер не підтвердив. Збережіть копію та передайте вчителю для перевірки.</p>
+    <button type="button" class="btn btn-secondary" id="download-local-recovery">Зберегти копію відповідей</button>
   </div>
 
   {% if test.show_result_after_finish and attempt.score is not none %}
@@ -176,9 +179,15 @@
   {% endif %}
 
   {% else %}
-  <div class="finished-message">
+  <div class="finished-message"><p>Результат доступний учителю.</p></div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script type="application/json" id="recovery-config">{{ {"attempt_id": attempt.id, "confirmed_ids": confirmed_question_ids} | tojson }}</script>
+<script src="/static/js/student-cache.js?v=2"></script>
+<script src="/static/js/student-recovery.js?v=1"></script>
 {% endblock %}
 
 {% block head %}

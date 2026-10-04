@@ -70,9 +70,15 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Cache-Control middleware for static files (CSS, JS, test images) to reduce server load
 @app.middleware("http")
 async def add_cache_control_header(request: Request, call_next):
+    # Older installations still have exported answer keys under /static/tests.
+    if request.url.path.startswith("/static/") and request.url.path.rstrip("/").lower().endswith("/test.json"):
+        from fastapi.responses import Response
+        return Response(status_code=404)
     response = await call_next(request)
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
+    else:
+        response.headers["Cache-Control"] = "no-store"
     return response
 
 # Static files
@@ -98,7 +104,8 @@ app.include_router(websocket.router)
 async def unauthorized_handler(request: Request, exc):
     from fastapi.responses import JSONResponse, RedirectResponse
     if "text/html" in request.headers.get("accept", ""):
-        return RedirectResponse(url="/teacher/login", status_code=303)
+        login_url = "/student/login" if request.url.path.startswith("/student/") else "/teacher/login"
+        return RedirectResponse(url=login_url, status_code=303)
     return JSONResponse(status_code=401, content={"detail": getattr(exc, "detail", "Необхідна авторизація")})
 
 

@@ -33,8 +33,9 @@ class ConnectionManager:
         await websocket.accept()
         self._student_websockets[attempt_id] = websocket
 
-    def disconnect_student(self, attempt_id: int) -> None:
-        self._student_websockets.pop(attempt_id, None)
+    def disconnect_student(self, attempt_id: int, websocket=None) -> None:
+        if websocket is None or self._student_websockets.get(attempt_id) is websocket:
+            self._student_websockets.pop(attempt_id, None)
 
     async def send_to_student(self, attempt_id: int, event: dict) -> None:
         ws = self._student_websockets.get(attempt_id)
@@ -42,7 +43,7 @@ class ConnectionManager:
             try:
                 await ws.send_json(event)
             except Exception:
-                self.disconnect_student(attempt_id)
+                self.disconnect_student(attempt_id, ws)
 
     async def broadcast(self, session_id: int, event: dict) -> None:
         """Надсилає JSON-подію всім підключеним до сесії."""

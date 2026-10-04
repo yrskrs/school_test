@@ -239,7 +239,8 @@ def grade_all_answers(
             answer.answer_text,
             answer.selected_options_json,
         )
-        crud.save_graded_answer(db, answer, is_correct, awarded)
+        answer.is_correct = is_correct
+        answer.awarded_points = awarded
         total_score += awarded
-
+    db.commit()
     return total_score, max_score

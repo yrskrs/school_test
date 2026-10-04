@@ -94,7 +94,8 @@
         {% set status_str = attempt.status.value | default(attempt.status) %}
         <tr id="row-{{ attempt.id }}">
           <td>
-            <strong>{{ attempt.student_name }}</strong>
+            <strong id="name-{{ attempt.id }}">{{ attempt.student_name }}</strong>
+            <span id="warning-{{ attempt.id }}" title="Виходи з повноекранного режиму або перемикання вікон" {% if not violation_counts.get(attempt.id, 0) %}hidden{% endif %}> ⚠️ <span class="blur-count">{{ violation_counts.get(attempt.id, 0) }}</span></span>
             {% if attempt.session_attempt_number %}
               <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #{{ attempt.session_attempt_number }}</span>
             {% endif %}
@@ -167,7 +168,7 @@
     {% set status_str = attempt.status.value | default(attempt.status) %}
     <div class="monitor-student-card" id="mcard-{{ attempt.id }}">
       <div class="mcard-header">
-        <strong class="mcard-name">{{ attempt.student_name }}</strong>
+        <strong class="mcard-name">{{ attempt.student_name }} <span id="mwarning-{{ attempt.id }}" {% if not violation_counts.get(attempt.id, 0) %}hidden{% endif %}>⚠️ {{ violation_counts.get(attempt.id, 0) }}</span></strong>
         <span class="badge badge-status badge-status--{{ status_str }}" id="mstatus-{{ attempt.id }}">
           {% if status_str == 'not_started' %}Не розпочав
           {% elif status_str == 'in_progress' %}Проходить
@@ -281,5 +282,5 @@
     if (action === 'stop')   stopAttempt(id);
   });
 </script>
-<script src="/static/js/monitor.js"></script>
+<script src="/static/js/monitor.js?v=2"></script>
 {% endblock %}

@@ -21,4 +21,11 @@ backups/
 data/school_testing.db
 data/school_testing.db-shm
 data/school_testing.db-wal
+data/tests/
 docker-data/
+
+# Runtime files belong in volumes, never in the application image.
+data/
+logs/
+app/static/tests/
+app/static/uploads/

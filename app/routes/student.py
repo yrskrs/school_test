@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app import crud, models
 from app.database import get_db
-from app.deps import get_current_attempt
-from app.security import clear_student_cookie, set_student_cookie
+from app.deps import get_owned_attempt
+from app.security import get_student_attempt_id, set_student_cookie
 from app.services import event_log_service, result_service, session_service, test_service
 from app.templating import templates
 
@@ -46,11 +46,14 @@ async def student_login_page(request: Request, code: Optional[str] = None, db: S
         if auto_session:
             code = auto_session.access_code
 
+    previous_id = get_student_attempt_id(request)
+    previous = crud.get_attempt_by_id(db, previous_id) if previous_id else None
     return templates.TemplateResponse(
         request,
         "student_login.html", {
             "prefilled_code": code,
-            "auto_session": auto_session
+            "auto_session": auto_session,
+            "student_name": previous.student_name if previous else "",
         }
     )
 
@@ -66,11 +69,11 @@ async def student_login(
     student_name = student_name.strip()
     access_code = access_code.strip().upper()
 
-    if not student_name:
+    if not student_name or len(student_name) > 200:
         return templates.TemplateResponse(
         request,
         "student_login.html", {
-            "error": "Введіть ваше ім'я та прізвище",
+            "error": "Введіть ім'я та прізвище (до 200 символів)",
         })
 
     session = session_service.find_active_session(db, access_code)
@@ -101,6 +104,12 @@ async def student_login(
         else:
             existing = None  # Створюємо нову спробу
 
+    if existing and get_student_attempt_id(request) != existing.id:
+        return templates.TemplateResponse(request, "student_login.html", {
+            "error": "Цей учень уже проходить тест. Продовжіть у тому самому браузері або зверніться до вчителя.",
+            "student_name": student_name, "prefilled_code": access_code,
+        }, status_code=409)
+
     if existing:
         attempt = existing
     else:
@@ -130,10 +139,8 @@ async def student_instruction(
     request: Request,
     attempt_id: int,
     db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    attempt = crud.get_attempt_by_id(db, attempt_id)
-    if not attempt:
-        raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
     if attempt.status in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
         return RedirectResponse(url=f"/student/test/{attempt_id}/finished")
@@ -176,10 +183,8 @@ async def take_test(
     request: Request,
     attempt_id: int,
     db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    attempt = crud.get_attempt_by_id(db, attempt_id)
-    if not attempt:
-        raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
     is_new_start = False
     if attempt.status == models.AttemptStatus.not_started:
@@ -232,7 +237,7 @@ async def take_test(
     for log in skipped_event_logs:
         if log.details and log.details.startswith("question_id="):
             try:
-                qid = int(log.details.split("=")[1])
+                qid = int(log.details.split("=", 1)[1].split()[0])
                 if qid not in saved_answers and qid not in skipped_question_ids:
                     skipped_question_ids.append(qid)
             except ValueError:
@@ -255,6 +260,9 @@ async def take_test(
         "skipped_question_ids": skipped_question_ids,
         "time_remaining_seconds": time_remaining_seconds,
         "session_id": attempt.session_id,
+        "violation_count": db.query(models.EventLog).filter_by(
+            attempt_id=attempt.id, event_type=models.EventType.tab_blur
+        ).count(),
     })
 
 
@@ -267,45 +275,39 @@ async def save_answer(
     attempt_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    attempt = crud.get_attempt_by_id(db, attempt_id)
-    if not attempt or attempt.status not in (
-        models.AttemptStatus.in_progress, models.AttemptStatus.not_started
-    ):
-        raise HTTPException(status_code=400, detail="Неможливо зберегти відповідь")
-
-    body = await request.json()
+    from app.services.answer_service import same_submission, validate_submission
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Невірний JSON відповіді")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=422, detail="Відповідь має бути об'єктом")
     question_id = body.get("question_id")
-    answer_text = body.get("answer_text")
-    selected_options = body.get("selected_options")
-
-    if not question_id:
+    if type(question_id) is not int or question_id <= 0:
         raise HTTPException(status_code=400, detail="question_id є обов'язковим")
-
-    # Перевіряємо, чи відповідь на це питання вже збережена (захист від перездачі)
     existing_answer = crud.get_answer_by_attempt_and_question(db, attempt_id, question_id)
+    if not existing_answer or existing_answer.question.test_id != attempt.session.test_id:
+        raise HTTPException(status_code=404, detail="Питання не призначене цій спробі")
+    answer_text, selected_json = validate_submission(existing_answer.question, body)
     if existing_answer and (
         existing_answer.selected_options_json is not None
         or existing_answer.answer_text is not None
     ):
-        raise HTTPException(
-            status_code=400,
-            detail="Відповідь на це питання вже збережена і не може бути змінена"
-        )
+        if same_submission(existing_answer, answer_text, selected_json):
+            return {"status": "already_saved"}
+        raise HTTPException(status_code=409, detail="Відповідь вже збережена і не може бути змінена")
+    if attempt.status != models.AttemptStatus.in_progress:
+        raise HTTPException(status_code=409, detail="Тест призупинено або завершено")
 
-    selected_json = json.dumps(selected_options) if selected_options is not None else None
-
-    answer = crud.upsert_answer(
-        db,
-        attempt_id=attempt_id,
-        question_id=question_id,
-        answer_text=answer_text,
-        selected_options_json=selected_json,
-    )
-
-    from app.services import result_service
-    is_correct, awarded = result_service.grade_answer(answer.question, answer_text, selected_json)
-    crud.save_graded_answer(db, answer, is_correct, awarded)
+    is_correct, awarded = result_service.grade_answer(existing_answer.question, answer_text, selected_json)
+    existing_answer.answer_text = answer_text
+    existing_answer.selected_options_json = selected_json
+    existing_answer.answered_at = datetime.now()
+    existing_answer.is_correct = is_correct
+    existing_answer.awarded_points = awarded
+    db.commit()
 
     event_log_service.log_event(
         db, attempt.id, models.EventType.answer_saved,
@@ -334,10 +336,8 @@ async def finish_test(
     attempt_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    attempt = crud.get_attempt_by_id(db, attempt_id)
-    if not attempt:
-        raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
     if attempt.status in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
         return {"status": "already_finished", "redirect": f"/student/test/{attempt_id}/finished"}
@@ -348,6 +348,8 @@ async def finish_test(
     except Exception:
         pass
 
+    if not isinstance(body, dict) or type(body.get("timeout", False)) is not bool:
+        raise HTTPException(422, "Невірний формат завершення тесту")
     is_timeout = body.get("timeout", False)
 
     score, max_score = result_service.grade_all_answers(db, attempt)
@@ -387,11 +389,10 @@ async def test_finished_page(
     request: Request,
     attempt_id: int,
     db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    attempt = crud.get_attempt_by_id(db, attempt_id)
-    if not attempt:
-        raise HTTPException(status_code=404, detail="Спробу не знайдено")
-
+    if attempt.status not in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
+        return RedirectResponse(f"/student/test/{attempt_id}", status_code=303)
     test = attempt.session.test
     answers = crud.get_answers_by_attempt(db, attempt_id)
     answers = sorted(answers, key=lambda a: a.question.order_index if a.question else 0)
@@ -408,6 +409,7 @@ async def test_finished_page(
         "test": test,
         "answers": answers,
         "answers_map": answers_map,
+        "confirmed_question_ids": [a.question_id for a in answers if a.answer_text is not None or a.selected_options_json is not None],
         "percent": percent,
     })
 
@@ -421,12 +423,11 @@ async def log_browser_event(
     attempt_id: int,
     request: Request,
     db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    attempt = crud.get_attempt_by_id(db, attempt_id)
-    if not attempt:
-        return {"status": "ignored"}
-
     body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(422, "Невірний формат події")
     event_type_str = body.get("event_type", "")
 
     try:
@@ -434,7 +435,31 @@ async def log_browser_event(
     except ValueError:
         return {"status": "unknown_event"}
 
-    event_log_service.log_event(db, attempt_id, event_type, body.get("details"))
+    allowed = {models.EventType.tab_blur, models.EventType.tab_focus,
+               models.EventType.connection_lost, models.EventType.reconnect,
+               models.EventType.question_skipped, models.EventType.question_returned,
+               models.EventType.question_changed}
+    if event_type not in allowed:
+        return {"status": "ignored"}
+    details = body.get("details")
+    if details is not None and (not isinstance(details, str) or len(details) > 2000):
+        raise HTTPException(422, "Невірний опис події")
+    client_event_id = body.get("client_event_id")
+    if client_event_id:
+        import re
+        if not isinstance(client_event_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", client_event_id):
+            raise HTTPException(422, "Невірний ідентифікатор події")
+        suffix = f" [event:{client_event_id}]"
+        stored_details = (details or "") + suffix
+        if db.query(models.EventLog).filter(
+            models.EventLog.attempt_id == attempt_id,
+            models.EventLog.details.endswith(suffix, autoescape=True),
+        ).first():
+            return {"status": "already_saved"}
+    else:
+        stored_details = details
+    if event_log_service.log_event(db, attempt_id, event_type, stored_details) is None:
+        raise HTTPException(503, "Подію не збережено. Повторіть запит")
 
     if event_type in (
         models.EventType.connection_lost,
@@ -458,6 +483,26 @@ async def log_browser_event(
             "attempt_id": attempt_id,
             "question_id": question_id,
             "details": body.get("details"),
+            "violation_count": db.query(models.EventLog).filter_by(
+                attempt_id=attempt_id, event_type=models.EventType.tab_blur
+            ).count() if event_type == models.EventType.tab_blur else None,
         })
 
     return {"status": "ok"}
+
+
+@router.post("/student/test/{attempt_id}/retake")
+async def retake_test(
+    attempt_id: int,
+    db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
+):
+    if not attempt.session.is_active or not attempt.session.test.allow_retake:
+        raise HTTPException(403, "Повторне проходження недоступне")
+    if attempt.status not in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
+        raise HTTPException(409, "Спочатку завершіть поточну спробу")
+    new_attempt = crud.create_attempt(db, attempt.session_id, attempt.student_name)
+    event_log_service.log_event(db, new_attempt.id, models.EventType.login, "Повторне проходження")
+    redirect = RedirectResponse(f"/student/instruction/{new_attempt.id}", status_code=303)
+    set_student_cookie(redirect, new_attempt.id)
+    return redirect

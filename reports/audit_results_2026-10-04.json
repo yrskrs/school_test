@@ -1,0 +1,270 @@
+[
+  {
+    "check": "fresh_start",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 303
+    }
+  },
+  {
+    "check": "setup_custom_username_has_no_admin_rights",
+    "reproduced": true,
+    "evidence": {
+      "setup_status": 303,
+      "create_teacher_status": 200,
+      "response": {
+        "status": "error",
+        "message": "Створення нових профілів дозволено тільки адміністратору"
+      }
+    }
+  },
+  {
+    "check": "anonymous_api_data",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "name_disclosed": true,
+      "code_disclosed": true
+    }
+  },
+  {
+    "check": "anonymous_student_page",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200
+    }
+  },
+  {
+    "check": "same_name_takes_existing_attempt",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 303,
+      "location": "/student/instruction/1"
+    }
+  },
+  {
+    "check": "deterministic_payload",
+    "reproduced": true,
+    "evidence": {
+      "same_on_two_loads": true
+    }
+  },
+  {
+    "check": "payload_answer_keys",
+    "reproduced": true,
+    "evidence": {
+      "short_text_answer": "synthetic-secret-answer",
+      "matching_pairs": true,
+      "sequence_indices": [
+        0,
+        1
+      ],
+      "hotspot_region": "(0,0)-(100,0)-(100,100)-(0,100)"
+    }
+  },
+  {
+    "check": "anonymous_answer_write",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200
+    }
+  },
+  {
+    "check": "sequential_resubmit_blocked",
+    "reproduced": true,
+    "evidence": {
+      "second_http_status": 400
+    }
+  },
+  {
+    "check": "foreign_question_injection",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "resulting_question_ids": [
+        6
+      ]
+    }
+  },
+  {
+    "check": "anonymous_finish",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "score": 100.0,
+      "max_score": 100.0
+    }
+  },
+  {
+    "check": "overdue_closed_session_write",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "session_active": false,
+      "elapsed_minutes": 60,
+      "limit_minutes": 1
+    }
+  },
+  {
+    "check": "expired_attempt_marked_finished",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "actual_status": "finished"
+    }
+  },
+  {
+    "check": "malformed_answer_persisted_and_locked",
+    "reproduced": true,
+    "evidence": {
+      "first_status": 500,
+      "exception": "TypeError",
+      "stored_json": "123",
+      "valid_retry_status": 400
+    }
+  },
+  {
+    "check": "unchecked_result_checkbox_reenabled",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "before": false,
+      "after": true
+    }
+  },
+  {
+    "check": "public_test_json",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "has_correct_answer_flags": true
+    }
+  },
+  {
+    "check": "export_file_path_escape",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "synthetic_marker_embedded": true
+    }
+  },
+  {
+    "check": "upload_foreign_test_and_active_content",
+    "reproduced": true,
+    "evidence": {
+      "upload_status": 200,
+      "public_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "foreign_test_used": true,
+      "html_served": true
+    }
+  },
+  {
+    "check": "unescaped_script_closing_tag",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "unescaped_closing_tag_present": true,
+      "javascript_executed": false
+    }
+  },
+  {
+    "check": "live_edits_change_attempt_grading",
+    "reproduced": true,
+    "evidence": {
+      "before": [
+        1.0,
+        5.0
+      ],
+      "after": [
+        50.0,
+        54.0
+      ]
+    }
+  },
+  {
+    "check": "fullscreen_events_ignored",
+    "reproduced": true,
+    "evidence": {
+      "http_status": 200,
+      "response": {
+        "status": "unknown_event"
+      }
+    }
+  },
+  {
+    "check": "json_roundtrip_loses_settings",
+    "reproduced": true,
+    "evidence": {
+      "time_limit_per_question": {
+        "before": 10,
+        "after": null
+      },
+      "max_grade": {
+        "before": 5,
+        "after": 12
+      },
+      "allow_retake": {
+        "before": true,
+        "after": false
+      },
+      "allow_partial_grading": {
+        "before": true,
+        "after": false
+      },
+      "use_fuzzy_matching": {
+        "before": true,
+        "after": false
+      }
+    }
+  },
+  {
+    "check": "sample_xml_import",
+    "reproduced": true,
+    "evidence": {
+      "question_count": 8
+    }
+  },
+  {
+    "check": "sample_docx_import",
+    "reproduced": true,
+    "evidence": {
+      "question_count": 8
+    }
+  },
+  {
+    "check": "sqlite_foreign_keys_disabled",
+    "reproduced": true,
+    "evidence": {
+      "pragma_foreign_keys": 0
+    }
+  },
+  {
+    "check": "numeric_sign_removed",
+    "reproduced": true,
+    "evidence": {
+      "expected": "-5",
+      "given": "5",
+      "correct": true,
+      "points": 1
+    }
+  },
+  {
+    "check": "decimal_separator_removed",
+    "reproduced": true,
+    "evidence": {
+      "expected": "1.5",
+      "given": "15",
+      "correct": true,
+      "points": 1
+    }
+  },
+  {
+    "check": "anonymous_websockets",
+    "reproduced": true,
+    "evidence": {
+      "nonexistent_monitor_accepted": true,
+      "nonexistent_student_accepted": true
+    }
+  }
+]
