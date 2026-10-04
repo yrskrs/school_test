@@ -278,6 +278,9 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(headers[b"x-app-version"].decode(), __version__)
         page = await http("GET", f"/student/test/{self.attempt.id}", cookie=self.student_cookie)
         self.assertIn(f"v{__version__}", page[1])
+        about_status, about_body, _ = await http("GET", "/teacher/about", cookie=self.teacher_cookie)
+        self.assertEqual(about_status, 200)
+        self.assertIn(f"версія {__version__}", about_body)
         for asset in ("student.js", "student-cache.js", "styles.css"):
             self.assertIn(f"{asset}?v={__version__}", page[1])
 

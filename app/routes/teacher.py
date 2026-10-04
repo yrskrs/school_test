@@ -107,7 +107,7 @@ async def teacher_about(
     request: Request,
     teacher: models.Teacher = Depends(get_current_teacher),
 ):
-    return templates.TemplateResponse("teacher_about.html", {"request": request, "teacher": teacher})
+    return templates.TemplateResponse(request, "teacher_about.html", {"teacher": teacher})
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
