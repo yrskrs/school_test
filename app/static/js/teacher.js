@@ -603,13 +603,13 @@ function buildOptionsHTML(q) {
   const type = q.question_type;
 
   if (type === 'short_text') {
-    const val = q.options.length ? escHtml(q.options[0].option_text) : '';
+    const val = escHtml(q.options.filter(o => o.is_correct).map(o => o.option_text).join('\n'));
     return `
       <div class="form-group">
-        <label>Правильна відповідь</label>
-        <input type="text" value="${val}" placeholder="Точна відповідь (регістр не важливий)"
-          oninput="setShortAnswer(${q._id},this.value)"/>
-        <p class="form-hint">Система порівнює без урахування регістру та зайвих пробілів</p>
+        <label>Правильні відповіді</label>
+        <textarea rows="2" placeholder="Кожна прийнятна відповідь з нового рядка"
+          oninput="setShortAnswer(${q._id},this.value)">${val}</textarea>
+        <p class="form-hint">Кожна відповідь з нового рядка. Система порівнює без урахування регістру та зайвих пробілів</p>
       </div>`;
   }
 
@@ -683,10 +683,11 @@ function optionRowHTML(qid, idx, o, type) {
   const isImage = type === 'image_choice';
   const isMatching = type === 'matching';
   const isSequence = type === 'sequence';
-  
+  const existingImage = o.image_url ? `<img src="${escHtml(o.image_url)}" class="test-image-preview" style="max-width:120px;max-height:80px" />` : '';
   if (isMatching) {
     return `
       <div class="matching-row" id="opt-${qid}-${idx}">
+        ${existingImage}
         <input type="text" value="${escHtml(o.option_text||'')}" placeholder="Ліва частина"
           oninput="updateOptionField(${qid},${idx},'option_text',this.value)" style="flex:1"/>
         <span class="matching-arrow">→</span>
@@ -700,6 +701,7 @@ function optionRowHTML(qid, idx, o, type) {
     return `
       <div class="option-row" id="opt-${qid}-${idx}">
         <span class="badge badge-count" style="width:28px;height:28px;min-width:28px">${idx+1}</span>
+        ${existingImage}
         <input type="text" value="${escHtml(o.option_text||'')}" placeholder="Пункт послідовності"
           oninput="updateOptionField(${qid},${idx},'option_text',this.value)" style="flex:1"/>
         <button type="button" class="btn btn-sm btn-secondary" onclick="moveOption(${qid},${idx},-1)">↑</button>
@@ -710,7 +712,7 @@ function optionRowHTML(qid, idx, o, type) {
 
   const inputType = isMulti ? 'checkbox' : 'radio';
   
-  const imgHtml = isImage ? (o.image_url 
+  const imgHtml = (isImage || o.image_url) ? (o.image_url
     ? `<img src="${escHtml(o.image_url)}" class="test-image-preview" style="height:40px;width:40px;margin-right:0" />
        <button type="button" class="btn btn-sm btn-danger" onclick="updateOptionField(${qid},${idx},'image_url',null);rebuildOptions(${qid})">✕</button>`
     : `<button type="button" class="image-upload-btn" onclick="triggerUpload('o-${qid}-${idx}')">🖼️</button>
@@ -758,7 +760,7 @@ function rebuildOptions(id) {
       { option_text: 'Ні',  is_correct: true,  order_index: 1 },
     ];
   } else if (q.question_type === 'short_text') {
-    q.options = q.options.length ? [{ ...q.options[0], is_correct: true }] : [];
+    q.options = q.options.map(o => ({ ...o, is_correct: true }));
   } else if (q.question_type === 'matching' || q.question_type === 'sequence') {
     q.options.forEach(o => o.is_correct = true); // Всі пункти є частиною правильної відповіді
   }
@@ -827,7 +829,8 @@ function setShortAnswer(qid, value) {
   saveHistoryState();
   const q = questions.find(q => q._id === qid);
   if (!q) return;
-  q.options = [{ option_text: value, is_correct: true, order_index: 0 }];
+  q.options = value.split('\n').map(line => line.trim()).filter(Boolean)
+    .map((option_text, order_index) => ({ option_text, is_correct: true, order_index }));
   scheduleValidation(150);
 }
 

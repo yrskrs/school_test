@@ -9,6 +9,7 @@ from starlette.templating import Jinja2Templates
 
 from app.config import settings
 from app.services.testing_policy import MAX_VIOLATIONS
+from app.version import RELEASE_SUMMARY, RELEASE_HIGHLIGHTS
 
 
 def _from_json(s):
@@ -39,3 +40,4 @@ templates.env.filters["from_json"] = _from_json
 templates.env.filters["scale_grade"] = _scale_grade
 
 templates.env.globals.update(app_version=settings.APP_VERSION, max_violations=MAX_VIOLATIONS)
+templates.env.globals.update(release_summary=RELEASE_SUMMARY, release_highlights=RELEASE_HIGHLIGHTS)

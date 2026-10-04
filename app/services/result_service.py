@@ -99,16 +99,15 @@ def grade_answer(
         if not answer_text:
             return False, 0.0
         correct_options = [o for o in question.options if o.is_correct]
-        if correct_options:
-            expected = normalize_text(correct_options[0].option_text)
-        else:
+        if not correct_options:
             return False, 0.0
+        expected = [normalize_text(o.option_text) for o in correct_options]
         given = normalize_text(answer_text)
         
         if getattr(question.test, "use_fuzzy_matching", False):
-            is_correct = fuzzy_match(given, expected)
+            is_correct = any(fuzzy_match(given, value) for value in expected)
         else:
-            is_correct = given == expected
+            is_correct = given in expected
             
         return is_correct, question.points if is_correct else 0.0
 

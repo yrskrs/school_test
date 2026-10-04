@@ -194,6 +194,7 @@
               {% if is_match %}✓{% elif student_ans %}✗{% else %}○{% endif %}
             </span>
             <div style="flex:1">
+              {% if option.image_url %}<img src="{{ option.image_url }}" class="test-image" style="max-height:150px" />{% endif %}
               <strong>{{ option.option_text }}</strong> &rarr; 
               <span style="color:var(--text-secondary)">Правильно: <strong>{{ option.matching_text }}</strong></span>
             </div>
@@ -240,7 +241,7 @@
         <div class="short-text-review">
           <p>Відповідь учня: <strong>{{ answer.answer_text if answer and answer.answer_text else '(не відповів)' }}</strong></p>
           {% if question.options %}
-          <p>Правильна відповідь: <strong>{{ question.options[0].option_text }}</strong></p>
+          <p>Правильні відповіді: <strong>{{ question.options | selectattr('is_correct') | map(attribute='option_text') | join('; ') }}</strong></p>
           {% endif %}
         </div>
       {% endif %}

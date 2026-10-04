@@ -7,6 +7,14 @@
   <p class="page-subtitle">Панель управління тестуванням</p>
 </div>
 
+<section class="card release-card" aria-labelledby="release-title">
+  <div>
+    <h2 id="release-title">ШколярТест · версія {{ app_version }}</h2>
+    <p>{{ release_summary }}</p>
+  </div>
+  <a href="/teacher/about" class="btn btn-secondary">Можливості та оновлення</a>
+</section>
+
 {% if admin_data %}
 <div class="dashboard-metrics" style="display: flex; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap;">
   <div class="card" style="flex: 1; min-width: 150px; padding: 1.5rem; text-align: center; border-bottom: 4px solid var(--primary);">
@@ -72,6 +80,14 @@
     </svg>
     Імпортувати XML (MyTestX)
     <input type="file" id="importXmlInput" accept=".xml" style="display:none" onchange="handleXmlImport(event)">
+  </label>
+  <label for="importMtfInput" class="action-btn action-btn--secondary" style="cursor: pointer; margin: 0;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14,2 14,8 20,8"/><path d="M12 18v-6m-3 3 3-3 3 3"/>
+    </svg>
+    Імпортувати MTF (MyTestX)
+    <input type="file" id="importMtfInput" accept=".mtf" style="display:none" onchange="handleMtfImport(event)">
   </label>
   <label for="importDocxInput" class="action-btn action-btn--secondary" style="cursor: pointer; margin: 0;">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -256,69 +272,7 @@ function switchAdminTab(tab) {
 {% endif %}
 
 
-<script>
-async function handleXmlImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  showImportOverlay('Імпортування XML-тесту');
-
-  try {
-    const res = await fetch('/teacher/tests/import/xml', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
-    } else {
-      hideImportOverlay();
-      const err = await res.json();
-      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
-    }
-  } catch (error) {
-    hideImportOverlay();
-    alert('Помилка мережі при завантаженні файлу');
-  }
-  
-  event.target.value = ''; // скидаємо файл
-}
-
-async function handleDocxImport(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('file', file);
-
-  showImportOverlay('Імпортування Word-тесту');
-
-  try {
-    const res = await fetch('/teacher/tests/import/docx', {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      window.location.href = `/teacher/tests/${data.test_id}/edit?imported=1&folder_path=${encodeURIComponent(data.folder_path)}`;
-    } else {
-      hideImportOverlay();
-      const err = await res.json();
-      alert('Помилка імпорту: ' + (err.detail || 'Невідома помилка'));
-    }
-  } catch (error) {
-    hideImportOverlay();
-    alert('Помилка мережі при завантаженні файлу');
-  }
-  
-  event.target.value = ''; // скидаємо файл
-}
-</script>
+<script src="/static/js/test-import.js?v={{ app_version }}"></script>
 
 {% if chart_activity_data != '[]' or chart_tests_data != '[]' or chart_classes_data != '[]' %}
 <script id="chart-activity-data" type="application/json">{{ chart_activity_data | safe }}</script>

@@ -11,6 +11,7 @@
     <details class="list-menu import-menu"><summary class="btn btn-secondary">Імпортувати ▾</summary><div class="list-menu-panel">
       <label for="importDocxInput" class="menu-action">Word (.docx)<input type="file" id="importDocxInput" accept=".docx" hidden onchange="handleDocxImport(event)"></label>
       <label for="importXmlInput" class="menu-action">MyTestX (.xml)<input type="file" id="importXmlInput" accept=".xml" hidden onchange="handleXmlImport(event)"></label>
+      <label for="importMtfInput" class="menu-action">MyTestX (.mtf)<input type="file" id="importMtfInput" accept=".mtf" hidden onchange="handleMtfImport(event)"></label>
       <a href="/teacher/tests/import" class="menu-action">JSON</a>
     </div></details>
     <a href="/teacher/tests/create" class="btn btn-primary">+ Створити тест</a>
@@ -75,4 +76,4 @@
 <details class="card list-bulk-archive"><summary>Архівування тестів за періодом</summary><p class="form-hint">Для прибирання старих тестів зі списку. Результати залишаться в системі.</p><form method="post" action="/teacher/tests/archive-bulk" class="list-bulk-form" data-confirm="Перемістити всі тести за вибраний період до архіву?" data-preserve-list><div class="form-group"><label for="tests-start">Від</label><input type="date" id="tests-start" name="start_date" required></div><div class="form-group"><label for="tests-end">До</label><input type="date" id="tests-end" name="end_date" required></div><button class="btn btn-secondary" type="submit">Архівувати період</button></form></details>
 {% endif %}
 {% endblock %}
-{% block scripts %}<script src="/static/js/teacher-lists.js?v={{ app_version }}"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/test-import.js?v={{ app_version }}"></script><script src="/static/js/teacher-lists.js?v={{ app_version }}"></script>{% endblock %}

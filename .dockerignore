@@ -16,6 +16,7 @@ htmlcov/
 .ruff_cache/
 scratch/
 backups/
+Mtf2Xml/
 
 # Ignore local database
 data/school_testing.db

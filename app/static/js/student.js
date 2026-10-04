@@ -332,7 +332,7 @@ function buildQuestionHTML(q, index) {
       q.options.map(o => `
         <label class="option-item" id="opt-label-${o.id}">
           <input type="radio" name="q${q.id}" value="${o.id}" id="opt-${o.id}" onchange="selectSingle(${q.id},${o.id})"/>
-          <span class="option-label">${escHtml(o.option_text)}</span>
+          <span class="option-label">${o.image_url ? `<img src="${escHtml(o.image_url)}" class="test-image" style="max-height:150px" />` : ''}${escHtml(o.option_text)}</span>
         </label>`).join('') +
       `</div>`;
   } else if (type === 'multiple_choice') {
@@ -340,7 +340,7 @@ function buildQuestionHTML(q, index) {
       q.options.map(o => `
         <label class="option-item" id="opt-label-${o.id}">
           <input type="checkbox" name="q${q.id}" value="${o.id}" id="opt-${o.id}" onchange="toggleMulti(${q.id},${o.id})"/>
-          <span class="option-label">${escHtml(o.option_text)}</span>
+          <span class="option-label">${o.image_url ? `<img src="${escHtml(o.image_url)}" class="test-image" style="max-height:150px" />` : ''}${escHtml(o.option_text)}</span>
         </label>`).join('') +
       `</div>`;
   } else if (type === 'image_choice') {
@@ -382,7 +382,7 @@ function buildQuestionHTML(q, index) {
       const isSelected = selectedMatchingCardInfo && selectedMatchingCardInfo.qId === q.id && selectedMatchingCardInfo.value === matchedValue;
       return `
         <div class="matching-row-student">
-          <div class="matching-left">${escHtml(o.option_text)}</div>
+          <div class="matching-left">${o.image_url ? `<img src="${escHtml(o.image_url)}" class="test-image" style="max-height:150px" />` : ''}${escHtml(o.option_text)}</div>
           
           <div class="matching-drop-zone ${matchedValue ? 'has-item' : ''} ${selectedMatchingCardInfo && selectedMatchingCardInfo.qId === q.id ? 'zone-selectable' : ''}" 
                data-option-id="${o.id}"
@@ -457,7 +457,7 @@ function buildQuestionHTML(q, index) {
              style="display:flex;align-items:center;gap:0.75rem;background:var(--bg-card2);cursor:grab;touch-action:none;user-select:none;">
           <span class="sequence-handle" title="Перетягнути">⠿</span>
           <span class="badge badge-count" style="width:28px;height:28px;min-width:28px;pointer-events:none;">${idx + 1}</span>
-          <span style="flex:1;pointer-events:none;word-break:break-word;">${escHtml(o.option_text)}</span>
+          <span style="flex:1;pointer-events:none;word-break:break-word;">${o.image_url ? `<img src="${escHtml(o.image_url)}" class="test-image" style="max-height:150px" />` : ''}${escHtml(o.option_text)}</span>
           <div style="display:flex;flex-direction:column;gap:0.25rem" onclick="event.stopPropagation();">
             <button type="button" class="btn btn-sm btn-secondary" style="padding:0.1rem 0.45rem" onclick="moveSequence(${q.id}, ${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>▲</button>
             <button type="button" class="btn btn-sm btn-secondary" style="padding:0.1rem 0.45rem" onclick="moveSequence(${q.id}, ${idx}, 1)" ${idx === orderedOptions.length - 1 ? 'disabled' : ''}>▼</button>

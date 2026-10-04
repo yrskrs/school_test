@@ -36,10 +36,15 @@ function environment(fetcher = async () => ({ok: true, json: async () => ({statu
   return {context, elements, listeners, intervals, dispatch, dispatchWindow, run: code => vm.runInContext(code, context)};
 }
 async function runTests() {
-  for (const file of ['student-cache.js', 'student.js', 'student-recovery.js', 'teacher-lists.js', 'teacher.js', 'monitor.js']) {
+  for (const file of ['student-cache.js', 'student.js', 'student-recovery.js', 'teacher-lists.js', 'test-import.js', 'teacher.js', 'monitor.js']) {
     new vm.Script(fs.readFileSync(path.join(root, 'app/static/js', file), 'utf8'), {filename: file});
   }
   const env = environment();
+  for (const kind of ['single_choice', 'multiple_choice', 'matching', 'sequence']) {
+    const html = env.run(`buildQuestionHTML({id: 100, question_type: '${kind}', question_text: 'Imported image',
+      options: [{id: 101, option_text: 'Image', image_url: '/static/tests/synthetic/image.bmp'}]}, 0)`);
+    assert.match(html, /src="\/static\/tests\/synthetic\/image.bmp"/, kind);
+  }
   const first = env.context.StudentCache.create(42, storage);
   first.save({answers: {1: [2]}, violations: 2, questionTimes: {1: 3}});
   const loaded = env.context.StudentCache.create(42, storage);

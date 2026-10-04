@@ -400,6 +400,54 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         for field in ("time_limit_per_question", "use_fuzzy_matching", "random_questions_limit", "max_grade", "allow_retake"):
             self.assertEqual(getattr(copied, field), getattr(self.test, field), field)
 
+    async def test_mtf_http_import_and_grading(self):
+        from mtf_fixture import build_mtf
+        from app.services.result_service import grade_answer as evaluate_answer
+        from app.services.test_file_service import resolve_static_image
+
+        def upload(data, filename='synthetic.MTF'):
+            boundary = 'schooltest-mtf-check'
+            body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+                    'Content-Type: application/octet-stream\r\n\r\n').encode() + data
+            body += f'\r\n--{boundary}--\r\n'.encode()
+            return body, f'multipart/form-data; boundary={boundary}'
+
+        payload, content_type = upload(build_mtf())
+        status, _, _ = await http('POST', '/teacher/tests/import/mtf', payload, content_type=content_type)
+        self.assertIn(status, (302, 303, 401, 403))
+        status, body, _ = await http('POST', '/teacher/tests/import/mtf', payload, self.teacher_cookie, content_type=content_type)
+        self.assertEqual(status, 200, body)
+        imported = crud.get_test_by_id(self.db, json.loads(body)['test_id'])
+        self.assertEqual(imported.title, 'Synthetic MTF')
+        self.assertEqual(imported.teacher_id, self.owner.id)
+        self.assertEqual(len(imported.questions), 8)
+        questions = sorted(imported.questions, key=lambda q: q.order_index)
+        self.assertEqual([o.is_correct for o in questions[0].options], [False, True])
+        self.assertEqual([o.option_text for o in questions[2].options], ['First', 'Second'])
+        self.assertEqual([o.matching_text for o in questions[3].options], ['Right A', 'Right B'])
+        for answer in ('2,0', '2.0'):
+            self.assertEqual(evaluate_answer(questions[4], answer, None), (True, 2))
+        self.assertEqual(evaluate_answer(questions[4], 'wrong', None), (False, 0))
+        self.assertEqual(evaluate_answer(questions[5], '16', None), (True, 2))
+        from unittest.mock import patch
+        with patch('app.config.settings.STATIC_DIR', str(Path('app/static').resolve())):
+            self.assertTrue(resolve_static_image(questions[6].image_url).exists())
+            self.assertTrue(all(resolve_static_image(o.image_url).exists() for o in questions[7].options))
+        self.assertTrue(all(q.topic == 'Topic' for q in questions))
+        status, body, _ = await http('GET', f'/teacher/tests/{imported.id}/edit', cookie=self.teacher_cookie)
+        self.assertEqual(status, 200, body)
+        for path in ('/teacher/dashboard', '/teacher/tests'):
+            status, body, _ = await http('GET', path, cookie=self.teacher_cookie)
+            self.assertEqual(status, 200, body)
+            self.assertIn('importMtfInput', body)
+            self.assertIn('test-import.js', body)
+        before = self.db.query(models.Test).count()
+        for data, filename in [(b'broken', 'broken.mtf'), (build_mtf()[:-20], 'broken.mtf'), (build_mtf(), 'wrong.xml')]:
+            payload, content_type = upload(data, filename)
+            status, body, _ = await http('POST', '/teacher/tests/import/mtf', payload, self.teacher_cookie, content_type=content_type)
+            self.assertEqual(status, 400, body)
+        self.assertEqual(self.db.query(models.Test).count(), before)
+
 
 if __name__ == "__main__":
     try:

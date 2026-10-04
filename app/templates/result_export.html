@@ -250,7 +250,7 @@
               {% endif %}
               
               <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 0.5rem; font-weight: 500;">{{ opt.option_text }}</td>
+                <td style="padding: 0.5rem; font-weight: 500;">{% if opt.base64_image %}<img src="{{ opt.base64_image }}" class="test-image" style="max-height:150px" />{% endif %}{{ opt.option_text }}</td>
                 <td style="padding: 0.5rem;" class="{{ color_class }}">
                   {{ s_ans or '—' }}
                 </td>
@@ -286,7 +286,7 @@
         {% elif type == 'short_text' %}
           <div style="margin-top: 0.5rem;">
             <p><strong>Відповідь учня:</strong> <span style="color: var(--primary);">{{ answer.answer_text or '—' }}</span></p>
-            <p><strong>Правильна відповідь:</strong> <span style="color: var(--success);">{{ q.options[0].option_text if q.options else '—' }}</span></p>
+            <p><strong>Правильні відповіді:</strong> <span style="color: var(--success);">{{ q.options | selectattr('is_correct') | map(attribute='option_text') | join('; ') if q.options else '—' }}</span></p>
           </div>
           
         {% elif type == 'hotspot' %}

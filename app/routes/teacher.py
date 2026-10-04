@@ -102,6 +102,14 @@ async def teacher_logout(
 # Dashboard
 # ---------------------------------------------------------------------------
 
+@router.get("/about", response_class=HTMLResponse)
+async def teacher_about(
+    request: Request,
+    teacher: models.Teacher = Depends(get_current_teacher),
+):
+    return templates.TemplateResponse("teacher_about.html", {"request": request, "teacher": teacher})
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 async def teacher_dashboard(
     request: Request,
@@ -589,6 +597,42 @@ async def import_test_xml(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Помилка імпорту: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Import test directly from MyTestX (.mtf)
+# ---------------------------------------------------------------------------
+
+@router.post("/tests/import/mtf")
+async def import_test_mtf(
+    file: UploadFile = File(...),
+    teacher: models.Teacher = Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    from starlette.concurrency import run_in_threadpool
+    from app.services.mtf_service import MAX_MTF_BYTES, mtf_to_xml
+
+    if not (file.filename or "").lower().endswith(".mtf"):
+        raise HTTPException(status_code=400, detail="Файл має бути формату .mtf")
+    content = await file.read(MAX_MTF_BYTES + 1)
+    temp_session_id = f"import_mtf_{uuid.uuid4().hex}"
+    try:
+        xml = await run_in_threadpool(mtf_to_xml, content)
+        test = import_export_service.import_test_from_mytestx_xml(
+            db, teacher.id, xml, temp_session_id=temp_session_id,
+            fallback_title=os.path.splitext(file.filename)[0],
+        )
+        folder_name = getattr(test, "_folder_name", None) or get_test_folder_name(test)
+        log_teacher_action(db, teacher.username, teacher.full_name, "import_test_mtf",
+                           f"Імпортовано тест з MTF '{test.title}' (ID: {test.id})", teacher.id)
+        return {"status": "ok", "test_id": test.id, "test_title": test.title,
+                "folder_name": folder_name,
+                "folder_path": os.path.join("app", "static", "tests", folder_name)}
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        shutil.rmtree(os.path.join("app", "static", "tests", "temp", temp_session_id), ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

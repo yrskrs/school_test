@@ -303,6 +303,17 @@ img { max-width: 100%; }
   border-top: 1px solid var(--border);
 }
 
+.footer-version-link { display: block; margin-top: .35rem; }
+.release-card { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.release-card h2 { font-size: 1.1rem; margin-bottom: .35rem; }
+.release-card p { margin: 0; color: var(--text-muted); }
+.release-notes { margin-bottom: 1.5rem; }
+.release-notes h2, .teacher-features h2 { font-size: 1.15rem; margin-bottom: .75rem; }
+.release-notes p, .teacher-features p { margin-bottom: .75rem; line-height: 1.6; }
+.release-notes ul { padding-left: 1.3rem; margin: 1rem 0; }
+.release-notes li { margin-bottom: .6rem; line-height: 1.6; }
+.teacher-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; }
+
 /* ============================================================
    ALERTS (Floating Toasts)
    ============================================================ */
@@ -2885,4 +2896,3 @@ code { background: var(--bg-card2); border-radius: 4px; padding: .1em .4em; font
     grid-template-columns: repeat(2, 1fr) !important;
   }
 }
-

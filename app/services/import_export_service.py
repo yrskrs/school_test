@@ -251,6 +251,8 @@ def import_test_from_mytestx_xml(
 
     # --- Priority 1: <MyTestX><Title>...
     root_title_elem = root.find("Title")
+    if root_title_elem is None:
+        root_title_elem = root.find("TestOptions/Title")
     if root_title_elem is not None and root_title_elem.text and root_title_elem.text.strip():
         test_title = root_title_elem.text.strip()
 
@@ -297,10 +299,7 @@ def import_test_from_mytestx_xml(
                     q_image_url = None
                     q_image = task.find("QuestionImage")
                     if q_image is not None and q_image.text:
-                        ext = ".bmp"
-                        fname = q_image.get("FileName", "").lower()
-                        if fname.endswith(".jpg"): ext = ".jpg"
-                        elif fname.endswith(".png"): ext = ".png"
+                        ext = os.path.splitext(q_image.get("FileName", "").lower())[1] or ".bmp"
                         q_image_url = save_base64_image(q_image.text, ext, temp_session_id)
 
                     # Map question type
@@ -315,12 +314,21 @@ def import_test_from_mytestx_xml(
                         q_type = "sequence"
                     elif "COLLATION" in q_type_raw or "MATCHING" in q_type_raw:
                         q_type = "matching"
-                    elif "MANUAL" in q_type_raw or "STRING" in q_type_raw or "ENTER_TEXT" in q_type_raw:
+                    elif "MANUAL" in q_type_raw or "STRING" in q_type_raw or "ENTER_TEXT" in q_type_raw or "ENTER_NUM" in q_type_raw:
                         q_type = "short_text"
 
                     options_data = []
                     
-                    if q_type == "hotspot":
+                    if q_type == "short_text" and (task.find("InputText") is not None or task.find("InputNum") is not None):
+                        manual = task.find("InputText")
+                        if manual is None:
+                            manual = task.find("InputNum")
+                        for value in manual.findall("Value"):
+                            for answer in next(csv.reader([value.text or ""], delimiter=";"), []):
+                                if answer.strip():
+                                    options_data.append({"option_text": answer.strip(), "is_correct": True,
+                                                         "order_index": len(options_data)})
+                    elif q_type == "hotspot":
                         # For hotspot, we extract regions
                         regions = task.find("Regions")
                         if regions is not None:
@@ -355,10 +363,7 @@ def import_test_from_mytestx_xml(
                                 v_image_url = None
                                 v_image = var.find("VariantImage")
                                 if v_image is not None and v_image.text:
-                                    ext = ".bmp"
-                                    fname = v_image.get("FileName", "").lower()
-                                    if fname.endswith(".jpg"): ext = ".jpg"
-                                    elif fname.endswith(".png"): ext = ".png"
+                                    ext = os.path.splitext(v_image.get("FileName", "").lower())[1] or ".bmp"
                                     v_image_url = save_base64_image(v_image.text, ext, temp_session_id)
                                 
                                 correct_ans_idx_str = var.get("CorrectAnswer")
@@ -400,10 +405,7 @@ def import_test_from_mytestx_xml(
                                 v_image_url = None
                                 v_image = var.find("VariantImage")
                                 if v_image is not None and v_image.text:
-                                    ext = ".bmp"
-                                    fname = v_image.get("FileName", "").lower()
-                                    if fname.endswith(".jpg"): ext = ".jpg"
-                                    elif fname.endswith(".png"): ext = ".png"
+                                    ext = os.path.splitext(v_image.get("FileName", "").lower())[1] or ".bmp"
                                     v_image_url = save_base64_image(v_image.text, ext, temp_session_id)
                                 
                                 options_data.append({
