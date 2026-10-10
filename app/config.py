@@ -12,6 +12,8 @@ class Settings:
     ROSTER_PEERS = json.loads(os.getenv('ROSTER_PEERS', '[]'))
     ROSTER_SYNC_INTERVAL = max(2, int(os.getenv('ROSTER_SYNC_INTERVAL', '30')))
     LEGACY_RESULT_TIMEZONE = os.getenv('LEGACY_RESULT_TIMEZONE', 'UTC')
+    PUBLIC_BASE_URL = os.getenv('PUBLIC_BASE_URL', '').rstrip('/')
+    JOURNAL_API_BASE_URL = os.getenv('JOURNAL_API_BASE_URL', '').rstrip('/')
     APP_NAME: str = "ШколярТест — Система шкільного тестування"
     APP_VERSION: str = __version__
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"

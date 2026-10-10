@@ -9,8 +9,8 @@ update_main() {
   [[ "$(git branch --show-current)" == main ]] || fail "Update requires the main branch."
   [[ -z "$(git status --porcelain)" ]] || fail "Commit or stash local changes before updating."
   # Fetch and reject divergence before stopping the application.
-  git fetch origin main
-  git merge-base --is-ancestor HEAD FETCH_HEAD || fail "Local main has diverged; resolve it before updating."
+  python3 "$SCRIPT_DIR/fetch_update.py" --branch main
+  git merge-base --is-ancestor HEAD origin/main || fail "Local main has diverged; resolve it before updating."
   CONTAINER="$(app_container)"
   [[ -n "$CONTAINER" ]] || fail "App container is missing; use initial deployment instead (docker compose up -d --build)."
   WAS_RUNNING=false
@@ -36,7 +36,9 @@ update_main() {
   }
   trap cleanup EXIT
   "$SCRIPT_DIR/backup.sh" --output "$BACKUP_DIR" --keep-stopped
-  git merge --ff-only FETCH_HEAD
+  git merge --ff-only origin/main
+  python3 "$SCRIPT_DIR/select_release_image.py" schooltest5
+  export VCS_REF="$(git rev-parse HEAD)"
   docker compose config --quiet
   docker compose build app
   # Preserve uploads from older containers when introducing the uploads volume.
@@ -45,6 +47,7 @@ update_main() {
   DEPLOY_STARTED=true
   docker compose up -d --no-deps app
   wait_for_app
+  python3 "$SCRIPT_DIR/configure_integration_network.py"
   SUCCESS=true
   printf 'Update completed and HTTP readiness confirmed.\nBackup: %s\nPrevious image: %s\n' "$BACKUP_DIR" "$ROLLBACK_TAG"
 

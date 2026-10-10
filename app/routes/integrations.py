@@ -3,6 +3,7 @@ import datetime as dt
 import hashlib
 import hmac
 import json
+import re
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -189,8 +190,30 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
         check_csrf(request, teacher, data)
         try:
             action = data.get('action')
-            if action == 'key':
-                db.query(models.GradeExportGrant).filter_by(teacher_id=teacher.id).update({'active': False})
+            if action in ('key', 'simple_key'):
+                # The teacher's own test metadata already names its class and subject.
+                # Prepare only missing context after this explicit teacher action.
+                for session in db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id):
+                    if not session.roster_class_id and session.test.class_name:
+                        name = session.test.class_name.strip()
+                        group = db.query(models.RosterClass).filter_by(name=name).first()
+                        if group is None:
+                            number = re.match(r'\d{1,2}', name)
+                            grade = int(number.group()) if number and 1 <= int(number.group()) <= 12 else 1
+                            group = models.RosterClass(name=name, grade_level=grade)
+                            db.add(group)
+                            db.flush()
+                        session.roster_class_id = group.id
+                    if not session.roster_subject_id and session.test.subject:
+                        name = session.test.subject.strip()
+                        subject = db.query(models.RosterSubject).filter_by(name=name).first()
+                        if subject is None:
+                            subject = models.RosterSubject(name=name)
+                            db.add(subject)
+                            db.flush()
+                        session.roster_subject_id = subject.id
+                if action == 'key':
+                    db.query(models.GradeExportGrant).filter_by(teacher_id=teacher.id).update({'active': False})
                 token = secrets.token_urlsafe(32)
                 db.add(models.GradeExportGrant(teacher_id=teacher.id, token_hash=hashlib.sha256(token.encode()).hexdigest()))
             elif action == 'subject':
@@ -229,7 +252,11 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
             db.rollback()
             error = str(exc) if isinstance(exc, (SyncError, ValueError, KeyError)) else 'Не вдалося зберегти налаштування. Перевірте дані.'
     sessions = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id).order_by(models.TestSession.id.desc()).all()
-    return templates.TemplateResponse(request, 'integrations.html', {'teacher': teacher, 'csrf': csrf(request, teacher), 'error': error, 'token': token,
+    site_url = settings.PUBLIC_BASE_URL or str(request.base_url).rstrip('/')
+    response = templates.TemplateResponse(request, 'integrations.html', {'teacher': teacher, 'csrf': csrf(request, teacher), 'error': error, 'token': token,
+        'site_url': site_url, 'connection_code': json.dumps({'source': 'schooltest', 'site_url': settings.JOURNAL_API_BASE_URL or site_url, 'api_key': token}, ensure_ascii=False) if token else '',
         'classes': db.query(models.RosterClass).all(), 'subjects': db.query(models.RosterSubject).all(),
         'students': db.query(models.RosterStudent).all(), 'sessions': sessions,
         'attempts': db.query(models.StudentAttempt).filter(models.StudentAttempt.session_id.in_([s.id for s in sessions]), models.StudentAttempt.roster_student_id.is_(None)).all()})
+    response.headers['Cache-Control'] = 'no-store'
+    return response

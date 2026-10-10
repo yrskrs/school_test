@@ -32,6 +32,7 @@ joined = ' '.join(args)
 if failure and failure in joined:
     sys.exit(1)
 if name == 'git':
+    if args == ['remote', 'get-url', 'origin']: print('https://github.com/example/synthetic.git')
     if args == ['rev-parse', '--show-toplevel']: print(os.environ['MOCK_ROOT'])
     elif args == ['branch', '--show-current']: print('main')
     elif args == ['rev-parse', 'HEAD']: print('synthetic-commit')
@@ -41,8 +42,14 @@ if name == 'sleep': sys.exit(0)
 if args and args[0] == 'inspect':
     print('sha256:synthetic-image' if '.Image' in joined else 'true')
     sys.exit(0)
+if name == 'docker' and 'config' in args and '--format' in args:
+    print('{"services":{},"networks":{}}')
+    sys.exit(0)
 if args[:2] == ['compose', 'ps']:
     print('synthetic-container')
+    sys.exit(0)
+if args[:2] == ['compose', 'config']:
+    if '--format' in args: print('{"services":{},"networks":{}}')
     sys.exit(0)
 if args[:2] == ['compose', 'cp']:
     target = pathlib.Path(args[-1]); target.mkdir(parents=True)
@@ -160,6 +167,8 @@ class Scripts(unittest.TestCase):
         self.work = tempfile.TemporaryDirectory(prefix='schooltest-maintenance-')
         self.root = Path(self.work.name)
         shutil.copytree(ROOT / 'scripts', self.root / 'scripts')
+        (self.root / 'app').mkdir()
+        (self.root / 'app/version.py').write_text('__version__ = "1.4.0"\n')
         self.bin = self.root / 'bin'; self.bin.mkdir()
         for name in ('docker', 'git', 'sleep'):
             path = self.bin / name; path.write_text(FAKE); path.chmod(0o755)
@@ -187,14 +196,14 @@ class Scripts(unittest.TestCase):
         result = self.run_script('update.sh')
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = self.commands()
-        self.assertIn(['git', 'merge', '--ff-only', 'FETCH_HEAD'], commands)
+        self.assertIn(['git', 'merge', '--ff-only', 'origin/main'], commands)
         run = next(command for command in commands if command[:3] == ['docker', 'compose', 'run'])
         self.assertEqual(run[-1], 'restore-uploads')
         self.assertIn('HTTP readiness confirmed', result.stdout)
         self.assertEqual(len(list((self.root / 'backups').glob('*/manifest.json'))), 1)
 
     def test_failed_fetch_or_dirty_tree_does_not_stop_app(self):
-        result = self.run_script('update.sh', failure='fetch origin main')
+        result = self.run_script('update.sh', failure='fetch --no-tags')
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn(['docker', 'compose', 'stop', 'app'], self.commands())
         self.env['MOCK_DIRTY'] = ' M README.md'
@@ -212,7 +221,7 @@ class Scripts(unittest.TestCase):
         result = self.run_script('update.sh', failure='pg_dump')
         self.assertNotEqual(result.returncode, 0)
         commands = self.commands()
-        self.assertNotIn(['git', 'merge', '--ff-only', 'FETCH_HEAD'], commands)
+        self.assertNotIn(['git', 'merge', '--ff-only', 'origin/main'], commands)
         self.assertNotIn(['docker', 'compose', 'build', 'app'], commands)
         self.assertIn(['docker', 'start', 'synthetic-container'], commands)
         self.assertFalse(list((self.root / 'backups').glob('*/manifest.json')))

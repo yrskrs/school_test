@@ -503,6 +503,29 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result[0],403)
         self.assertEqual((await http('GET','/api/v2/roster-sync/'))[0],401)
 
+    async def test_simple_connection_code_prepares_names_but_does_not_merge_students(self):
+        import html
+        self.test.subject = 'Вигаданий предмет'
+        self.db.commit()
+        page = await http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        token = re.search(r'name="csrf" value="([^"]+)"', page[1]).group(1)
+        old_grant = models.GradeExportGrant(teacher_id=self.owner.id, token_hash='synthetic-existing-grant-hash', active=True)
+        self.db.add(old_grant)
+        self.db.commit()
+        result = await http('POST', '/teacher/integrations', {'action': 'simple_key', 'csrf': token}, self.teacher_cookie, form=True)
+        self.assertEqual(result[0], 200)
+        code = json.loads(html.unescape(re.search(r'id="journal-connection-code"[^>]*>(.*?)</textarea>', result[1], re.S).group(1)))
+        self.assertEqual(code['source'], 'schooltest')
+        roster = await http('GET', '/api/v2/journal/roster/', authorization='Bearer ' + code['api_key'])
+        self.assertEqual(roster[0], 200)
+        self.assertEqual(json.loads(roster[1])['classes'][0]['name'], '7-A')
+        self.assertEqual(json.loads(roster[1])['subjects'][0]['name'], 'Вигаданий предмет')
+        self.db.expire_all()
+        self.assertIsNone(self.db.get(models.StudentAttempt, self.attempt.id).roster_student_id)
+        self.assertEqual(self.db.query(models.RosterStudent).count(), 0)
+        self.db.refresh(old_grant)
+        self.assertTrue(old_grant.active)
+
 
 if __name__ == "__main__":
     try:
