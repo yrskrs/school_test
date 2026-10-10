@@ -7,6 +7,7 @@ import re
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session
 
 from app import models
@@ -62,6 +63,12 @@ def grade_roster(request: Request, db: Session = Depends(get_db)):
     sessions = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id).all()
     class_ids = {s.roster_class_id for s in sessions if s.roster_class_id}
     subject_ids = {s.roster_subject_id for s in sessions if s.roster_subject_id}
+    # Prepared metadata exposes names without turning legacy name login into
+    # mandatory roster login. Only the teacher's explicit bind changes that.
+    class_names = {s.test.class_name.strip() for s in sessions if not s.roster_class_id and s.test.class_name}
+    subject_names = {s.test.subject.strip() for s in sessions if not s.roster_subject_id and s.test.subject}
+    class_ids.update(row.id for row in db.query(models.RosterClass).filter(models.RosterClass.name.in_(class_names)))
+    subject_ids.update(row.id for row in db.query(models.RosterSubject).filter(models.RosterSubject.name.in_(subject_names)))
     return {'schema_version': 2, 'source': 'schooltest',
         'classes': [{'id': c.id, 'name': c.name} for c in db.query(models.RosterClass).filter(models.RosterClass.id.in_(class_ids))],
         'subjects': [{'id': s.id, 'name': s.name} for s in db.query(models.RosterSubject).filter(models.RosterSubject.id.in_(subject_ids))],
@@ -81,9 +88,15 @@ def grades(request: Request, db: Session = Depends(get_db)):
             raise ValueError
     except (KeyError, ValueError):
         raise HTTPException(400, 'Потрібні ID класу, предмета, період і коректний курсор.')
+    group, subject = db.get(models.RosterClass, class_id), db.get(models.RosterSubject, subject_id)
+    if not group or not subject:
+        return {'schema_version': 2, 'source': 'schooltest', 'grades': [], 'next_cursor': None}
     qs = db.query(models.StudentAttempt).join(models.TestSession).join(models.Test).filter(
-        models.Test.teacher_id == teacher.id, models.TestSession.roster_class_id == class_id,
-        models.TestSession.roster_subject_id == subject_id)
+        models.Test.teacher_id == teacher.id,
+        or_(models.TestSession.roster_class_id == class_id,
+            and_(models.TestSession.roster_class_id.is_(None), func.trim(models.Test.class_name) == group.name)),
+        or_(models.TestSession.roster_subject_id == subject_id,
+            and_(models.TestSession.roster_subject_id.is_(None), func.trim(models.Test.subject) == subject.name)))
     if qs.count() > 100000:
         raise HTTPException(422, 'Забагато результатів у цьому контексті.')
     winners = {}
@@ -203,7 +216,6 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
                             group = models.RosterClass(name=name, grade_level=grade)
                             db.add(group)
                             db.flush()
-                        session.roster_class_id = group.id
                     if not session.roster_subject_id and session.test.subject:
                         name = session.test.subject.strip()
                         subject = db.query(models.RosterSubject).filter_by(name=name).first()
@@ -211,7 +223,6 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
                             subject = models.RosterSubject(name=name)
                             db.add(subject)
                             db.flush()
-                        session.roster_subject_id = subject.id
                 if action == 'key':
                     db.query(models.GradeExportGrant).filter_by(teacher_id=teacher.id).update({'active': False})
                 token = secrets.token_urlsafe(32)

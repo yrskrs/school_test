@@ -525,6 +525,40 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.db.query(models.RosterStudent).count(), 0)
         self.db.refresh(old_grant)
         self.assertTrue(old_grant.active)
+        self.db.refresh(self.session)
+        self.assertIsNone(self.session.roster_class_id)
+        self.assertIsNone(self.session.roster_subject_id)
+        page = await http('GET', '/api/session-roster?code=' + self.session.access_code)
+        self.assertFalse(json.loads(page[1])['required'])
+        login = await http('POST', '/student/login', {'student_name': 'Інший Вигаданий', 'access_code': self.session.access_code}, form=True)
+        self.assertEqual(login[0], 303, login[1])
+        self.db.expire_all()
+        self.assertIsNone(self.db.query(models.StudentAttempt).order_by(models.StudentAttempt.id.desc()).first().roster_student_id)
+        import datetime as dt
+        self.attempt.status = models.AttemptStatus.finished
+        self.attempt.score, self.attempt.max_score = 6, 12
+        self.attempt.finished_at = dt.datetime(2026, 9, 5, 12)
+        self.db.commit()
+        rows = json.loads(roster[1])
+        exported = await http('GET', '/api/v2/journal/grades/?' + urlencode({'class_id': rows['classes'][0]['id'], 'subject_id': rows['subjects'][0]['id'], 'date_from': '2026-09-01', 'date_to': '2026-09-30'}), authorization='Bearer ' + code['api_key'])
+        self.assertEqual(exported[0], 200)
+        self.assertEqual(len(json.loads(exported[1])['grades']), 1)
+        self.assertIsNone(json.loads(exported[1])['grades'][0]['student_id'])
+
+    async def test_api_key_keeps_explicit_roster_login_requirement(self):
+        self.bind_roster()
+        original_class = self.session.roster_class_id
+        page = await http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        token = re.search(r'name="csrf" value="([^"]+)"', page[1]).group(1)
+        await http('POST', '/teacher/integrations', {'action': 'simple_key', 'csrf': token}, self.teacher_cookie, form=True)
+        self.db.refresh(self.session)
+        self.assertEqual(self.session.roster_class_id, original_class)
+        roster = await http('GET', '/api/session-roster?code=' + self.session.access_code)
+        self.assertTrue(json.loads(roster[1])['required'])
+        attempts = self.db.query(models.StudentAttempt).count()
+        login = await http('POST', '/student/login', {'student_name': 'Інший Вигаданий', 'access_code': self.session.access_code}, form=True)
+        self.assertEqual(login[0], 400)
+        self.assertEqual(self.db.query(models.StudentAttempt).count(), attempts)
 
 
 if __name__ == "__main__":

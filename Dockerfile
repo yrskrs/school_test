@@ -31,7 +31,7 @@ EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 ARG VCS_REF=local
-ARG APP_VERSION=1.4.0
+ARG APP_VERSION=1.4.1
 LABEL org.opencontainers.image.version=$APP_VERSION \
       org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.source="https://github.com/yrskrs/school_test"
