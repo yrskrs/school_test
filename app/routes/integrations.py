@@ -69,7 +69,7 @@ def grade_roster(request: Request, db: Session = Depends(get_db)):
     subject_names = {s.test.subject.strip() for s in sessions if not s.roster_subject_id and s.test.subject}
     class_ids.update(row.id for row in db.query(models.RosterClass).filter(models.RosterClass.name.in_(class_names)))
     subject_ids.update(row.id for row in db.query(models.RosterSubject).filter(models.RosterSubject.name.in_(subject_names)))
-    return {'schema_version': 2, 'source': 'schooltest',
+    return {'schema_version': 2, 'source': 'schooltest', 'instance_id': operate(lambda engine, store: engine.origin, db),
         'classes': [{'id': c.id, 'name': c.name} for c in db.query(models.RosterClass).filter(models.RosterClass.id.in_(class_ids))],
         'subjects': [{'id': s.id, 'name': s.name} for s in db.query(models.RosterSubject).filter(models.RosterSubject.id.in_(subject_ids))],
         'students': [{'id': s.id, 'name': s.full_name(), 'class_id': s.class_id} for s in db.query(models.RosterStudent).filter(models.RosterStudent.class_id.in_(class_ids))]}
@@ -265,7 +265,7 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
     sessions = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id).order_by(models.TestSession.id.desc()).all()
     site_url = settings.PUBLIC_BASE_URL or str(request.base_url).rstrip('/')
     response = templates.TemplateResponse(request, 'integrations.html', {'teacher': teacher, 'csrf': csrf(request, teacher), 'error': error, 'token': token,
-        'site_url': site_url, 'connection_code': json.dumps({'source': 'schooltest', 'site_url': settings.JOURNAL_API_BASE_URL or site_url, 'api_key': token}, ensure_ascii=False) if token else '',
+        'site_url': site_url, 'connection_code': json.dumps({'source': 'schooltest', 'site_url': site_url, 'api_key': token}, ensure_ascii=False) if token else '',
         'classes': db.query(models.RosterClass).all(), 'subjects': db.query(models.RosterSubject).all(),
         'students': db.query(models.RosterStudent).all(), 'sessions': sessions,
         'attempts': db.query(models.StudentAttempt).filter(models.StudentAttempt.session_id.in_([s.id for s in sessions]), models.StudentAttempt.roster_student_id.is_(None)).all()})
