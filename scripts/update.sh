@@ -12,7 +12,7 @@ update_main() {
   git fetch origin main
   git merge-base --is-ancestor HEAD FETCH_HEAD || fail "Local main has diverged; resolve it before updating."
   CONTAINER="$(app_container)"
-  [[ -n "$CONTAINER" ]] || fail "App container is missing; use initial deployment instead."
+  [[ -n "$CONTAINER" ]] || fail "App container is missing; use initial deployment instead (docker compose up -d --build)."
   WAS_RUNNING=false
   app_running && WAS_RUNNING=true
   BACKUP_DIR="$(new_backup_path)"
