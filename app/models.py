@@ -1,9 +1,9 @@
 import enum
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, Float, ForeignKey,
-    Integer, String, Text
+    Integer, String, Text, JSON
 )
 from sqlalchemy.orm import relationship
 
@@ -162,6 +162,10 @@ class TestSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     test_id = Column(Integer, ForeignKey("tests.id"), nullable=False)
+    roster_class_id = Column(Integer, ForeignKey('roster_classes.id'), nullable=True)
+    roster_subject_id = Column(Integer, ForeignKey('roster_subjects.id'), nullable=True)
+    lesson_date = Column(String(10), nullable=True)
+    lesson_number = Column(Integer, nullable=True)
     access_code = Column(String(20), unique=True, nullable=False, index=True)
     started_at = Column(DateTime, default=datetime.now)
     ended_at = Column(DateTime, nullable=True)
@@ -170,6 +174,17 @@ class TestSession(Base):
     is_pinned = Column(Boolean, default=False)
 
     test = relationship("Test", back_populates="sessions")
+    roster_class = relationship('RosterClass')
+    roster_subject = relationship('RosterSubject')
+
+    @property
+    def display_class_name(self):
+        return self.roster_class.name if self.roster_class else self.test.class_name
+
+    @property
+    def display_subject_name(self):
+        return self.roster_subject.name if self.roster_subject else self.test.subject
+
     attempts = relationship("StudentAttempt", back_populates="session", cascade="all, delete-orphan")
 
 
@@ -183,6 +198,8 @@ class StudentAttempt(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("test_sessions.id"), nullable=False)
     student_name = Column(String(200), nullable=False)
+    roster_student_id = Column(Integer, ForeignKey('roster_students.id'), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     started_at = Column(DateTime, default=datetime.now)
     finished_at = Column(DateTime, nullable=True)
     status = Column(Enum(AttemptStatus), default=AttemptStatus.not_started)
@@ -247,4 +264,52 @@ class TeacherLog(Base):
     created_at = Column(DateTime, default=datetime.now)
 
     teacher = relationship("Teacher")
+
+
+class RosterClass(Base):
+    __tablename__ = 'roster_classes'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), nullable=False, unique=True)
+    grade_level = Column(Integer, default=1)
+    letter = Column(String(10), default='')
+    active = Column(Boolean, default=True)
+
+
+class RosterStudent(Base):
+    __tablename__ = 'roster_students'
+    id = Column(Integer, primary_key=True)
+    class_id = Column(Integer, ForeignKey('roster_classes.id'), nullable=False)
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    middle_name = Column(String(100), default='')
+    active = Column(Boolean, default=True)
+
+    def full_name(self):
+        return ' '.join(part for part in (self.last_name, self.first_name, self.middle_name) if part)
+
+
+class RosterSubject(Base):
+    __tablename__ = 'roster_subjects'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False, unique=True)
+
+
+class RosterReplica(Base):
+    __tablename__ = 'roster_replicas'
+    ref = Column(String(100), primary_key=True)
+    data = Column(JSON, default=dict, nullable=False)
+
+
+class RosterState(Base):
+    __tablename__ = 'roster_state'
+    id = Column(Integer, primary_key=True, default=1)
+    data = Column(JSON, default=dict, nullable=False)
+
+
+class GradeExportGrant(Base):
+    __tablename__ = 'grade_export_grants'
+    id = Column(Integer, primary_key=True)
+    teacher_id = Column(Integer, ForeignKey('teachers.id'), nullable=False)
+    token_hash = Column(String(64), unique=True, nullable=False)
+    active = Column(Boolean, default=True)
 

@@ -245,10 +245,11 @@ def close_session(db: Session, session: models.TestSession) -> models.TestSessio
 # StudentAttempt CRUD
 # ---------------------------------------------------------------------------
 
-def create_attempt(db: Session, session_id: int, student_name: str) -> models.StudentAttempt:
+def create_attempt(db: Session, session_id: int, student_name: str, roster_student_id=None) -> models.StudentAttempt:
     attempt = models.StudentAttempt(
         session_id=session_id,
         student_name=student_name,
+        roster_student_id=roster_student_id,
         status=models.AttemptStatus.not_started,
     )
     db.add(attempt)

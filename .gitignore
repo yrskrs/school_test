@@ -52,3 +52,5 @@ scratch/*
 backups/
 docker-data/
 Mtf2Xml/
+
+compose.override.yaml

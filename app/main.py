@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -9,7 +10,7 @@ from app.config import settings
 from app.database import create_tables, engine
 from app import crud
 from app.templating import templates
-from app.routes import api, setup, student, teacher, websocket
+from app.routes import api, setup, student, teacher, websocket, integrations
 
 
 # ---------------------------------------------------------------------------
@@ -27,8 +28,19 @@ async def lifespan(app: FastAPI):
 
     from app.services.startup_schema import ensure_legacy_columns
     ensure_legacy_columns(engine)
-
-    yield
+    task = None
+    if settings.ROSTER_PEERS:
+        from app.services.roster_backend import worker
+        task = asyncio.create_task(worker())
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +82,7 @@ async def favicon():
     return FileResponse(Path(settings.STATIC_DIR) / "favicon.ico")
 
 # Routers
+app.include_router(integrations.router)
 app.include_router(setup.router)
 app.include_router(teacher.router)
 app.include_router(student.router)

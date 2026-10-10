@@ -7,7 +7,7 @@
     <h1>{{ attempt.student_name }}</h1>
     <p class="page-subtitle">
       {{ attempt.session.test.title }} 
-      {% if attempt.session.test.class_name %} &bull; Клас: {{ attempt.session.test.class_name }}{% endif %}
+      {% if attempt.session.display_class_name %} &bull; Клас: {{ attempt.session.display_class_name }}{% endif %}
       &bull; Сесія: {{ attempt.session.access_code }}
     </p>
   </div>

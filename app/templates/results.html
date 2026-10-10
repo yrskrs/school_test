@@ -445,7 +445,7 @@
         {% for attempt in attempts %}
         <tr>
           <td><strong>{{ attempt.student_name }}</strong></td>
-          <td class="mobile-hidden">{{ attempt.session.test.class_name or '—' }}</td>
+          <td class="mobile-hidden">{{ attempt.session.display_class_name or '—' }}</td>
           <td>{{ attempt.session.test.title }}</td>
           <td style="text-align: center;">
               {% if attempt.score is not none %}

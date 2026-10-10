@@ -108,7 +108,8 @@
           <a href="/teacher/logs" class="nav-link {% if '/teacher/logs' in request.url.path %}active{% endif %}">Логи</a>
         {% endif %}
         <a href="/teacher/profile" class="nav-link {% if '/teacher/profile' in request.url.path %}active{% endif %}">Профіль</a>
-        <a href="/teacher/logout" class="nav-link nav-link-logout">Вийти</a>
+        <a href="/teacher/roster-sync" class="nav-link">Списки</a><a href="/teacher/integrations" class="nav-link">Обмін із журналом</a>
+<a href="/teacher/logout" class="nav-link nav-link-logout">Вийти</a>
       {% endif %}
       {% endblock %}
     </nav>

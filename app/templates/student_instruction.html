@@ -14,11 +14,11 @@
       </svg>
     </div>
     <h1 class="instruction-title">{{ test.title }}</h1>
-    {% if test.subject or test.class_name %}
+    {% if attempt.session.display_subject_name or attempt.session.display_class_name %}
     <p class="instruction-meta">
-      {% if test.subject %}{{ test.subject }}{% endif %}
-      {% if test.subject and test.class_name %} &bull; {% endif %}
-      {% if test.class_name %}{{ test.class_name }}{% endif %}
+      {% if attempt.session.display_subject_name %}{{ attempt.session.display_subject_name }}{% endif %}
+      {% if attempt.session.display_subject_name and attempt.session.display_class_name %} &bull; {% endif %}
+      {% if attempt.session.display_class_name %}{{ attempt.session.display_class_name }}{% endif %}
     </p>
     {% endif %}
   </div>

@@ -65,12 +65,13 @@ async def student_login(
     response: Response,
     student_name: str = Form(...),
     access_code: str = Form(...),
+    roster_student_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
 ):
     student_name = student_name.strip()
     access_code = access_code.strip().upper()
 
-    if not student_name or len(student_name) > 200:
+    if not student_name or (len(student_name) > 200 and not roster_student_id):
         return templates.TemplateResponse(
         request,
         "student_login.html", {
@@ -86,9 +87,17 @@ async def student_login(
             "student_name": student_name,
         })
 
+    if session.roster_class_id:
+        pupil = db.query(models.RosterStudent).filter_by(id=roster_student_id, class_id=session.roster_class_id, active=True).first()
+        if not pupil or not db.get(models.RosterClass, session.roster_class_id).active:
+            return templates.TemplateResponse(request, "student_login.html", {"error": "Оберіть свій запис зі списку цього класу.", "prefilled_code": access_code}, status_code=400)
+        student_name = pupil.full_name()[:200]
+    elif roster_student_id:
+        raise HTTPException(400, 'Сесію ще не прив’язано до класу.')
+
     # Перевіряємо, чи є вже спроба від цього учня в цій сесії
     existing_attempts = crud.get_attempts_by_session(db, session.id)
-    student_attempts = [a for a in existing_attempts if a.student_name.lower() == student_name.lower()]
+    student_attempts = [a for a in existing_attempts if a.roster_student_id == roster_student_id] if roster_student_id else [a for a in existing_attempts if a.roster_student_id is None and a.student_name.lower() == student_name.lower()]
     
     existing = None
     if student_attempts:
@@ -114,7 +123,7 @@ async def student_login(
     if existing:
         attempt = existing
     else:
-        attempt = crud.create_attempt(db, session_id=session.id, student_name=student_name)
+        attempt = crud.create_attempt(db, session_id=session.id, student_name=student_name, roster_student_id=roster_student_id)
         event_log_service.log_event(db, attempt.id, models.EventType.login, f"name={student_name}")
         try:
             from app.websocket_manager import ws_manager
@@ -526,7 +535,7 @@ async def retake_test(
         raise HTTPException(403, "Повторне проходження недоступне")
     if attempt.status not in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
         raise HTTPException(409, "Спочатку завершіть поточну спробу")
-    new_attempt = crud.create_attempt(db, attempt.session_id, attempt.student_name)
+    new_attempt = crud.create_attempt(db, attempt.session_id, attempt.student_name, roster_student_id=attempt.roster_student_id)
     event_log_service.log_event(db, new_attempt.id, models.EventType.login, "Повторне проходження")
     redirect = RedirectResponse(f"/student/instruction/{new_attempt.id}", status_code=303)
     set_student_cookie(redirect, new_attempt.id)

@@ -32,6 +32,7 @@
         autofocus
       />
     </div>
+<div class="form-group" id="local-roster" hidden><label for="roster_student_id">Учень зі списку класу</label><select name="roster_student_id" id="roster_student_id"><option value="">— Оберіть себе —</option></select><p>Список збережено на цьому сайті.</p></div>
     {% if auto_session %}
       <input type="hidden" name="access_code" value="{{ prefilled_code }}">
     {% else %}
@@ -61,3 +62,9 @@
   </p>
 </div>
 {% endblock %}
+
+{% block scripts %}<script>
+(function(){const code=document.querySelector('[name="access_code"]'), select=document.getElementById('roster_student_id'), block=document.getElementById('local-roster'), name=document.getElementById('student_name'); let revision=0;
+async function load(){const current=++revision;select.replaceChildren(new Option('— Оберіть себе —',''));block.hidden=true;select.required=false;name.readOnly=false;if(!code.value)return;try{const r=await fetch('/api/session-roster?code='+encodeURIComponent(code.value));if(!r.ok)return;const d=await r.json();if(current!==revision)return;block.hidden=!d.required;select.required=d.required;name.readOnly=d.required;d.students.forEach(s=>select.add(new Option(s.name+' · ID '+s.id,s.id)));}catch(e){}}
+select.addEventListener('change',()=>{if(select.value)name.value=select.selectedOptions[0].text.split(' · ID ')[0];});code.addEventListener('change',load);load();})();
+</script>{% endblock %}

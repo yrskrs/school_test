@@ -33,8 +33,10 @@ def cookie_for(function, *args):
     return response.headers["set-cookie"].split(";", 1)[0]
 
 
-async def http(method, path, data=None, cookie=None, form=False, content_type=None):
+async def http(method, path, data=None, cookie=None, form=False, content_type=None, authorization=None):
     headers = [(b"host", b"checks.local"), (b"accept", b"application/json")]
+    if authorization:
+        headers.append((b"authorization", authorization.encode()))
     payload = b""
     if data is not None:
         payload = data if isinstance(data, bytes) else (urlencode(data).encode() if form else json.dumps(data).encode())
@@ -450,6 +452,56 @@ class Flows(unittest.IsolatedAsyncioTestCase):
             status, body, _ = await http('POST', '/teacher/tests/import/mtf', payload, self.teacher_cookie, content_type=content_type)
             self.assertEqual(status, 400, body)
         self.assertEqual(self.db.query(models.Test).count(), before)
+
+
+    def bind_roster(self):
+        import datetime as dt
+        import hashlib
+        group=models.RosterClass(name='7-А',grade_level=7,letter='А');self.db.add(group);self.db.flush()
+        subject=models.RosterSubject(name='Вигаданий предмет');self.db.add(subject);self.db.flush()
+        pupils=[models.RosterStudent(class_id=group.id,first_name='Учень',last_name='Вигаданий') for _ in range(2)]
+        self.db.add_all(pupils);self.db.flush()
+        self.session.roster_class_id=group.id;self.session.roster_subject_id=subject.id;self.session.lesson_date='2026-09-05'
+        self.attempt.roster_student_id=pupils[0].id;self.attempt.status=models.AttemptStatus.finished
+        self.attempt.score=8;self.attempt.max_score=12;self.attempt.finished_at=dt.datetime(2026,9,5,12)
+        self.db.add(models.GradeExportGrant(teacher_id=self.owner.id,token_hash=hashlib.sha256(b'synthetic-v2').hexdigest()))
+        self.db.commit()
+        return group,subject,pupils
+
+    async def test_v2_scoped_final_grades_and_retake_id(self):
+        import datetime as dt
+        group,subject,pupils=self.bind_roster()
+        path=f'/api/v2/journal/grades/?class_id={group.id}&subject_id={subject.id}&date_from=2026-09-01&date_to=2026-09-30'
+        status,body,_=await http('GET',path,authorization='Bearer synthetic-v2');self.assertEqual(status,200)
+        first=json.loads(body)['grades'][0];self.assertEqual(first['value'],'8');self.assertEqual(first['student_id'],pupils[0].id)
+        new=crud.create_attempt(self.db,self.session.id,pupils[0].full_name(),roster_student_id=pupils[0].id)
+        self.assertEqual(json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades'],[])
+        new.score=9;new.max_score=12;new.status=models.AttemptStatus.finished;new.finished_at=dt.datetime(2026,9,5,13);self.db.commit()
+        row=json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades'][0]
+        self.assertEqual(row['id'],first['id']);self.assertEqual(row['value'],'9')
+        self.assertEqual((await http('GET',path))[0],401)
+        self.assertEqual(json.loads((await http('GET',path.replace(f'subject_id={subject.id}','subject_id=999'),authorization='Bearer synthetic-v2'))[1])['grades'],[])
+
+    async def test_v2_same_names_choose_distinct_ids(self):
+        group,subject,pupils=self.bind_roster()
+        response=await http('GET','/api/session-roster?code=CHECK1');self.assertEqual(response[0],200)
+        self.assertEqual(len(json.loads(response[1])['students']),2)
+        result=await http('POST','/student/login',{'student_name':'Вигаданий Учень','access_code':'CHECK1','roster_student_id':pupils[1].id},form=True)
+        self.assertEqual(result[0],303)
+        self.db.expire_all();latest=self.db.query(models.StudentAttempt).order_by(models.StudentAttempt.id.desc()).first()
+        self.assertEqual(latest.roster_student_id,pupils[1].id)
+        result=await http('POST','/student/login',{'student_name':'Вигаданий Учень','access_code':'CHECK1','roster_student_id':999},form=True)
+        self.assertEqual(result[0],400)
+
+    async def test_integration_pages_csrf_and_owner_scope(self):
+        self.bind_roster()
+        status,body,_=await http('GET','/teacher/integrations',cookie=self.teacher_cookie);self.assertEqual(status,200)
+        token=re.search(r'name="csrf" value="([^"]+)"',body).group(1)
+        self.assertEqual((await http('GET','/teacher/roster-sync',cookie=self.teacher_cookie))[0],200)
+        self.assertEqual((await http('POST','/teacher/integrations',{'action':'key'},self.teacher_cookie,form=True))[0],403)
+        result=await http('POST','/teacher/integrations',{'action':'bind','session_id':self.session.id,'csrf':token},self.other_cookie,form=True)
+        self.assertEqual(result[0],403)
+        self.assertEqual((await http('GET','/api/v2/roster-sync/'))[0],401)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,11 @@
+# Optional shared bridge; private database networks stay isolated.
+services:
+  app:
+    networks:
+      schooltest_net: {}
+      integration:
+        aliases: [schooltest-api]
+networks:
+  integration:
+    external: true
+    name: ${INTEGRATION_NETWORK:-school-integration}

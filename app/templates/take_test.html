@@ -311,7 +311,7 @@
     <small class="text-muted" title="Версія сайту">v{{ app_version }}</small>
     <span class="test-student-name">
       {{ attempt.student_name }}
-      {% if test.class_name %} &bull; Клас: {{ test.class_name }}{% endif %}
+      {% if attempt.session.display_class_name %} &bull; Клас: {{ attempt.session.display_class_name }}{% endif %}
     </span>
   </div>
   <div class="test-topbar-right">

@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 from dotenv import load_dotenv
 from app.version import __version__
@@ -7,6 +8,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 class Settings:
+    ROSTER_SYNC_TOKEN = os.getenv('ROSTER_SYNC_TOKEN', '')
+    ROSTER_PEERS = json.loads(os.getenv('ROSTER_PEERS', '[]'))
+    ROSTER_SYNC_INTERVAL = max(2, int(os.getenv('ROSTER_SYNC_INTERVAL', '30')))
+    LEGACY_RESULT_TIMEZONE = os.getenv('LEGACY_RESULT_TIMEZONE', 'UTC')
     APP_NAME: str = "ШколярТест — Система шкільного тестування"
     APP_VERSION: str = __version__
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
