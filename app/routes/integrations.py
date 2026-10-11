@@ -321,7 +321,7 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
 
 @router.api_route('/teacher/integrations', methods=['GET', 'POST'])
 async def integration_ui(request: Request, db: Session = Depends(get_db), teacher=Depends(get_current_teacher)):
-    error, token = '', ''
+    error, token, success_msg = '', '', ''
     if request.method == 'POST':
         data = await request.form()
         check_csrf(request, teacher, data)
@@ -350,12 +350,58 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
                 if action == 'key':
                     db.query(models.GradeExportGrant).filter_by(teacher_id=teacher.id).update({'active': False})
                 token = secrets.token_urlsafe(32)
-                db.add(models.GradeExportGrant(teacher_id=teacher.id, token_hash=hashlib.sha256(token.encode()).hexdigest()))
+                grant_row = models.GradeExportGrant(teacher_id=teacher.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), active=True)
+                db.add(grant_row)
+                db.flush()
+                raw_name = str(data.get('name', '')).strip()
+                grant_name = raw_name if raw_name else f"Ключ API #{grant_row.id}"
+                def record_grant_meta(engine, store):
+                    store.meta.setdefault('api_grants_meta', {})[str(grant_row.id)] = {
+                        'name': grant_name,
+                        'created_at': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M'),
+                    }
+                operate(record_grant_meta, db)
+                success_msg = f'Ключ API «{grant_name}» успішно створено.'
+            elif action == 'toggle_key':
+                grant_id = int(data.get('grant_id', 0))
+                grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
+                if not grant_row:
+                    raise HTTPException(404, 'Ключ API не знайдено.')
+                grant_row.active = not grant_row.active
+                db.flush()
+                key_name = operate(lambda engine, store: store.meta.get('api_grants_meta', {}).get(str(grant_id), {}).get('name'), db) or f"Ключ API #{grant_id}"
+                status_word = 'активовано' if grant_row.active else 'поставлено на паузу'
+                success_msg = f'Ключ «{key_name}» успішно {status_word}.'
+            elif action == 'rename_key':
+                grant_id = int(data.get('grant_id', 0))
+                new_name = str(data.get('name', '')).strip()
+                if not new_name or len(new_name) > 100:
+                    raise SyncError('Введіть назву ключа (до 100 символів).')
+                grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
+                if not grant_row:
+                    raise HTTPException(404, 'Ключ API не знайдено.')
+                def rename_grant(engine, store):
+                    store.meta.setdefault('api_grants_meta', {}).setdefault(str(grant_id), {})['name'] = new_name
+                operate(rename_grant, db)
+                success_msg = f'Назву ключа оновлено на «{new_name}».'
+            elif action == 'delete_key':
+                grant_id = int(data.get('grant_id', 0))
+                grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
+                if not grant_row:
+                    raise HTTPException(404, 'Ключ API не знайдено.')
+                key_name = operate(lambda engine, store: store.meta.get('api_grants_meta', {}).get(str(grant_id), {}).get('name'), db) or f"Ключ API #{grant_id}"
+                db.delete(grant_row)
+                def remove_grant_meta(engine, store):
+                    store.meta.get('api_grants_meta', {}).pop(str(grant_id), None)
+                    store.meta.get('journal_api_stats', {}).pop(str(grant_id), None)
+                operate(remove_grant_meta, db)
+                success_msg = f'Ключ «{key_name}» успішно видалено.'
             elif action == 'subject':
                 name = str(data.get('name', '')).strip()
                 if not name or len(name) > 100:
                     raise SyncError('Введіть назву предмета до 100 символів.')
                 db.add(models.RosterSubject(name=name))
+                success_msg = f'Предмет «{name}» успішно додано.'
             elif action in ('bind', 'attempt'):
                 session = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id, models.TestSession.id == int(data['session_id'])).first()
                 if not session:
@@ -371,6 +417,7 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
                     if number is not None and not 1 <= number <= 30:
                         raise SyncError('Номер уроку має бути 1–30.')
                     session.roster_class_id, session.roster_subject_id, session.lesson_date, session.lesson_number = class_id, subject_id, date.isoformat(), number
+                    success_msg = 'Контекст сесії успішно збережено.'
                 else:
                     attempt = db.query(models.StudentAttempt).filter_by(id=int(data['attempt_id']), session_id=session.id).first()
                     pupil = db.get(models.RosterStudent, int(data['student_id']))
@@ -379,6 +426,7 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
                     if attempt.roster_student_id and attempt.roster_student_id != pupil.id:
                         raise SyncError('Спробу вже пов’язано з іншим ID учня.')
                     attempt.roster_student_id = pupil.id
+                    success_msg = 'Спробу успішно зв’язано з учнем.'
             db.commit()
         except HTTPException:
             db.rollback()
@@ -386,14 +434,54 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
         except Exception as exc:
             db.rollback()
             error = str(exc) if isinstance(exc, (SyncError, ValueError, KeyError)) else 'Не вдалося зберегти налаштування. Перевірте дані.'
+
+    teacher_grants = db.query(models.GradeExportGrant).filter_by(teacher_id=teacher.id).order_by(models.GradeExportGrant.id.desc()).all()
+    grant_ids_set = {r.id for r in teacher_grants}
+
+    meta_and_stats = operate(lambda engine, store: (
+        {k: v for k, v in store.meta.get('api_grants_meta', {}).items() if int(k) in grant_ids_set},
+        {k: v for k, v in store.meta.get('journal_api_stats', {}).items() if int(k) in grant_ids_set}
+    ), db)
+    api_grants_meta, filtered_api_stats = meta_and_stats
+
+    grants_list = []
+    for g in teacher_grants:
+        g_meta = api_grants_meta.get(str(g.id), {})
+        g_stats = filtered_api_stats.get(str(g.id), {})
+        grants_list.append({
+            'id': g.id,
+            'active': bool(g.active),
+            'name': g_meta.get('name') or f"Ключ API #{g.id}",
+            'created_at': g_meta.get('created_at', ''),
+            'requests': g_stats.get('requests', 0),
+            'last_used': g_stats.get('last_used', ''),
+            'path': g_stats.get('path', ''),
+            'method': g_stats.get('method', ''),
+        })
+
     sessions = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id).order_by(models.TestSession.id.desc()).all()
     site_url = settings.PUBLIC_BASE_URL or str(request.base_url).rstrip('/')
-    response = templates.TemplateResponse(request, 'integrations.html', {'teacher': teacher, 'csrf': csrf(request, teacher), 'error': error, 'token': token,
-        'site_url': site_url, 'connection_code': json.dumps({'source': 'schooltest', 'site_url': site_url, 'api_key': token}, ensure_ascii=False) if token else '',
-        'classes': db.query(models.RosterClass).all(), 'subjects': db.query(models.RosterSubject).all(),
-        'students': db.query(models.RosterStudent).all(), 'sessions': sessions,
-        'api_stats': operate(lambda engine, store: {k: v for k, v in store.meta.get('journal_api_stats', {}).items()
-            if int(k) in {r.id for r in db.query(models.GradeExportGrant).filter_by(teacher_id=teacher.id)}}, db),
-        'attempts': db.query(models.StudentAttempt).filter(models.StudentAttempt.session_id.in_([s.id for s in sessions]), models.StudentAttempt.roster_student_id.is_(None)).all()})
+    response = templates.TemplateResponse(request, 'integrations.html', {
+        'teacher': teacher,
+        'csrf': csrf(request, teacher),
+        'error': error,
+        'success_msg': success_msg,
+        'token': token,
+        'site_url': site_url,
+        'connection_code': json.dumps({'source': 'schooltest', 'site_url': site_url, 'api_key': token}, ensure_ascii=False) if token else '',
+        'classes': db.query(models.RosterClass).all(),
+        'subjects': db.query(models.RosterSubject).all(),
+        'students': db.query(models.RosterStudent).all(),
+        'sessions': sessions,
+        'api_stats': filtered_api_stats,
+        'api_grants': grants_list,
+        'total_grants_count': len(grants_list),
+        'active_grants_count': sum(1 for g in grants_list if g['active']),
+        'paused_grants_count': sum(1 for g in grants_list if not g['active']),
+        'attempts': db.query(models.StudentAttempt).filter(
+            models.StudentAttempt.session_id.in_([s.id for s in sessions]),
+            models.StudentAttempt.roster_student_id.is_(None)
+        ).all()
+    })
     response.headers['Cache-Control'] = 'no-store'
     return response

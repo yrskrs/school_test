@@ -15,7 +15,10 @@ WORK = tempfile.TemporaryDirectory(prefix="schooltest-regression-")
 os.environ["DATABASE_URL"] = f"sqlite:///{WORK.name}/checks.db"
 os.environ["SECRET_KEY"] = "synthetic-regression-key"
 os.environ["DEBUG"] = "False"
+os.environ["ROSTER_PEERS"] = "[]"
 os.chdir(WORK.name)
+from app.config import settings
+settings.ROSTER_PEERS = []
 from app.main import app
 from app import crud, models
 from app.database import Base, SessionLocal, engine

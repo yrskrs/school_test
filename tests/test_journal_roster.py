@@ -28,7 +28,7 @@ class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
     async def test_copy_repeat_keeps_legacy_login_and_attempt_history(self):
         self.key(); before = self.attempt.id
         first = await self.send(self.roster_payload()); self.assertEqual(first[0], 200, first[1])
-        second = await self.send(self.roster_payload()); self.assertEqual(json.loads(first[1])['mappings'], json.loads(second[1])['mappings'])
+        second = await self.send(self.roster_payload()); self.assertEqual(second[0], 200, second[1]); self.assertEqual(json.loads(first[1])['mappings'], json.loads(second[1])['mappings'])
         self.assertEqual(self.db.query(models.RosterStudent).count(), 1)
         self.db.refresh(self.attempt); self.assertEqual(self.attempt.id, before); self.assertIsNone(self.attempt.roster_student_id)
         roster = json.loads((await fixtures.http('GET', '/api/session-roster?code=CHECK1'))[1])
@@ -102,6 +102,64 @@ class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res[0], 303)
         attempt = self.db.query(models.StudentAttempt).filter_by(roster_student_id=pupil.id).first()
         self.assertEqual(attempt.student_name, 'Коваленко Ірина')
+
+    async def test_api_keys_management_pause_rename_delete(self):
+        import re, html
+        page = await fixtures.http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        token = re.search(r'name="csrf" value="([^"]+)"', page[1]).group(1)
+
+        # 1. Create a named API key
+        res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'simple_key', 'name': 'Мій тест-журнал 7-А', 'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(res[0], 200)
+        self.assertIn('Мій тест-журнал 7-А', res[1])
+        api_key = html.unescape(re.search(r'id="journal-api-key"[^>]*>(.*?)</textarea>', res[1], re.S).group(1))
+
+        # Check key works
+        grant = self.db.query(models.GradeExportGrant).filter_by(teacher_id=self.owner.id, active=True).first()
+        self.assertIsNotNone(grant)
+        grant_id = grant.id
+        auth_header = 'Bearer ' + api_key
+        check_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=auth_header)
+        self.assertEqual(check_call[0], 200)
+
+        # 2. Pause the key
+        pause_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'toggle_key', 'grant_id': grant_id, 'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(pause_res[0], 200)
+        self.assertIn('поставлено на паузу', pause_res[1])
+        self.assertIn('На паузі', pause_res[1])
+
+        # Requests with paused key must be rejected with 401
+        blocked_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=auth_header)
+        self.assertEqual(blocked_call[0], 401)
+
+        # 3. Resume the key
+        resume_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'toggle_key', 'grant_id': grant_id, 'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(resume_res[0], 200)
+        self.assertIn('активовано', resume_res[1])
+        unblocked_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=auth_header)
+        self.assertEqual(unblocked_call[0], 200)
+
+        # 4. Rename the key
+        rename_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'rename_key', 'grant_id': grant_id, 'name': 'Нова назва журналу', 'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(rename_res[0], 200)
+        self.assertIn('Нова назва журналу', rename_res[1])
+
+        # 5. Delete the key
+        delete_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'delete_key', 'grant_id': grant_id, 'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(delete_res[0], 200)
+        self.assertIn('успішно видалено', delete_res[1])
+        deleted_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=auth_header)
+        self.assertEqual(deleted_call[0], 401)
 
 
 if __name__ == '__main__':

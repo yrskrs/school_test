@@ -1,14 +1,357 @@
-{% extends 'base.html' %}{% block title %}Підключення до журналу{% endblock %}{% block content %}<div class="card" style="padding:1.25rem;max-width:1100px;margin:1rem auto">
-<h1>Підключення до журналу</h1>
-<ol><li>Натисніть «Створити ключ API».</li><li>У журналі натисніть «Підключити тести / завдання». Вставте адресу цього сайту (IP і порт) та окремо ключ.</li><li>Журнал передасть сюди копію свого класу та учнів. Перевірте схожі імена, якщо вони є; надалі використовуйте кнопку «Синхронізувати з тестами».</li></ol>
-<p>Сайт зберігає списки й результати навіть без журналу. Передаються остаточні оцінки за чинною шкалою; журнал приймає готові цілі 1–12. Оцінки не передаються у фоні.</p>
-<p>Той самий ключ дозволяє журналу передати сюди копію класу та учнів. Список залишається у власній базі тестів; учні вибирають імена без службових ID. Якщо дитини немає у списку, вона може ввести ім’я самостійно — її результат збережеться в «Позакласних учнях» журналу до рішення вчителя.</p>
-<h2>Статистика API</h2>{% for key, item in api_stats.items() %}<p>Ключ {{ key }}: запитів {{ item.requests }} · останній запит {{ item.last_used }} · {{ item.method }} {{ item.path }}</p>{% else %}<p>Запитів ще не було.</p>{% endfor %}
-{% if error %}<p role="alert">{{ error }}</p>{% endif %}
-{% if token %}<div class="card" style="padding:1rem;margin:1rem 0"><h2>Ключ API створено</h2><p>У журналі вставте адресу в поле «Адреса сайту», ключ — у поле «Ключ API».</p><label for="journal-site-url">Адреса цього сайту (IP і порт)</label><input id="journal-site-url" readonly value="{{ site_url }}" style="width:100%"><button type="button" class="btn btn-secondary" onclick="copyConnectionField(this,'journal-site-url')">Скопіювати адресу</button><label for="journal-api-key">Ключ API</label><textarea id="journal-api-key" readonly rows="2" style="width:100%">{{ token }}</textarea><button type="button" class="btn btn-primary" onclick="copyConnectionField(this,'journal-api-key')">Скопіювати ключ</button><p>Збережіть ключ для свого журналу. Якщо IP зміниться, оновіть адресу підключення у журналі; ключ залишається чинним.</p><details><summary>Код для попередніх версій журналу</summary><textarea id="journal-connection-code" readonly rows="4" style="width:100%">{{ connection_code }}</textarea></details></div>{% endif %}
-<form method="post" style="margin:1rem 0"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="simple_key"><button class="btn btn-primary">Створити ключ API</button><p>Доступ лише до моїх тестів. Назви класів і предметів із тестів готуються автоматично; учні не об’єднуються за іменами. Новий ключ не вимикає попередніх підключень.</p></form>
-<details {% if error %}open{% endif %}><summary>Підготовка класів, предметів і попередніх результатів</summary><p>Якщо тест ще не має класу чи предмета, виберіть їх для сесії нижче. Попередній результат без учня зі списку прив’яжіть до потрібного імені. Так зберігається його належність; однакові імена не об’єднуються автоматично.</p><p><a href="/teacher/roster-sync/">Додати або змінити локальні класи й учнів</a></p>
-<h2>Предмети</h2><p>{% for s in subjects %}{{ s.name }}; {% endfor %}</p><form method="post" style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0;padding:.75rem;border:1px solid var(--border);border-radius:8px"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="subject"><input name="name" placeholder="Предмет" required><button class="btn btn-secondary">Додати</button></form>
-<h2>Контекст сесій</h2>{% for s in sessions %}<form method="post" style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0;padding:.75rem;border:1px solid var(--border);border-radius:8px"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="bind"><input type="hidden" name="session_id" value="{{ s.id }}"><strong>{{ s.test.title }} · сесія {{ s.id }} · код {{ s.access_code }}</strong><select name="class_id" required>{% for c in classes %}<option value="{{ c.id }}" {% if c.id == s.roster_class_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select><select name="subject_id" required>{% for subject in subjects %}<option value="{{ subject.id }}" {% if subject.id == s.roster_subject_id %}selected{% endif %}>{{ subject.name }}</option>{% endfor %}</select><input type="date" name="date" value="{{ s.lesson_date or '' }}" required><input type="number" name="lesson_number" min="1" max="30" value="{{ s.lesson_number or '' }}" placeholder="Номер уроку (необов’язково)"><button class="btn btn-secondary">Прив’язати</button></form>{% endfor %}
-<h2>Попередні результати: оберіть учня</h2>{% for a in attempts %}<form method="post" style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0;padding:.75rem;border:1px solid var(--border);border-radius:8px"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="attempt"><input type="hidden" name="session_id" value="{{ a.session_id }}"><input type="hidden" name="attempt_id" value="{{ a.id }}">Сесія {{ a.session_id }} · спроба {{ a.id }} · {{ a.student_name }} <select name="student_id">{% for pupil in students %}{% if pupil.class_id == a.session.roster_class_id %}<option value="{{ pupil.id }}">{{ pupil.full_name() }}</option>{% endif %}{% endfor %}</select><button class="btn btn-secondary">Підтвердити учня</button></form>{% endfor %}
-<form method="post"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="action" value="key"><button class="btn btn-secondary">Відкликати попередні ключі та створити новий</button><p>Після відкликання оновіть код у всіх своїх журналах.</p></form></details></div><script>async function copyConnectionField(button,id){const field=document.getElementById(id);field.select();try{await navigator.clipboard.writeText(field.value);button.textContent='Скопійовано';}catch(error){const copied=document.execCommand('copy');button.textContent=copied?'Скопійовано':'Виділено — натисніть Ctrl+C';}}</script>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Підключення до журналу{% endblock %}
+
+{% block content %}
+<div class="card" style="padding:1.5rem;max-width:1100px;margin:1.5rem auto">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
+    <div>
+      <h1 style="margin:0 0 0.35rem 0">Підключення до журналу</h1>
+      <p style="margin:0;color:var(--text-muted);font-size:0.95rem">
+        Керування API-ключами для синхронізації з електронним журналом, імпорту списків класів та експорту оцінок.
+      </p>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+      <span class="badge" style="padding:0.4rem 0.75rem;border-radius:999px;background:var(--bg-card2);border:1px solid var(--border);font-size:0.85rem">
+        Усього API: <strong>{{ total_grants_count }}</strong>
+      </span>
+      <span class="badge" style="padding:0.4rem 0.75rem;border-radius:999px;background:var(--success-bg);color:var(--success);border:1px solid var(--success);font-size:0.85rem">
+        🟢 Активні: <strong>{{ active_grants_count }}</strong>
+      </span>
+      {% if paused_grants_count > 0 %}
+      <span class="badge" style="padding:0.4rem 0.75rem;border-radius:999px;background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning);font-size:0.85rem">
+        ⏸ На паузі: <strong>{{ paused_grants_count }}</strong>
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if success_msg %}
+  <div role="status" style="padding:0.85rem 1rem;border-radius:var(--radius-sm);margin-bottom:1.25rem;background:var(--success-bg);border:1px solid var(--success);color:var(--success);display:flex;align-items:center;gap:0.5rem">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"></path></svg>
+    <span>{{ success_msg }}</span>
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div role="alert" style="padding:0.85rem 1rem;border-radius:var(--radius-sm);margin-bottom:1.25rem;background:var(--danger-bg);border:1px solid var(--danger);color:var(--danger);display:flex;align-items:center;gap:0.5rem">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <!-- Покрокова інструкція підключення -->
+  <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem">
+    <h3 style="margin:0 0 0.5rem 0;font-size:1.05rem;display:flex;align-items:center;gap:0.4rem">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+      Як працює зв'язок із журналом
+    </h3>
+    <ol style="margin:0 0 0.5rem 1.25rem;padding:0;font-size:0.92rem;line-height:1.5">
+      <li>Створіть ключ API нижче (можна вказати власну зрозумілу назву, наприклад «Журнал 7-А» чи «Мій домашній журнал»).</li>
+      <li>У вашому журналі відкрийте розділ підключення тестів та вставте <strong>адресу цього сайту</strong> і скопійований <strong>ключ API</strong>.</li>
+      <li>Журнал автоматично передасть сюди списки класів та учнів. Оцінки завершені учнями також можна буде передавати в журнал за одну секунду.</li>
+    </ol>
+    <p style="margin:0;font-size:0.88rem;color:var(--text-muted)">
+      Той самий ключ дозволяє журналу передати сюди копію класу та учнів. Список залишається у власній базі тестів; учні вибирають імена без службових ID. Якщо дитини немає у списку, вона може ввести ім’я самостійно — її результат збережеться в «Позакласних учнях» журналу до рішення вчителя.
+    </p>
+  </div>
+
+  <!-- Блок щойно згенерованого ключа -->
+  {% if token %}
+  <div class="card" style="padding:1.25rem;margin:1.25rem 0;background:var(--bg-card2);border:2px solid var(--primary);border-radius:var(--radius)">
+    <h2 style="margin:0 0 0.5rem 0;color:var(--primary);font-size:1.2rem;display:flex;align-items:center;gap:0.5rem">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-2-2l2 2M3 13l2-2 4 4 10-10 2 2-12 12-6-6z"></path></svg>
+      Новий ключ API успішно згенеровано!
+    </h2>
+    <p style="margin:0 0 1rem 0;font-size:0.92rem">
+      Скопіюйте адресу сайту та ключ API і вставте їх у налаштуваннях вашого журналу:
+    </p>
+
+    <div style="margin-bottom:0.85rem">
+      <label for="journal-site-url" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.88rem">
+        Адреса цього сайту (IP і порт):
+      </label>
+      <div style="display:flex;gap:0.5rem">
+        <input id="journal-site-url" readonly value="{{ site_url }}" style="flex:1;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text)">
+        <button type="button" class="btn btn-secondary" onclick="copyConnectionField(this,'journal-site-url')">Скопіювати адресу</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:0.85rem">
+      <label for="journal-api-key" style="display:block;font-weight:600;margin-bottom:0.25rem;font-size:0.88rem">
+        Ключ API:
+      </label>
+      <div style="display:flex;gap:0.5rem">
+        <textarea id="journal-api-key" readonly rows="2" style="flex:1;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace">{{ token }}</textarea>
+        <button type="button" class="btn btn-primary" onclick="copyConnectionField(this,'journal-api-key')">Скопіювати ключ</button>
+      </div>
+    </div>
+
+    <p style="margin:0 0 0.5rem 0;font-size:0.85rem;color:var(--text-muted)">
+      Збережіть цей ключ. Якщо IP-адреса сервера зміниться, оновіть лише адресу в журналі — сам ключ залишиться чинним.
+    </p>
+
+    <details style="margin-top:0.5rem">
+      <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-muted)">Код для попередніх версій журналу (JSON)</summary>
+      <textarea id="journal-connection-code" readonly rows="3" style="width:100%;margin-top:0.4rem;padding:0.5rem;font-family:monospace;font-size:0.82rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">{{ connection_code }}</textarea>
+    </details>
+  </div>
+  {% endif %}
+
+  <!-- Форма створення нового ключа -->
+  <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1.5rem">
+    <h3 style="margin:0 0 0.75rem 0;font-size:1.05rem;display:flex;align-items:center;gap:0.5rem">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+      Створити нове підключення (новий ключ API)
+    </h3>
+    <form method="post" action="/teacher/integrations" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="action" value="simple_key">
+      <div style="flex:1;min-width:260px">
+        <input
+          type="text"
+          name="name"
+          placeholder="Назва ключа (наприклад: Електронний журнал 7-А, NZ.ua, Робочий ноутбук)"
+          maxlength="100"
+          style="width:100%;padding:0.6rem 0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.95rem"
+        >
+      </div>
+      <button type="submit" class="btn btn-primary" style="white-space:nowrap">
+        Створити ключ API
+      </button>
+    </form>
+    <p style="margin:0.5rem 0 0 0;font-size:0.85rem;color:var(--text-muted)">
+      Створення нового ключа не вимикає попередніх. Кожен ключ має власну назву, статус і статистику запитів.
+    </p>
+  </div>
+
+  <!-- Список усіх створених API-ключів -->
+  <div style="margin-bottom:2rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem">
+      <h2 style="margin:0;font-size:1.25rem;display:flex;align-items:center;gap:0.5rem">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        Ваші підключені API-ключі ({{ total_grants_count }})
+      </h2>
+    </div>
+
+    {% if api_grants and api_grants | length > 0 %}
+    <div style="display:flex;flex-direction:column;gap:0.85rem">
+      {% for grant in api_grants %}
+      <div class="card" style="padding:1rem 1.25rem;border-radius:var(--radius);border:1px solid {% if grant.active %}var(--border){% else %}var(--border-light){% endif %};background:{% if grant.active %}var(--bg-card){% else %}var(--bg-card2){% endif %};opacity:{% if grant.active %}1{% else %}0.85{% endif %};transition:box-shadow var(--transition)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem">
+          <div>
+            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.35rem">
+              <span style="font-size:1.1rem;font-weight:700;color:var(--text)" id="key-title-{{ grant.id }}">
+                {{ grant.name }}
+              </span>
+              <span class="badge" style="font-size:0.78rem;padding:0.15rem 0.5rem;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text-muted)">
+                ID #{{ grant.id }}
+              </span>
+              {% if grant.active %}
+              <span class="badge" style="font-size:0.8rem;padding:0.2rem 0.6rem;border-radius:999px;background:var(--success-bg);color:var(--success);border:1px solid var(--success);font-weight:600">
+                🟢 Активний
+              </span>
+              {% else %}
+              <span class="badge" style="font-size:0.8rem;padding:0.2rem 0.6rem;border-radius:999px;background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning);font-weight:600">
+                ⏸ На паузі
+              </span>
+              {% endif %}
+            </div>
+
+            <!-- Форма перейменування (прихована за замовчуванням) -->
+            <form id="rename-form-{{ grant.id }}" method="post" action="/teacher/integrations" style="display:none;margin:0.5rem 0;gap:0.5rem;align-items:center">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="action" value="rename_key">
+              <input type="hidden" name="grant_id" value="{{ grant.id }}">
+              <input type="text" name="name" value="{{ grant.name }}" maxlength="100" style="padding:0.35rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--primary);background:var(--bg);color:var(--text);font-size:0.9rem">
+              <button type="submit" class="btn btn-sm btn-primary">Зберегти назву</button>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="toggleRenameForm('{{ grant.id }}')">Скасувати</button>
+            </form>
+
+            <div style="display:flex;flex-wrap:wrap;gap:1rem;font-size:0.86rem;color:var(--text-muted);margin-top:0.4rem">
+              <span>📊 Запитів: <strong style="color:var(--text)">{{ grant.requests }}</strong></span>
+              <span>🕒 Останнє звернення: 
+                <strong style="color:var(--text)">
+                  {% if grant.last_used %}
+                    {{ grant.last_used }} {% if grant.method %}({{ grant.method }} {{ grant.path }}){% endif %}
+                  {% else %}
+                    Запитів ще не було
+                  {% endif %}
+                </strong>
+              </span>
+              {% if grant.created_at %}
+              <span>📅 Створено: {{ grant.created_at }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Кнопки дій -->
+          <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
+            <!-- Кнопка Пауза / Відновлення -->
+            <form method="post" action="/teacher/integrations" style="margin:0">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="action" value="toggle_key">
+              <input type="hidden" name="grant_id" value="{{ grant.id }}">
+              {% if grant.active %}
+              <button type="submit" class="btn btn-sm btn-secondary" title="Тимчасово зупинити доступ за цим ключем">
+                ⏸ На паузу
+              </button>
+              {% else %}
+              <button type="submit" class="btn btn-sm btn-primary" title="Відновити роботу цього ключа">
+                ▶️ Відновити
+              </button>
+              {% endif %}
+            </form>
+
+            <!-- Кнопка Перейменувати -->
+            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleRenameForm('{{ grant.id }}')" title="Змінити назву цього ключа">
+              ✏️ Назва
+            </button>
+
+            <!-- Кнопка Видалити -->
+            <form method="post" action="/teacher/integrations" style="margin:0" onsubmit="return confirm('Видалити ключ «{{ grant.name }}» (ID #{{ grant.id }})? Журнал, підключений через цей ключ, більше не зможе звертатися до системи.');">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="action" value="delete_key">
+              <input type="hidden" name="grant_id" value="{{ grant.id }}">
+              <button type="submit" class="btn btn-sm btn-danger" title="Видалити цей ключ назавжди">
+                🗑 Видалити
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:2rem;background:var(--bg-card2);border:1px dashed var(--border);border-radius:var(--radius)">
+      <p style="margin:0 0 0.5rem 0;font-size:1.05rem;font-weight:600;color:var(--text)">
+        У вас ще немає створених API-ключів
+      </p>
+      <p style="margin:0;font-size:0.9rem;color:var(--text-muted)">
+        Скористайтеся формою «Створити нове підключення» вище, щоб згенерувати перший ключ для вашого журналу.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Блок сирої статистики API для сумісності з тестами -->
+  <details style="margin-bottom:1.5rem;padding:0.75rem 1rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius-sm)">
+    <summary style="cursor:pointer;font-weight:600;font-size:0.92rem">
+      Детальна статистика API запитів
+    </summary>
+    <div style="margin-top:0.75rem">
+      <h2 style="font-size:1rem;margin:0 0 0.5rem 0">Статистика API</h2>
+      {% for key, item in api_stats.items() %}
+      <p style="margin:0.25rem 0;font-size:0.88rem;color:var(--text-muted)">
+        Ключ {{ key }}: запитів {{ item.requests }} · останній запит {{ item.last_used }} · {{ item.method }} {{ item.path }}
+      </p>
+      {% else %}
+      <p style="margin:0.25rem 0;font-size:0.88rem;color:var(--text-muted)">Запитів ще не було.</p>
+      {% endfor %}
+    </div>
+  </details>
+
+  <!-- Розширені налаштування контексту сесій та предметів -->
+  <details {% if error %}open{% endif %} style="border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
+    <summary style="cursor:pointer;font-weight:600;font-size:1rem">
+      Підготовка класів, предметів і попередніх результатів
+    </summary>
+    <div style="margin-top:1rem">
+      <p style="font-size:0.92rem;color:var(--text-muted)">
+        Якщо тест ще не має класу чи предмета, виберіть їх для сесії нижче. Попередній результат без учня зі списку прив’яжіть до потрібного імені. Так зберігається його належність; однакові імена не об’єднуються автоматично.
+      </p>
+      <p><a href="/teacher/roster-sync/">Додати або змінити локальні класи й учнів</a></p>
+
+      <h2 style="font-size:1.05rem;margin:1.25rem 0 0.5rem 0">Предмети</h2>
+      <p style="font-size:0.92rem;color:var(--text-muted)">
+        {% for s in subjects %}{{ s.name }}; {% else %}Предметів ще не створено.{% endfor %}
+      </p>
+      <form method="post" action="/teacher/integrations" style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0;padding:.75rem;border:1px solid var(--border);border-radius:var(--radius-sm)">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="action" value="subject">
+        <input name="name" placeholder="Новий предмет" required style="padding:0.45rem 0.65rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text)">
+        <button class="btn btn-secondary">Додати предмет</button>
+      </form>
+
+      <h2 style="font-size:1.05rem;margin:1.25rem 0 0.5rem 0">Контекст сесій</h2>
+      {% for s in sessions %}
+      <form method="post" action="/teacher/integrations" style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0;padding:.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);align-items:center">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="action" value="bind">
+        <input type="hidden" name="session_id" value="{{ s.id }}">
+        <strong>{{ s.test.title }} · сесія {{ s.id }} · код {{ s.access_code }}</strong>
+        <select name="class_id" required style="padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text)">
+          {% for c in classes %}
+          <option value="{{ c.id }}" {% if c.id == s.roster_class_id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="subject_id" required style="padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text)">
+          {% for subject in subjects %}
+          <option value="{{ subject.id }}" {% if subject.id == s.roster_subject_id %}selected{% endif %}>{{ subject.name }}</option>
+          {% endfor %}
+        </select>
+        <input type="date" name="date" value="{{ s.lesson_date or '' }}" required style="padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text)">
+        <input type="number" name="lesson_number" min="1" max="30" value="{{ s.lesson_number or '' }}" placeholder="Номер уроку" style="padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);width:120px">
+        <button class="btn btn-secondary">Прив’язати</button>
+      </form>
+      {% endfor %}
+
+      <h2 style="font-size:1.05rem;margin:1.25rem 0 0.5rem 0">Попередні результати: оберіть учня</h2>
+      {% for a in attempts %}
+      <form method="post" action="/teacher/integrations" style="display:flex;flex-wrap:wrap;gap:.5rem;margin:.75rem 0;padding:.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);align-items:center">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="action" value="attempt">
+        <input type="hidden" name="session_id" value="{{ a.session_id }}">
+        <input type="hidden" name="attempt_id" value="{{ a.id }}">
+        Сесія {{ a.session_id }} · спроба {{ a.id }} · {{ a.student_name }}
+        <select name="student_id" style="padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text)">
+          {% for pupil in students %}
+          {% if pupil.class_id == a.session.roster_class_id %}
+          <option value="{{ pupil.id }}">{{ pupil.full_name() }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        <button class="btn btn-secondary">Підтвердити учня</button>
+      </form>
+      {% endfor %}
+
+      <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+        <form method="post" action="/teacher/integrations" onsubmit="return confirm('Відкликати всі попередні ключі та згенерувати один новий? Усі старі підключення перейдуть у неактивний стан.');">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="action" value="key">
+          <button class="btn btn-secondary">Відкликати всі попередні ключі та створити новий</button>
+          <p style="margin:0.35rem 0 0 0;font-size:0.85rem;color:var(--text-muted)">
+            Після відкликання оновіть ключ у всіх своїх журналах.
+          </p>
+        </form>
+      </div>
+    </div>
+  </details>
+</div>
+
+<script>
+async function copyConnectionField(button, id) {
+  const field = document.getElementById(id);
+  field.select();
+  try {
+    await navigator.clipboard.writeText(field.value);
+    const orig = button.textContent;
+    button.textContent = 'Скопійовано!';
+    setTimeout(() => { button.textContent = orig; }, 2000);
+  } catch (error) {
+    const copied = document.execCommand('copy');
+    button.textContent = copied ? 'Скопійовано!' : 'Виділено — натисніть Ctrl+C';
+  }
+}
+
+function toggleRenameForm(id) {
+  const form = document.getElementById('rename-form-' + id);
+  if (!form) return;
+  const isHidden = form.style.display === 'none' || form.style.display === '';
+  form.style.display = isHidden ? 'flex' : 'none';
+  if (isHidden) {
+    const input = form.querySelector('input[name="name"]');
+    if (input) input.focus();
+  }
+}
+</script>
+{% endblock %}

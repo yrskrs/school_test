@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import time
+from sqlalchemy.orm.attributes import flag_modified
 from app import models
 from app.database import SessionLocal
 from app.config import settings
@@ -11,7 +12,12 @@ from school_sync.transport import fetch
 class Store:
     def __init__(self, db):
         self.db = db
-        state = db.query(models.RosterState).filter_by(id=1).with_for_update().first()
+        state = db.get(models.RosterState, 1)
+        if not state:
+            query = db.query(models.RosterState).filter_by(id=1)
+            if db.bind and db.bind.dialect.name != 'sqlite':
+                query = query.with_for_update()
+            state = query.first()
         if not state:
             state = models.RosterState(id=1, data={})
             db.add(state)
@@ -31,6 +37,7 @@ class Store:
             self.db.add(models.RosterReplica(ref=record['ref'], data=copy.deepcopy(record)))
         else:
             row.data = copy.deepcopy(record)
+            flag_modified(row, 'data')
         self.db.flush()
         self.rows[record['ref']] = copy.deepcopy(record)
 
@@ -91,6 +98,7 @@ def operate(action, db=None):
         engine = Engine(store, Native(db))
         result = action(engine, store)
         store.state.data = copy.deepcopy(store.meta)
+        flag_modified(store.state, 'data')
         db.commit()
         return result
     except Exception:
