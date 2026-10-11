@@ -36,25 +36,39 @@ async def root(request: Request, db: Session = Depends(get_db)):
 async def student_login_page(request: Request, code: Optional[str] = None, db: Session = Depends(get_db)):
     if crud.count_teachers(db) == 0:
         return RedirectResponse(url="/setup", status_code=303)
-    auto_session = None
-    if not code:
+    target_session = None
+    if code:
+        code = code.strip().upper()
+        target_session = session_service.find_active_session(db, code)
+    if not target_session:
         # Шукаємо закріплену сесію (головну)
-        auto_session = db.query(models.TestSession).filter(
+        target_session = db.query(models.TestSession).filter(
             models.TestSession.is_active == True,
             models.TestSession.is_pinned == True
         ).first()
-        
-        if auto_session:
-            code = auto_session.access_code
+        if target_session:
+            code = target_session.access_code
+
+    roster_data = None
+    if target_session:
+        from app.routes.integrations import get_session_roster_data
+        roster_data = get_session_roster_data(db, target_session)
+
+    has_roster = bool(roster_data and (roster_data.get('available') or roster_data.get('required') or roster_data.get('students')))
 
     previous_id = get_student_attempt_id(request)
     previous = crud.get_attempt_by_id(db, previous_id) if previous_id else None
     return templates.TemplateResponse(
         request,
         "student_login.html", {
-            "prefilled_code": code,
-            "auto_session": auto_session,
+            "prefilled_code": code or "",
+            "session": target_session,
+            "auto_session": target_session,
             "student_name": previous.student_name if previous else "",
+            "roster_available": has_roster,
+            "roster_students": roster_data['students'] if roster_data else [],
+            "roster_required": bool(roster_data and roster_data.get('required')),
+            "other_student": False,
         }
     )
 
@@ -63,7 +77,7 @@ async def student_login_page(request: Request, code: Optional[str] = None, db: S
 async def student_login(
     request: Request,
     response: Response,
-    student_name: str = Form(...),
+    student_name: str = Form(""),
     access_code: str = Form(...),
     roster_student_id: Optional[int] = Form(None),
     other_student: str = Form(''),
@@ -72,28 +86,49 @@ async def student_login(
     student_name = student_name.strip()
     access_code = access_code.strip().upper()
 
-    if not student_name or (len(student_name) > 200 and not roster_student_id):
-        return templates.TemplateResponse(
-        request,
-        "student_login.html", {
-            "error": "Введіть ім'я та прізвище (до 200 символів)",
-        })
-
     session = session_service.find_active_session(db, access_code)
-    if not session:
+
+    def render_login_error(error_msg: str, status_code: int = 400):
+        roster_data = None
+        if session:
+            from app.routes.integrations import get_session_roster_data
+            roster_data = get_session_roster_data(db, session)
+        has_roster = bool(roster_data and (roster_data.get('available') or roster_data.get('required') or roster_data.get('students')))
         return templates.TemplateResponse(
-        request,
-        "student_login.html", {
-            "error": "Невірний код доступу або сесія завершена",
-            "student_name": student_name,
-        })
+            request,
+            "student_login.html",
+            {
+                "error": error_msg,
+                "student_name": student_name,
+                "prefilled_code": access_code,
+                "session": session,
+                "auto_session": session,
+                "roster_available": has_roster,
+                "roster_students": roster_data['students'] if roster_data else [],
+                "roster_required": bool(roster_data and roster_data.get('required')),
+                "other_student": other_student == '1',
+                "roster_student_id": roster_student_id,
+            },
+            status_code=status_code,
+        )
+
+    if not session:
+        return render_login_error("Невірний код доступу або сесія завершена")
+
+    if not student_name and roster_student_id:
+        pupil = db.get(models.RosterStudent, roster_student_id)
+        if pupil:
+            student_name = pupil.full_name()[:200]
+
+    if not student_name or (len(student_name) > 200 and not roster_student_id):
+        return render_login_error("Введіть ім'я та прізвище (до 200 символів)")
 
     if session.roster_class_id and not db.get(models.RosterClass, session.roster_class_id).active:
-        return templates.TemplateResponse(request, 'student_login.html', {'error': 'Цей клас неактивний. Зверніться до вчителя.'}, status_code=400)
+        return render_login_error("Цей клас неактивний. Зверніться до вчителя.")
     if session.roster_class_id and not (other_student == '1' and not roster_student_id):
         pupil = db.query(models.RosterStudent).filter_by(id=roster_student_id, class_id=session.roster_class_id, active=True).first()
         if not pupil or not db.get(models.RosterClass, session.roster_class_id).active:
-            return templates.TemplateResponse(request, "student_login.html", {"error": "Оберіть свій запис зі списку цього класу.", "prefilled_code": access_code}, status_code=400)
+            return render_login_error("Оберіть свій запис зі списку цього класу.")
         student_name = pupil.full_name()[:200]
     elif roster_student_id:
         from app.services.roster_backend import operate

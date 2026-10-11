@@ -39,7 +39,7 @@ class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
         self.key(); report = json.loads((await self.send(self.roster_payload()))[1])
         pupil_id = report['mappings'][0]['local_id']
         selected = await fixtures.http('POST', '/student/login', {'student_name': 'Ков. І.', 'access_code': 'CHECK1', 'roster_student_id': pupil_id}, form=True)
-        self.assertEqual(selected[0], 303)
+        self.assertEqual(selected[0], 303, selected[1])
         attempt = self.db.query(models.StudentAttempt).filter_by(roster_student_id=pupil_id).one()
         self.assertEqual(attempt.student_name, 'Коваленко Ірина')
         other = await fixtures.http('POST', '/student/login', {'student_name': 'Позакласний Учень', 'access_code': 'CHECK1', 'other_student': '1'}, form=True)
@@ -84,6 +84,24 @@ class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
         page = await fixtures.http('GET', '/api/session-roster?code=CHECK1')
         self.assertTrue(json.loads(page[1])['available'])
         self.assertEqual(json.loads(page[1])['students'][0]['name'], 'Коваленко Ірина')
+
+    async def test_student_login_page_renders_test_title_class_and_conditional_inputs(self):
+        self.key()
+        await self.send(self.roster_payload())
+        status, html, _ = await fixtures.http('GET', '/student/login?code=CHECK1')
+        self.assertEqual(status, 200)
+        self.assertIn('Synthetic Test', html)
+        self.assertIn('7-A', html)
+        self.assertIn('Учень зі списку класу', html)
+        self.assertIn('Коваленко Ірина', html)
+        self.assertIn('Мене немає у списку — введу ім’я самостійно', html)
+        self.assertIn('id="manual-name-group" style="display: none;"', html)
+        # Login with empty student_name but supplied roster_student_id
+        pupil = self.db.query(models.RosterStudent).first()
+        res = await fixtures.http('POST', '/student/login', {'student_name': '', 'access_code': 'CHECK1', 'roster_student_id': pupil.id}, form=True)
+        self.assertEqual(res[0], 303)
+        attempt = self.db.query(models.StudentAttempt).filter_by(roster_student_id=pupil.id).first()
+        self.assertEqual(attempt.student_name, 'Коваленко Ірина')
 
 
 if __name__ == '__main__':

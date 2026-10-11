@@ -4,7 +4,7 @@
 {% block body_class %}auth-page{% endblock %}
 
 {% block content %}
-<div class="auth-card">
+<div class="auth-card student-auth-card">
   <div class="auth-logo student-logo">
     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
       <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
@@ -12,14 +12,76 @@
     </svg>
   </div>
   <h1 class="auth-title">Вхід на тест</h1>
-  {% if auto_session %}
-  <p class="auth-subtitle" style="font-size: 1.1rem; color: var(--text);">Поточний тест: <strong style="color: var(--primary);">{{ auto_session.test.title }}</strong></p>
-  {% else %}
-  <p class="auth-subtitle">Введіть ваше ім'я та код доступу</p>
+
+  <!-- Картка з темою тесту (уроку) та класом -->
+  <div class="test-session-info-card" id="session-info-card" {% if not session %}style="display: none;"{% endif %}>
+    <div class="session-info-badge-row">
+      <span class="session-class-pill" id="session-class-badge" {% if not (session and session.display_class_name) %}style="display: none;"{% endif %}>
+        🎓 <strong id="session-class-text">{{ session.display_class_name if session else '' }}</strong>
+      </span>
+      <span class="session-subject-pill" id="session-subject-badge" {% if not (session and session.display_subject_name) %}style="display: none;"{% endif %}>
+        📚 <span id="session-subject-text">{{ session.display_subject_name if session else '' }}</span>
+      </span>
+    </div>
+    <h2 class="session-test-title" id="session-test-title">
+      {{ session.test.title if session else 'Тестування' }}
+    </h2>
+    <div class="session-meta-row" id="session-meta-row">
+      {% if session and session.test.time_limit_minutes %}
+      <span class="session-meta-chip" id="session-meta-time">⏱ {{ session.test.time_limit_minutes }} хв</span>
+      {% endif %}
+      {% if session and session.test.questions %}
+      <span class="session-meta-chip" id="session-meta-questions">📝 {{ session.test.questions | length }} питань</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not session %}
+  <p class="auth-subtitle" id="auth-default-subtitle">Введіть код доступу для проходження тесту</p>
   {% endif %}
 
-  <form method="post" action="/student/login" class="auth-form">
-    <div class="form-group">
+  {% if error %}
+  <div role="alert" style="padding: 0.75rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.9rem; background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); display: flex; align-items: center; gap: 0.5rem;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/student/login" class="auth-form" id="student-login-form">
+    <!-- 1. Секція списку класу (Учень зі списку класу — ЗВЕРХУ) -->
+    <div class="form-group roster-select-group" id="roster-select-group" {% if not roster_available %}style="display: none;"{% endif %}>
+      <label for="roster_student_id">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -3px; margin-right: 4px; color: var(--primary);">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+        </svg>
+        Учень зі списку класу
+      </label>
+      <select name="roster_student_id" id="roster_student_id" class="roster-select-input" {% if other_student %}disabled{% endif %}>
+        <option value="">— Оберіть себе зі списку —</option>
+        {% if roster_students %}
+          {% for s in roster_students %}
+          <option value="{{ s.id }}" {% if roster_student_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        {% endif %}
+      </select>
+      <p class="form-hint roster-hint">Оберіть своє ім’я зі списку учнів вашого класу.</p>
+
+      <!-- Галочка: "Мене немає у списку — введу ім’я самостійно" (ПІД ВИПАДАЮЧИМ СПИСКОМ) -->
+      <div class="other-student-toggle-wrap">
+        <label for="other-student">
+          <input type="checkbox" name="other_student" value="1" id="other-student" {% if other_student %}checked{% endif %}>
+          <span>Мене немає у списку — введу ім’я самостійно</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 2. Вікно введення "Ім'я та прізвище" (З'ЯВЛЯЄТЬСЯ ТІЛЬКИ ПІД ГАЛОЧКОЮ АБО ЯКЩО СПИСКУ НЕМАЄ) -->
+    <div class="form-group manual-name-group" id="manual-name-group" {% if roster_available and not other_student %}style="display: none;"{% endif %}>
       <label for="student_name">Ім'я та прізвище</label>
       <input
         type="text"
@@ -28,13 +90,14 @@
         placeholder="Іваненко Іван"
         value="{{ student_name if student_name is defined else '' }}"
         autocomplete="name"
-        required
-        autofocus
+        {% if not roster_available or other_student %}required{% endif %}
       />
+      <p class="form-hint">Введіть ваше справжнє прізвище та ім'я</p>
     </div>
-<div class="form-group" id="local-roster" hidden><label for="roster_student_id">Учень зі списку класу</label><select name="roster_student_id" id="roster_student_id"><option value="">— Оберіть себе —</option></select><p>Список збережено на цьому сайті. Виберіть своє ім’я, щоб уникнути помилок.</p><label><input type="checkbox" name="other_student" value="1" id="other-student"> Мене немає у списку — введу ім’я самостійно</label></div>
-    {% if auto_session %}
-      <input type="hidden" name="access_code" value="{{ prefilled_code }}">
+
+    <!-- 3. Код доступу (прихований якщо вже переданий, або поле для введення) -->
+    {% if prefilled_code %}
+      <input type="hidden" name="access_code" id="access_code" value="{{ prefilled_code }}">
     {% else %}
     <div class="form-group">
       <label for="access_code">Код доступу</label>
@@ -47,13 +110,13 @@
         autocomplete="off"
         required
         class="code-input"
-        value="{{ prefilled_code or '' }}"
-        {% if prefilled_code %}readonly style="text-align:center;letter-spacing:0.4em;font-size:1.4rem;font-weight:700;background-color:var(--bg-body);"{% else %}style="text-align:center;letter-spacing:0.4em;font-size:1.4rem;font-weight:700"{% endif %}
+        style="text-align:center;letter-spacing:0.4em;font-size:1.4rem;font-weight:700"
       />
       <p class="form-hint">Код надає вчитель перед початком тесту</p>
     </div>
     {% endif %}
-    <button type="submit" class="btn btn-primary btn-full btn-student">Увійти</button>
+
+    <button type="submit" class="btn btn-primary btn-full btn-student" id="btn-submit-login">Увійти на тест</button>
   </form>
 
   <div class="auth-divider"></div>
@@ -63,9 +126,161 @@
 </div>
 {% endblock %}
 
-{% block scripts %}<script>
-(function(){const code=document.querySelector('[name="access_code"]'), select=document.getElementById('roster_student_id'), block=document.getElementById('local-roster'), name=document.getElementById('student_name'), other=document.getElementById('other-student'); let revision=0, required=false;
-function mode(){select.disabled=other.checked;select.required=required&&!other.checked;name.readOnly=!other.checked&&(required||!!select.value);}
-async function load(){const current=++revision;select.replaceChildren(new Option('— Оберіть себе —',''));block.hidden=true;required=false;other.checked=false;mode();if(!code.value)return;try{const r=await fetch('/api/session-roster?code='+encodeURIComponent(code.value));if(!r.ok)return;const d=await r.json();if(current!==revision)return;block.hidden=!(d.available||d.required);required=!!d.required;d.students.forEach(s=>select.add(new Option(s.name,s.id)));mode();}catch(e){}}
-select.addEventListener('change',()=>{if(select.value){other.checked=false;name.value=select.selectedOptions[0].text;}mode();});other.addEventListener('change',()=>{if(other.checked)select.value='';mode();});code.addEventListener('change',load);load();})();
-</script>{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+  const codeInput = document.querySelector('[name="access_code"]');
+  const rosterSelect = document.getElementById('roster_student_id');
+  const rosterGroup = document.getElementById('roster-select-group');
+  const manualNameGroup = document.getElementById('manual-name-group');
+  const studentNameInput = document.getElementById('student_name');
+  const otherCheckbox = document.getElementById('other-student');
+
+  const sessionInfoCard = document.getElementById('session-info-card');
+  const sessionTestTitle = document.getElementById('session-test-title');
+  const sessionClassBadge = document.getElementById('session-class-badge');
+  const sessionClassText = document.getElementById('session-class-text');
+  const sessionSubjectBadge = document.getElementById('session-subject-badge');
+  const sessionSubjectText = document.getElementById('session-subject-text');
+  const sessionMetaRow = document.getElementById('session-meta-row');
+  const defaultSubtitle = document.getElementById('auth-default-subtitle');
+
+  let hasRoster = {{ 'true' if roster_available else 'false' }};
+  let isRosterRequired = {{ 'true' if roster_required else 'false' }};
+  let revision = 0;
+
+  function updateViewMode() {
+    if (hasRoster) {
+      // Список класу доступний:
+      rosterGroup.style.display = 'block';
+
+      if (otherCheckbox.checked) {
+        // Учень вибрав "Мене немає у списку — введу ім’я самостійно":
+        manualNameGroup.style.display = 'block';
+        studentNameInput.required = true;
+        rosterSelect.disabled = true;
+        rosterSelect.required = false;
+        studentNameInput.focus();
+      } else {
+        // Учень вибирає себе зі списку:
+        manualNameGroup.style.display = 'none';
+        studentNameInput.required = false;
+        rosterSelect.disabled = false;
+        rosterSelect.required = isRosterRequired || true;
+        if (rosterSelect.value) {
+          studentNameInput.value = rosterSelect.selectedOptions[0].text;
+        } else {
+          studentNameInput.value = '';
+        }
+      }
+    } else {
+      // Списку класу немає (звичайний тест):
+      rosterGroup.style.display = 'none';
+      manualNameGroup.style.display = 'block';
+      studentNameInput.required = true;
+      rosterSelect.disabled = true;
+      rosterSelect.required = false;
+    }
+  }
+
+  // Встановлюємо правильний початковий вигляд без затримок
+  updateViewMode();
+
+  async function loadRosterAndInfo() {
+    const current = ++revision;
+    const code = codeInput ? codeInput.value.trim() : '';
+    if (!code) {
+      hasRoster = false;
+      updateViewMode();
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/session-roster?code=' + encodeURIComponent(code));
+      if (!response.ok) {
+        hasRoster = false;
+        updateViewMode();
+        return;
+      }
+      const data = await response.json();
+      if (current !== revision) return;
+
+      // Оновлюємо картку з інформацією про тему тесту та клас
+      if (sessionInfoCard && data.title) {
+        sessionInfoCard.style.display = 'block';
+        if (defaultSubtitle) defaultSubtitle.style.display = 'none';
+        if (sessionTestTitle) sessionTestTitle.textContent = data.title;
+
+        if (data.class_name && sessionClassText) {
+          sessionClassText.textContent = data.class_name;
+          if (sessionClassBadge) sessionClassBadge.style.display = 'inline-flex';
+        } else if (sessionClassBadge) {
+          sessionClassBadge.style.display = 'none';
+        }
+
+        if (data.subject && sessionSubjectText) {
+          sessionSubjectText.textContent = data.subject;
+          if (sessionSubjectBadge) sessionSubjectBadge.style.display = 'inline-flex';
+        } else if (sessionSubjectBadge) {
+          sessionSubjectBadge.style.display = 'none';
+        }
+
+        if (sessionMetaRow) {
+          let metaHtml = '';
+          if (data.time_limit) {
+            metaHtml += '<span class="session-meta-chip">⏱ ' + data.time_limit + ' хв</span>';
+          }
+          if (data.question_count) {
+            metaHtml += '<span class="session-meta-chip">📝 ' + data.question_count + ' питань</span>';
+          }
+          sessionMetaRow.innerHTML = metaHtml;
+        }
+      }
+
+      hasRoster = Boolean(data.available || (data.students && data.students.length > 0));
+      isRosterRequired = Boolean(data.required);
+
+      const currentSelected = rosterSelect.value;
+      rosterSelect.replaceChildren(new Option('— Оберіть себе зі списку —', ''));
+      if (data.students && data.students.length > 0) {
+        data.students.forEach(s => {
+          rosterSelect.add(new Option(s.name, s.id));
+        });
+      }
+      if (currentSelected) {
+        rosterSelect.value = currentSelected;
+      }
+
+      updateViewMode();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  rosterSelect.addEventListener('change', function() {
+    if (rosterSelect.value) {
+      otherCheckbox.checked = false;
+      studentNameInput.value = rosterSelect.selectedOptions[0].text;
+    }
+    updateViewMode();
+  });
+
+  otherCheckbox.addEventListener('change', function() {
+    if (otherCheckbox.checked) {
+      rosterSelect.value = '';
+      studentNameInput.value = '';
+    }
+    updateViewMode();
+  });
+
+  // Завантажуємо дані при вводі коду доступу (якщо поле активне)
+  if (codeInput && !codeInput.readOnly && codeInput.type !== 'hidden') {
+    codeInput.addEventListener('input', loadRosterAndInfo);
+    codeInput.addEventListener('change', loadRosterAndInfo);
+  }
+
+  // Завантажуємо при завантаженні сторінки (якщо код уже є в URL)
+  loadRosterAndInfo();
+})();
+</script>
+{% endblock %}
