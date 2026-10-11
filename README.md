@@ -393,7 +393,7 @@ docker compose -p schooltest-runtime-check -f tests/compose.runtime.yaml down --
 
 ## Інтеграція трьох сайтів · 1.5.0
 
-Локальні списки, рівноправний обмін API v2, ручні конфлікти та оцінки за кнопкою вчителя описані в [INTEGRATION.md](INTEGRATION.md). Версії незалежні: schooltest5 1.5.0, schoolwork2 4.3.1, schooljournal 1.2.2 підтримують контракт v2; попередні API v1 збережені. Образ цього проєкту має власний тег 1.5.0 та OCI-позначення версії.
+Локальні списки, рівноправний обмін API v2, ручні конфлікти та оцінки за кнопкою вчителя описані в [INTEGRATION.md](INTEGRATION.md). Версії незалежні: schooltest5 1.5.0, schoolwork2 4.4.0, schooljournal 1.3.0 підтримують контракт v2; попередні API v1 збережені. Образ цього проєкту має власний тег 1.5.0 та OCI-позначення версії.
 
 Фактичні результати перевірки трьох образів, розгортання та відкату: [INTEGRATION_CHECKS.md](INTEGRATION_CHECKS.md).
 
