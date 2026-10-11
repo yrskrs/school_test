@@ -66,6 +66,7 @@ async def student_login(
     student_name: str = Form(...),
     access_code: str = Form(...),
     roster_student_id: Optional[int] = Form(None),
+    other_student: str = Form(''),
     db: Session = Depends(get_db),
 ):
     student_name = student_name.strip()
@@ -87,13 +88,27 @@ async def student_login(
             "student_name": student_name,
         })
 
-    if session.roster_class_id:
+    if session.roster_class_id and not db.get(models.RosterClass, session.roster_class_id).active:
+        return templates.TemplateResponse(request, 'student_login.html', {'error': 'Цей клас неактивний. Зверніться до вчителя.'}, status_code=400)
+    if session.roster_class_id and not (other_student == '1' and not roster_student_id):
         pupil = db.query(models.RosterStudent).filter_by(id=roster_student_id, class_id=session.roster_class_id, active=True).first()
         if not pupil or not db.get(models.RosterClass, session.roster_class_id).active:
             return templates.TemplateResponse(request, "student_login.html", {"error": "Оберіть свій запис зі списку цього класу.", "prefilled_code": access_code}, status_code=400)
         student_name = pupil.full_name()[:200]
     elif roster_student_id:
-        raise HTTPException(400, 'Сесію ще не прив’язано до класу.')
+        from app.services.roster_backend import operate
+        from school_sync.journal_roster import imported_classes, historical_class_names
+        pupil = db.get(models.RosterStudent, roster_student_id)
+        def belongs(engine, store):
+            if not pupil or not pupil.active or pupil.class_id not in imported_classes(store, session.test.teacher_id):
+                return False
+            group = db.get(models.RosterClass, pupil.class_id)
+            return group.active and (session.test.class_name or '').strip() in historical_class_names(store, session.test.teacher_id, group.id, group.name)
+        if not operate(belongs, db):
+            pupil = None
+        if not pupil:
+            raise HTTPException(400, 'Оберіть учня зі списку саме цього класу.')
+        student_name = pupil.full_name()[:200]
 
     # Перевіряємо, чи є вже спроба від цього учня в цій сесії
     existing_attempts = crud.get_attempts_by_session(db, session.id)

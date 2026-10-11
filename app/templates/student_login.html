@@ -32,7 +32,7 @@
         autofocus
       />
     </div>
-<div class="form-group" id="local-roster" hidden><label for="roster_student_id">Учень зі списку класу</label><select name="roster_student_id" id="roster_student_id"><option value="">— Оберіть себе —</option></select><p>Список збережено на цьому сайті.</p></div>
+<div class="form-group" id="local-roster" hidden><label for="roster_student_id">Учень зі списку класу</label><select name="roster_student_id" id="roster_student_id"><option value="">— Оберіть себе —</option></select><p>Список збережено на цьому сайті. Виберіть своє ім’я, щоб уникнути помилок.</p><label><input type="checkbox" name="other_student" value="1" id="other-student"> Мене немає у списку — введу ім’я самостійно</label></div>
     {% if auto_session %}
       <input type="hidden" name="access_code" value="{{ prefilled_code }}">
     {% else %}
@@ -64,7 +64,8 @@
 {% endblock %}
 
 {% block scripts %}<script>
-(function(){const code=document.querySelector('[name="access_code"]'), select=document.getElementById('roster_student_id'), block=document.getElementById('local-roster'), name=document.getElementById('student_name'); let revision=0;
-async function load(){const current=++revision;select.replaceChildren(new Option('— Оберіть себе —',''));block.hidden=true;select.required=false;name.readOnly=false;if(!code.value)return;try{const r=await fetch('/api/session-roster?code='+encodeURIComponent(code.value));if(!r.ok)return;const d=await r.json();if(current!==revision)return;block.hidden=!d.required;select.required=d.required;name.readOnly=d.required;d.students.forEach(s=>select.add(new Option(s.name,s.id)));}catch(e){}}
-select.addEventListener('change',()=>{if(select.value)name.value=select.selectedOptions[0].text;});code.addEventListener('change',load);load();})();
+(function(){const code=document.querySelector('[name="access_code"]'), select=document.getElementById('roster_student_id'), block=document.getElementById('local-roster'), name=document.getElementById('student_name'), other=document.getElementById('other-student'); let revision=0, required=false;
+function mode(){select.disabled=other.checked;select.required=required&&!other.checked;name.readOnly=!other.checked&&(required||!!select.value);}
+async function load(){const current=++revision;select.replaceChildren(new Option('— Оберіть себе —',''));block.hidden=true;required=false;other.checked=false;mode();if(!code.value)return;try{const r=await fetch('/api/session-roster?code='+encodeURIComponent(code.value));if(!r.ok)return;const d=await r.json();if(current!==revision)return;block.hidden=!(d.available||d.required);required=!!d.required;d.students.forEach(s=>select.add(new Option(s.name,s.id)));mode();}catch(e){}}
+select.addEventListener('change',()=>{if(select.value){other.checked=false;name.value=select.selectedOptions[0].text;}mode();});other.addEventListener('change',()=>{if(other.checked)select.value='';mode();});code.addEventListener('change',load);load();})();
 </script>{% endblock %}

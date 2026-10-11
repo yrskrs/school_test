@@ -39,6 +39,11 @@ def grant(request, db):
     teacher = db.get(models.Teacher, row.teacher_id) if row else None
     if not teacher or not teacher.is_active:
         raise HTTPException(401, 'Потрібен чинний Bearer-ключ експорту.')
+    def usage(engine, store):
+        item = store.meta.setdefault('journal_api_stats', {}).setdefault(str(row.id), {'requests': 0})
+        item.update(requests=item['requests'] + 1, last_used=dt.datetime.now(dt.timezone.utc).isoformat(),
+            path=request.url.path, method=request.method)
+    operate(usage, db)
     return teacher
 
 
@@ -68,11 +73,48 @@ def grade_roster(request: Request, db: Session = Depends(get_db)):
     class_names = {s.test.class_name.strip() for s in sessions if not s.roster_class_id and s.test.class_name}
     subject_names = {s.test.subject.strip() for s in sessions if not s.roster_subject_id and s.test.subject}
     class_ids.update(row.id for row in db.query(models.RosterClass).filter(models.RosterClass.name.in_(class_names)))
+    from school_sync.journal_roster import imported_classes
+    class_ids.update(operate(lambda engine, store: imported_classes(store, teacher.id), db))
     subject_ids.update(row.id for row in db.query(models.RosterSubject).filter(models.RosterSubject.name.in_(subject_names)))
-    return {'schema_version': 2, 'source': 'schooltest', 'instance_id': operate(lambda engine, store: engine.origin, db),
+    subject_ids.update(operate(lambda engine, store: set(store.meta.get('journal_subjects', {}).get(str(teacher.id), [])), db))
+    return {'schema_version': 2, 'source': 'schooltest', 'capabilities': ['journal_roster_import'], 'instance_id': operate(lambda engine, store: engine.origin, db),
         'classes': [{'id': c.id, 'name': c.name} for c in db.query(models.RosterClass).filter(models.RosterClass.id.in_(class_ids))],
         'subjects': [{'id': s.id, 'name': s.name} for s in db.query(models.RosterSubject).filter(models.RosterSubject.id.in_(subject_ids))],
         'students': [{'id': s.id, 'name': s.full_name(), 'class_id': s.class_id} for s in db.query(models.RosterStudent).filter(models.RosterStudent.class_id.in_(class_ids))]}
+
+
+@router.post('/api/v2/journal/roster/')
+async def receive_journal_roster(request: Request, db: Session = Depends(get_db)):
+    teacher = grant(request, db)
+    from school_sync.journal_roster import import_students, imported_classes
+    try:
+        body = await request.body()
+        if len(body) > 2 * 1024 * 1024:
+            raise SyncError('Список перевищує 2 МБ.')
+        payload = json.loads(body)
+        def receive(engine, store):
+            own = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id).all()
+            names = {s.test.class_name.strip() for s in own if s.test.class_name}
+            allowed = {s.roster_class_id for s in own if s.roster_class_id}
+            allowed.update(c.id for c in db.query(models.RosterClass).filter(models.RosterClass.name.in_(names)))
+            allowed.update(imported_classes(store, teacher.id))
+            result = import_students(engine, store, payload, teacher.id, allowed)
+            name = payload.get('subject', {}).get('name', '').strip()
+            if not name or len(name) > 100:
+                raise SyncError('Потрібна назва предмета до 100 символів.')
+            subject = db.query(models.RosterSubject).filter_by(name=name).first()
+            if subject is None:
+                subject = models.RosterSubject(name=name)
+                db.add(subject); db.flush()
+            result.update(source='schooltest', instance_id=engine.origin, subject_id=subject.id)
+            ids = store.meta.setdefault('journal_subjects', {}).setdefault(str(teacher.id), [])
+            if subject.id not in ids:
+                ids.append(subject.id)
+            return result
+        return operate(receive, db)
+    except (SyncError, ValueError, TypeError, KeyError, AttributeError) as error:
+        db.rollback()
+        raise HTTPException(400, str(error) if isinstance(error, SyncError) else 'Некоректний список. Місцеві дані збережено.')
 
 
 @router.get('/api/v2/journal/grades/')
@@ -91,10 +133,12 @@ def grades(request: Request, db: Session = Depends(get_db)):
     group, subject = db.get(models.RosterClass, class_id), db.get(models.RosterSubject, subject_id)
     if not group or not subject:
         return {'schema_version': 2, 'source': 'schooltest', 'grades': [], 'next_cursor': None}
+    from school_sync.journal_roster import historical_class_names
+    names = operate(lambda engine, store: historical_class_names(store, teacher.id, class_id, group.name), db)
     qs = db.query(models.StudentAttempt).join(models.TestSession).join(models.Test).filter(
         models.Test.teacher_id == teacher.id,
         or_(models.TestSession.roster_class_id == class_id,
-            and_(models.TestSession.roster_class_id.is_(None), func.trim(models.Test.class_name) == group.name)),
+            and_(models.TestSession.roster_class_id.is_(None), func.trim(models.Test.class_name).in_(names))),
         or_(models.TestSession.roster_subject_id == subject_id,
             and_(models.TestSession.roster_subject_id.is_(None), func.trim(models.Test.subject) == subject.name)))
     if qs.count() > 100000:
@@ -118,7 +162,9 @@ def grades(request: Request, db: Session = Depends(get_db)):
             from zoneinfo import ZoneInfo
             updated = updated.replace(tzinfo=ZoneInfo(settings.LEGACY_RESULT_TIMEZONE))
         record = {'source': 'schooltest', 'id': f'schooltest:session:{attempt.session_id}:student:{attempt.roster_student_id}' if attempt.roster_student_id else f'schooltest:unmapped:{attempt.id}',
-            'student_id': attempt.roster_student_id, 'class_id': class_id, 'subject_id': subject_id,
+            'student_id': attempt.roster_student_id, 'student_name': attempt.student_name,
+            'student_key': str(attempt.roster_student_id) if attempt.roster_student_id else f'unmapped:{attempt.id}',
+            'class_id': class_id, 'subject_id': subject_id,
             'work_id': attempt.session.test_id, 'title': attempt.session.test.title, 'attempt_id': attempt.id,
             'points': attempt.score, 'max_points': attempt.max_score, 'value': _scale_grade(attempt),
             'grading_scale': attempt.session.test.max_grade or 12, 'date': date.isoformat(),
@@ -137,8 +183,19 @@ def session_roster(code: str, db: Session = Depends(get_db)):
     session = db.query(models.TestSession).filter_by(access_code=code.strip().upper(), is_active=True).first()
     if not session:
         raise HTTPException(404, 'Активну сесію не знайдено.')
-    return {'required': bool(session.roster_class_id), 'students': [
-        {'id': s.id, 'name': s.full_name()} for s in db.query(models.RosterStudent).filter_by(class_id=session.roster_class_id, active=True).order_by(models.RosterStudent.last_name)] if session.roster_class_id else []}
+    group_id = session.roster_class_id
+    if not group_id and session.test.class_name:
+        from school_sync.journal_roster import imported_classes, historical_class_names
+        allowed, meta = operate(lambda engine, store: (imported_classes(store, session.test.teacher_id), store.meta), db)
+        class StoreView:
+            pass
+        store = StoreView(); store.meta = meta
+        candidates = [group for group in db.query(models.RosterClass).filter(models.RosterClass.id.in_(allowed))
+            if session.test.class_name.strip() in historical_class_names(store, session.test.teacher_id, group.id, group.name)]
+        group = candidates[0] if len(candidates) == 1 else None
+        group_id = group.id if group else None
+    return {'required': bool(session.roster_class_id), 'available': bool(group_id), 'students': [
+        {'id': s.id, 'name': s.full_name()} for s in db.query(models.RosterStudent).filter_by(class_id=group_id, active=True).order_by(models.RosterStudent.last_name)] if group_id else []}
 
 
 @router.api_route('/teacher/roster-sync', methods=['GET', 'POST'])
@@ -268,6 +325,8 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
         'site_url': site_url, 'connection_code': json.dumps({'source': 'schooltest', 'site_url': site_url, 'api_key': token}, ensure_ascii=False) if token else '',
         'classes': db.query(models.RosterClass).all(), 'subjects': db.query(models.RosterSubject).all(),
         'students': db.query(models.RosterStudent).all(), 'sessions': sessions,
+        'api_stats': operate(lambda engine, store: {k: v for k, v in store.meta.get('journal_api_stats', {}).items()
+            if int(k) in {r.id for r in db.query(models.GradeExportGrant).filter_by(teacher_id=teacher.id)}}, db),
         'attempts': db.query(models.StudentAttempt).filter(models.StudentAttempt.session_id.in_([s.id for s in sessions]), models.StudentAttempt.roster_student_id.is_(None)).all()})
     response.headers['Cache-Control'] = 'no-store'
     return response
