@@ -106,4 +106,6 @@ with app_engine.connect() as connection:
     assert set(connection.execute(text("SELECT use_fuzzy_matching FROM tests")).scalars()) == {False}
 http("/")
 print("PostgreSQL legacy schema upgrade and repeated startup OK")
-print(f"PASS: Python 3.11 image, all PostgreSQL drivers, real HTTP startup/rendering/answers/stop/retry ({__version__})")
+import runpy
+runpy.run_path('/app/tests/migration_postgres_check.py', run_name='__main__')
+print(f"PASS: Python 3.11 image, PostgreSQL drivers, HTTP testing flows and SQLite migration ({__version__})")

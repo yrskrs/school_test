@@ -1,99 +1,101 @@
+"""Copy a stopped SQLite installation into an empty PostgreSQL database."""
+import argparse
 import os
-import sys
 from pathlib import Path
-from sqlalchemy import create_engine, MetaData
-from sqlalchemy.orm import sessionmaker
+import sys
 
-# Add project root to sys.path
-BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(BASE_DIR))
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy.engine import make_url
 
-# Import models to ensure they are registered in Base.metadata
-from app.database import Base
-from app import models
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BASE_DIR))
 
-def migrate():
-    sqlite_url = f"sqlite:///{BASE_DIR / 'data' / 'school_testing.db'}"
-    
-    # Read Postgres URL from env or use default for docker-compose
-    from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / ".env")
-    postgres_url = os.getenv("DATABASE_URL")
-    
-    if not postgres_url or postgres_url.startswith("sqlite"):
-        print("Error: DATABASE_URL in .env is not a PostgreSQL URL.")
-        print(f"Current DATABASE_URL: {postgres_url}")
-        sys.exit(1)
-        
-    print(f"Migrating from SQLite: {sqlite_url}")
-    print(f"To PostgreSQL: {postgres_url}")
-    
-    sqlite_engine = create_engine(sqlite_url)
-    postgres_engine = create_engine(postgres_url)
-    
-    # Check if SQLite DB exists and has tables
+
+def migrate(sqlite_path=None, postgres_url=None):
+    source_path = Path(sqlite_path or BASE_DIR / 'data' / 'school_testing.db').resolve()
+    if not source_path.is_file():
+        raise ValueError('SQLite source file does not exist; no database was created.')
+    load_dotenv(BASE_DIR / '.env')
+    destination_url = make_url(postgres_url or os.getenv('DATABASE_URL', ''))
+    if destination_url.get_backend_name() != 'postgresql':
+        raise ValueError('Destination must be a PostgreSQL URL.')
+
+    from app.database import Base
+    from app import models  # Register the application tables.
+
+    source = create_engine(f'sqlite:///{source_path.as_uri()}?mode=ro&uri=true')
+    destination = create_engine(destination_url, hide_parameters=True)
+    counts = {}
     try:
-        sqlite_conn = sqlite_engine.connect()
-        sqlite_conn.close()
-    except Exception as e:
-        print(f"Cannot connect to SQLite: {e}")
-        sys.exit(1)
-        
-    # Create tables in Postgres
-    print("Creating tables in PostgreSQL...")
-    Base.metadata.create_all(postgres_engine)
-    
-    # Migrate data table by table
-    # We must respect foreign key constraints, so we disable them temporarily during migration
-    # or insert in the correct order. SQLAlchemy metadata.sorted_tables gives the correct order!
-    
-    sqlite_Session = sessionmaker(bind=sqlite_engine)
-    postgres_Session = sessionmaker(bind=postgres_engine)
-    
-    sqlite_session = sqlite_Session()
-    postgres_session = postgres_Session()
-    
-    try:
-        # Disable triggers for foreign keys temporarily on postgres
-        postgres_session.execute(org_sqlalchemy_text("SET session_replication_role = 'replica';"))
-        
-        for table in Base.metadata.sorted_tables:
-            print(f"Migrating table: {table.name}")
-            # Fetch all rows from sqlite
-            rows = sqlite_session.execute(table.select()).fetchall()
-            if not rows:
-                print(f"  - No data in {table.name}, skipping.")
-                continue
-                
-            # Clear existing rows in postgres table (optional, but good if we run it multiple times on an empty db)
-            postgres_session.execute(table.delete())
-            
-            # Insert rows to postgres
-            # rows are list of rows, we convert them to list of dicts
-            dicts = [dict(row._mapping) for row in rows]
-            postgres_session.execute(table.insert(), dicts)
-            print(f"  - Migrated {len(dicts)} rows.")
-            
-        # Re-enable triggers
-        postgres_session.execute(org_sqlalchemy_text("SET session_replication_role = 'origin';"))
-        
-        postgres_session.commit()
-        print("Migration completed successfully!")
-        
-    except Exception as e:
-        postgres_session.rollback()
-        print(f"Error during migration: {e}")
-        # Make sure to reset replication role even on error
-        try:
-            postgres_session.execute(org_sqlalchemy_text("SET session_replication_role = 'origin';"))
-            postgres_session.commit()
-        except:
-            pass
-        sys.exit(1)
+        with source.connect() as reader:
+            reader.exec_driver_sql('BEGIN')
+            source_tables = set(inspect(reader).get_table_names())
+            if 'teachers' not in source_tables:
+                raise ValueError('SQLite source is not a SchoolTest database.')
+            tables = list(Base.metadata.sorted_tables)
+            if source_tables - set(Base.metadata.tables):
+                raise ValueError('Source contains unsupported tables; use a matching application version.')
+            for table in tables:
+                if table.name not in source_tables:
+                    continue
+                columns = {column['name'] for column in inspect(reader).get_columns(table.name)}
+                if set(table.c.keys()) != columns:
+                    raise ValueError(f'Source schema differs for {table.name}; update the local SQLite installation first.')
+            # DDL, empty-target check and all copied rows share one transaction.
+            with destination.begin() as writer:
+                Base.metadata.create_all(writer)
+                quoted = ', '.join(writer.dialect.identifier_preparer.format_table(table) for table in tables)
+                writer.execute(text(f'LOCK TABLE {quoted} IN ACCESS EXCLUSIVE MODE'))
+                if any(writer.execute(select(table).limit(1)).first() is not None for table in tables):
+                    raise ValueError('PostgreSQL destination is not empty; existing records were preserved.')
+                for table in tables:
+                    if table.name not in source_tables:
+                        continue
+                    count = 0
+                    rows = reader.execute(select(table)).mappings()
+                    for batch in rows.partitions(500):
+                        writer.execute(table.insert(), [dict(row) for row in batch])
+                        count += len(batch)
+                    counts[table.name] = count
+                # Explicit IDs do not advance PostgreSQL sequences. Transactional
+                # RESTART avoids an ID collision on the next ordinary insert.
+                for table in tables:
+                    primary_key = list(table.primary_key.columns)
+                    if len(primary_key) != 1 or primary_key[0].name != 'id':
+                        continue
+                    sequence = writer.execute(text('SELECT pg_get_serial_sequence(:table, :column)'),
+                                              {'table': table.name, 'column': 'id'}).scalar_one()
+                    if sequence:
+                        maximum = writer.execute(select(primary_key[0]).order_by(primary_key[0].desc()).limit(1)).scalar_one_or_none()
+                        # The name comes from PostgreSQL; quote every component.
+                        quoted_sequence = '.'.join(writer.dialect.identifier_preparer.quote_identifier(part)
+                                                   for part in sequence.split('.'))
+                        writer.execute(text(f'ALTER SEQUENCE {quoted_sequence} RESTART WITH {max(1, (maximum or 0) + 1)}'))
+        return counts
     finally:
-        sqlite_session.close()
-        postgres_session.close()
+        source.dispose()
+        destination.dispose()
 
-if __name__ == "__main__":
-    from sqlalchemy import text as org_sqlalchemy_text
-    migrate()
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--sqlite', type=Path, help='Path to the stopped SQLite source (opened read-only).')
+    args = parser.parse_args()
+    try:
+        counts = migrate(args.sqlite)
+    except ValueError as error:
+        print(f'Migration refused: {error}', file=sys.stderr)
+        return 1
+    except Exception as error:
+        # Driver exceptions can contain credentials, SQL values and pupil data.
+        print(f'Migration failed ({type(error).__name__}); copied rows were rolled back. Check connectivity and source schema.', file=sys.stderr)
+        return 1
+    for table, count in counts.items():
+        print(f'{table}: {count} rows')
+    print('Migration completed. PostgreSQL ID sequences updated; SQLite source preserved.')
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
