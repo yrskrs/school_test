@@ -201,14 +201,30 @@ def session_roster(code: str, db: Session = Depends(get_db)):
 @router.api_route('/teacher/roster-sync', methods=['GET', 'POST'])
 async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Depends(get_current_teacher)):
     error, token = '', ''
+    last_action = ''
+    last_class_id = None
+    success_msg = ''
     if request.method == 'POST':
         data = await request.form()
         check_csrf(request, teacher, data)
         try:
             action = data.get('action')
+            last_action = action or ''
+            if action == 'student' and data.get('class_id'):
+                try:
+                    last_class_id = int(data.get('class_id'))
+                except (ValueError, TypeError):
+                    pass
+            elif action == 'class' and data.get('id'):
+                try:
+                    last_class_id = int(data.get('id'))
+                except (ValueError, TypeError):
+                    pass
             def change(engine, store):
+                nonlocal last_class_id
                 if action == 'share':
                     engine.share('class', int(data['class_id']))
+                    last_class_id = int(data['class_id'])
                 elif action == 'resolve':
                     expected = _verify_sign(str(data.get('expected', '')))
                     if expected is None:
@@ -227,6 +243,7 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
                     row.active = data.get('active') == '1'
                     db.add(row)
                     db.flush()
+                    last_class_id = row.id
                 elif action == 'student':
                     cls = db.get(models.RosterClass, int(data['class_id']))
                     first, last, middle = [str(data.get(k, '')).strip() for k in ('first', 'last', 'middle')]
@@ -237,19 +254,54 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
                     row.active = data.get('active') == '1'
                     db.add(row)
                     db.flush()
+                    last_class_id = cls.id
                 engine.capture()
                 store.meta.setdefault('decisions', []).append({'teacher': teacher.id, 'action': action, 'ref': data.get('ref', ''), 'at': dt.datetime.now(dt.timezone.utc).isoformat()})
                 store.meta['decisions'] = store.meta['decisions'][-100:]
             operate(change, db)
+            if action == 'student':
+                success_msg = 'Дані учня успішно збережено.'
+            elif action == 'class':
+                success_msg = 'Дані класу успішно збережено.'
+            elif action == 'share':
+                success_msg = 'Клас приєднано до обміну.'
+            elif action == 'resolve':
+                success_msg = 'Рішення синхронізації успішно застосовано.'
         except Exception as exc:
             db.rollback()
             error = str(exc) if isinstance(exc, (SyncError, ValueError, KeyError)) else 'Не вдалося зберегти. Перевірте дані та унікальність назви класу.'
     rows, meta = operate(lambda engine, store: (engine.capture() or store.all(), store.meta), db)
     for row in rows:
         row['expected'] = _sign(json.dumps(row, sort_keys=True, ensure_ascii=False))
-    return templates.TemplateResponse(request, 'roster_sync.html', {'teacher': teacher, 'rows': rows, 'meta': meta, 'error': error,
-        'csrf': csrf(request, teacher), 'classes': db.query(models.RosterClass).order_by(models.RosterClass.name).all(),
-        'students': db.query(models.RosterStudent).order_by(models.RosterStudent.class_id, models.RosterStudent.last_name).all()})
+
+    all_classes = db.query(models.RosterClass).order_by(models.RosterClass.grade_level, models.RosterClass.name).all()
+    all_students = db.query(models.RosterStudent).order_by(models.RosterStudent.class_id, models.RosterStudent.last_name, models.RosterStudent.first_name).all()
+
+    students_by_class = {c.id: [] for c in all_classes}
+    unassigned_students = []
+    for s in all_students:
+        if s.class_id in students_by_class:
+            students_by_class[s.class_id].append(s)
+        else:
+            unassigned_students.append(s)
+
+    unresolved_count = sum(1 for r in rows if r.get('status') != 'ready')
+
+    return templates.TemplateResponse(request, 'roster_sync.html', {
+        'teacher': teacher,
+        'rows': rows,
+        'meta': meta,
+        'error': error,
+        'success_msg': success_msg,
+        'csrf': csrf(request, teacher),
+        'classes': all_classes,
+        'students': all_students,
+        'students_by_class': students_by_class,
+        'unassigned_students': unassigned_students,
+        'unresolved_count': unresolved_count,
+        'last_action': last_action,
+        'last_class_id': last_class_id,
+    })
 
 
 @router.api_route('/teacher/integrations', methods=['GET', 'POST'])

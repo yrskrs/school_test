@@ -510,7 +510,24 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         self.bind_roster()
         status,body,_=await http('GET','/teacher/integrations',cookie=self.teacher_cookie);self.assertEqual(status,200)
         token=re.search(r'name="csrf" value="([^"]+)"',body).group(1)
-        self.assertEqual((await http('GET','/teacher/roster-sync',cookie=self.teacher_cookie))[0],200)
+        roster_resp = await http('GET','/teacher/roster-sync',cookie=self.teacher_cookie)
+        self.assertEqual(roster_resp[0], 200)
+        self.assertIn('tab-pane-students', roster_resp[1])
+        self.assertIn('roster-accordion', roster_resp[1])
+        roster_csrf = re.search(r'name="csrf" value="([^"]+)"', roster_resp[1]).group(1)
+        # Test creating a new student via the roster form
+        group = self.db.query(models.RosterClass).first()
+        add_student_res = await http('POST', '/teacher/roster-sync', {
+            'action': 'student',
+            'first': 'Олена',
+            'last': 'Тестова',
+            'middle': 'Петрівна',
+            'class_id': group.id,
+            'active': '1',
+            'csrf': roster_csrf,
+        }, cookie=self.teacher_cookie, form=True)
+        self.assertEqual(add_student_res[0], 200)
+        self.assertIn('Дані учня успішно збережено', add_student_res[1])
         self.assertEqual((await http('POST','/teacher/integrations',{'action':'key'},self.teacher_cookie,form=True))[0],403)
         result=await http('POST','/teacher/integrations',{'action':'bind','session_id':self.session.id,'csrf':token},self.other_cookie,form=True)
         self.assertEqual(result[0],403)
