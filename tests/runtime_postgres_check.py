@@ -55,6 +55,12 @@ with SessionLocal() as db:
         {"question_type": "single_choice", "question_text": "Synthetic question", "points": 2,
          "options": [{"option_text": "Correct", "is_correct": True}, {"option_text": "Other"}]},
     ]})
+    matching = crud.create_test(db, teacher.id, {'title': 'PostgreSQL notification regression', 'questions': [
+        {'question_type': 'matching', 'question_text': 'Synthetic matching', 'options': [
+            {'option_text': 'Left A', 'matching_text': 'Right A'},
+            {'option_text': 'Left B', 'matching_text': '  RIGHT A  '},
+        ]},
+    ]})
     session = crud.create_session(db, test.id, "RUN123")
     attempt = crud.start_attempt(db, crud.create_attempt(db, session.id, "Runtime Student"))
     unaffected = crud.start_attempt(db, crud.create_attempt(db, session.id, "Unaffected Student"))
@@ -62,6 +68,10 @@ with SessionLocal() as db:
     question = test.questions[0]
     student_cookie = cookie_for(set_student_cookie, attempt.id)
     teacher_cookie = cookie_for(create_teacher_session, teacher.id, teacher.username)
+    notifications = json.loads(http('/teacher/notifications', cookie=teacher_cookie)[0])
+    assert any(row['id'].startswith('match_') and row['test_id'] == matching.id for row in notifications['notifications'])
+    assert notifications['count'] == 1
+    print('PostgreSQL matching notifications: normalized duplicate and HTTP 200 OK')
     http("/")  # Existing teachers: student login page renders too.
     http(f"/student/test/{attempt.id}", cookie=student_cookie)
     http(f"/teacher/sessions/{session.id}/monitor", cookie=teacher_cookie)
@@ -93,7 +103,7 @@ ensure_legacy_columns(app_engine)
 ensure_legacy_columns(app_engine)
 assert "classes" in {c["name"] for c in inspect(app_engine).get_columns("teachers")}
 with app_engine.connect() as connection:
-    assert connection.execute(text("SELECT use_fuzzy_matching FROM tests")).scalar_one() is False
+    assert set(connection.execute(text("SELECT use_fuzzy_matching FROM tests")).scalars()) == {False}
 http("/")
 print("PostgreSQL legacy schema upgrade and repeated startup OK")
 print(f"PASS: Python 3.11 image, all PostgreSQL drivers, real HTTP startup/rendering/answers/stop/retry ({__version__})")

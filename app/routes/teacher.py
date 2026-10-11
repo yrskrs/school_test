@@ -293,7 +293,7 @@ async def get_notifications(
         models.Test.title.label("test_title"),
         models.Question.id.label("question_id"),
         models.Question.question_text.label("question_text"),
-        models.AnswerOption.matching_text,
+        func.max(models.AnswerOption.matching_text).label("matching_text"),
         func.count(models.AnswerOption.id).label("count")
     ).join(models.Question, models.Test.id == models.Question.test_id) \
      .join(models.AnswerOption, models.Question.id == models.AnswerOption.question_id) \
@@ -301,7 +301,8 @@ async def get_notifications(
      .filter(models.Question.question_type == models.QuestionType.matching) \
      .filter(models.AnswerOption.matching_text != None) \
      .filter(func.trim(models.AnswerOption.matching_text) != "") \
-     .group_by(models.Question.id, func.lower(func.trim(models.AnswerOption.matching_text))) \
+     .group_by(models.Test.id, models.Test.title, models.Question.id,
+               models.Question.question_text, func.lower(func.trim(models.AnswerOption.matching_text))) \
      .having(func.count(models.AnswerOption.id) > 1) \
      .all()
 

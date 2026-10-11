@@ -118,6 +118,19 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         return await http("POST", f"/student/test/{self.attempt.id}/save-answer",
                           {"question_id": q.id, "answer_text": text, "selected_options": selected}, self.student_cookie)
 
+    async def test_notifications_normalize_matching_duplicates_and_keep_teacher_scope(self):
+        question = self.questions['matching']
+        question.options[1].matching_text = '  RIGHT A  '
+        self.db.commit()
+        status, body, _ = await http('GET', '/teacher/notifications', cookie=self.teacher_cookie)
+        data = json.loads(body)
+        self.assertEqual(status, 200)
+        matches = [row for row in data['notifications'] if row['id'].startswith('match_')]
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]['question_id'], question.id)
+        self.assertEqual(json.loads((await http('GET', '/teacher/notifications', cookie=self.other_cookie))[1])['count'], 0)
+        self.assertEqual((await http('GET', '/teacher/notifications'))[0], 401)
+
     async def test_browser_ownership_and_websockets(self):
         for path in (f"/student/test/{self.attempt.id}", f"/api/attempt/{self.attempt.id}",
                      f"/api/session-status/{self.session.id}"):
