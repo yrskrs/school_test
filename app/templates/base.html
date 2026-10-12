@@ -106,6 +106,7 @@
         <a href="/teacher/results" class="nav-link {% if '/teacher/results' in request.url.path or '/teacher/journal' in request.url.path %}active{% endif %}">Результати</a>
         {% if teacher.username == 'admin' %}
           <a href="/teacher/logs" class="nav-link {% if '/teacher/logs' in request.url.path %}active{% endif %}">Логи</a>
+          <a href="/teacher/updates" class="nav-link {% if '/teacher/updates' in request.url.path %}active{% endif %}">Оновлення</a>
         {% endif %}
         <a href="/teacher/roster-sync" class="nav-link {% if '/teacher/roster-sync' in request.url.path %}active{% endif %}">Списки</a>
         <a href="/teacher/integrations" class="nav-link {% if '/teacher/integrations' in request.url.path %}active{% endif %}">Підключення до журналу</a>
@@ -389,6 +390,7 @@
   <footer class="footer">
     <span>ШколярТест &mdash; локальна система тестування · v{{ app_version }}</span>
     {% if teacher %}<a href="/teacher/about" class="footer-version-link">Версія та можливості для вчителя</a>{% endif %}
+    {% if teacher and teacher.username == 'admin' %}<span style="opacity: 0.5;">·</span> <a href="/teacher/updates" class="footer-version-link">Оновлення системи</a>{% endif %}
   </footer>
 
   <script>

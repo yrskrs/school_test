@@ -17,6 +17,9 @@ class Settings:
     APP_NAME: str = "ШколярТест — Система шкільного тестування"
     APP_VERSION: str = __version__
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
+    UPDATER_URL: str = os.getenv("UPDATER_URL", "http://updater:8001")
+    GITHUB_REPO: str = os.getenv("GITHUB_REPO", "yrskrs/school_test")
+    BASE_DIR: Path = BASE_DIR
 
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'data' / 'school_testing.db'}")

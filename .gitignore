@@ -58,3 +58,6 @@ compose.override.yaml
 # Private image-tag backup created by the updater
 .env.before-image-update
 .env.image-*
+update_status.json
+data/update_status.json
+.updater.lock

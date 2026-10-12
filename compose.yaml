@@ -1,7 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-schooltest5}
 services:
   app:
-    image: ${SCHOOLTEST_IMAGE:-schooltest5-app:1.5.6}
+    image: ${SCHOOLTEST_IMAGE:-schooltest5-app:1.5.7}
     build:
       context: .
       args:
@@ -45,6 +45,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - schooltest_net
+
+  updater:
+    image: ${UPDATER_IMAGE:-schooltest5-updater:latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.updater
+    restart: unless-stopped
+    environment:
+      PROJECT_ROOT: /workspace
+      ENV_FILE: /workspace/.env
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-schooltest5}
+      UPDATER_PORT: 8001
+      GITHUB_REPO: ${GITHUB_REPO:-yrskrs/school_test}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/workspace
     networks:
       - schooltest_net
 

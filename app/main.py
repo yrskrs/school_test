@@ -10,7 +10,7 @@ from app.config import settings
 from app.database import create_tables, engine
 from app import crud
 from app.templating import templates
-from app.routes import api, setup, student, teacher, websocket, integrations
+from app.routes import api, setup, student, teacher, websocket, integrations, updates
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +88,7 @@ app.include_router(teacher.router)
 app.include_router(student.router)
 app.include_router(api.router)
 app.include_router(websocket.router)
+app.include_router(updates.router)
 
 
 # ---------------------------------------------------------------------------
