@@ -35,8 +35,19 @@
     </p>
   </div>
 
-  <!-- Блок результатів перевірки оновлень (динамічно заповнюється після натискання кнопки) -->
-  <div id="updateCheckResult" class="update-result-box" style="display: none;"></div>
+  <!-- Блок результатів перевірки оновлень -->
+  <div id="updateCheckResult" class="update-result-box">
+    <div class="card" style="background: var(--bg-card); border: 1px dashed var(--border); border-radius: var(--radius); padding: 2rem 1.5rem; text-align: center;">
+      <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🔍</div>
+      <h3 style="margin: 0 0 0.5rem; font-size: 1.2rem; color: var(--text);">Перевірка оновлень системи</h3>
+      <p style="margin: 0 0 1.25rem; color: var(--text-muted); font-size: 0.95rem; max-width: 520px; margin-left: auto; margin-right: auto; line-height: 1.5;">
+        Натисніть кнопку нижче, щоб перевірити наявність нових релізів на GitHub, отримати номер цільової версії та переглянути повний перелік змін (Changelog).
+      </p>
+      <button type="button" class="btn btn-primary" style="font-size: 1rem; padding: 0.65rem 1.4rem;" onclick="checkUpdates()">
+        🔍 Перевірити наявність оновлень зараз
+      </button>
+    </div>
+  </div>
 
   <!-- Секція активного процесу оновлення (степпер, прогресбар, термінал) -->
   <div id="updateProgressSection" class="card update-progress-card" style="display: none;">
@@ -626,9 +637,11 @@ async function checkCurrentStatus() {
       showProgressSection();
       renderStatus(data);
       startPolling();
-    } else if (data.state === 'error' && data.error) {
-      showProgressSection();
-      renderStatus(data);
+    } else {
+      isUpdating = false;
+      const prog = document.getElementById('updateProgressSection');
+      if (prog) prog.style.display = 'none';
+      if (pollTimer) clearInterval(pollTimer);
     }
   } catch (err) {
     console.debug('Updater status check:', err);
@@ -802,6 +815,15 @@ function hideConfirmBox() {
 async function proceedWithUpdate(targetVerOverride = null) {
   showProgressSection();
 
+  // Встановлюємо початковий стан прогресу
+  document.getElementById('progressBarFill').style.width = '5%';
+  document.getElementById('progressPercentage').textContent = '5%';
+  document.getElementById('progressSubtext').textContent = 'Ініціалізація та запуск служби оновлення…';
+  document.getElementById('progressPill').textContent = 'Виконується';
+  document.getElementById('progressPill').className = 'status-pill status-pill-running';
+  document.getElementById('terminalBody').innerHTML = '<div class="log-line">Ініціалізація служби оновлення...</div>';
+  updateStepper(1);
+
   const targetVer = targetVerOverride || (lastCheckData ? lastCheckData.latest_version : null);
   const releases = lastCheckData ? (lastCheckData.releases || (lastCheckData.release ? [lastCheckData.release] : [])) : [];
 
@@ -936,6 +958,13 @@ function handlePollNetworkError() {
 
 // Відображення поточного статусу в UI
 function renderStatus(data) {
+  if (data.state === 'idle' && !isUpdating) {
+    const prog = document.getElementById('updateProgressSection');
+    if (prog) prog.style.display = 'none';
+    if (pollTimer) clearInterval(pollTimer);
+    return;
+  }
+
   const progressBar = document.getElementById('progressBarFill');
   const progressPct = document.getElementById('progressPercentage');
   const progressSubtext = document.getElementById('progressSubtext');
@@ -1019,8 +1048,11 @@ function showErrorState(message, rolledBack = false) {
 }
 
 function resetUpdateUI() {
-  document.getElementById('updateProgressSection').style.display = 'none';
+  const prog = document.getElementById('updateProgressSection');
+  if (prog) prog.style.display = 'none';
   document.getElementById('btnCheckUpdates').disabled = false;
+  const resultBox = document.getElementById('updateCheckResult');
+  if (resultBox) resultBox.style.display = 'block';
   checkUpdates();
 }
 
