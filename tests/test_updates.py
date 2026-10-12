@@ -295,6 +295,9 @@ class TestUpdatesRoutesAndPermissions(unittest.IsolatedAsyncioTestCase):
         self.assertIn("⚡ Перезібрати поточну версію", body)
         self.assertIn("Опис встановленої версії", body)
         self.assertIn("Скопіювати помилку та журнал", body)
+        self.assertEqual(body.count('onclick="checkUpdates()"'), 1)
+        self.assertIn('<details id="updateProgressSection"', body)
+        self.assertNotIn('initialCheckPrompt', body)
 
         status_status, body_status, _ = await http("GET", "/teacher/updates/api/status", cookie=self.admin_cookie, accept="application/json")
         self.assertEqual(status_status, 200)
