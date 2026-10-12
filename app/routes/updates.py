@@ -6,6 +6,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from app import models
@@ -13,6 +14,7 @@ from app.deps import get_current_teacher
 from app.services.updates import (
     check_updates_available,
     get_current_local_version,
+    get_current_release,
     get_update_status,
     start_rollback,
     start_update,
@@ -40,7 +42,7 @@ async def updates_redirect(request: Request):
 
 
 @router.get("/teacher/updates", response_class=HTMLResponse)
-async def updates_page(
+def updates_page(
     request: Request,
     teacher: models.Teacher = Depends(get_current_teacher)
 ):
@@ -56,6 +58,7 @@ async def updates_page(
         {
             "teacher": teacher,
             "current_version": current_version,
+            "current_release": get_current_release(),
             "status_info": status_info,
             "can_update": True,
         }
@@ -64,7 +67,7 @@ async def updates_page(
 
 @router.get("/teacher/updates/api/check")
 @router.post("/teacher/updates/api/check")
-async def api_check_updates(
+def api_check_updates(
     teacher: models.Teacher = Depends(get_current_teacher)
 ):
     """Query GitHub and local releases for available updates and intermediate changelogs."""
@@ -93,12 +96,12 @@ async def api_start_update(
         target_ref = form.get("ref", "origin/main")
         target_ver = form.get("version")
 
-    result = start_update(target_ref=target_ref, target_ver=target_ver)
+    result = await run_in_threadpool(start_update, target_ref=target_ref, target_ver=target_ver)
     return JSONResponse(result)
 
 
 @router.get("/teacher/updates/api/status")
-async def api_update_status(
+def api_update_status(
     teacher: models.Teacher = Depends(get_current_teacher)
 ):
     """Get the current update status, progress percentage, and streaming execution logs."""
@@ -123,5 +126,5 @@ async def api_rollback(
         form = await request.form()
         backup_dir = form.get("backup_dir")
 
-    result = start_rollback(backup_dir=backup_dir)
+    result = await run_in_threadpool(start_rollback, backup_dir=backup_dir)
     return JSONResponse(result)

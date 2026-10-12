@@ -4,6 +4,13 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
+# Inherit the lock from an updater/restore job; otherwise acquire it once.
+if [[ "${MAINTENANCE_LOCK_HELD:-0}" != 1 ]]; then
+    exec 9>"$PROJECT_ROOT/.maintenance.lock"
+    flock -n 9 || { echo 'Інша операція обслуговування вже виконується.' >&2; exit 1; }
+    export MAINTENANCE_LOCK_HELD=1
+fi
+
 
 fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 require_tools() {
@@ -27,7 +34,7 @@ wait_for_app() {
   [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || fail "READY_TIMEOUT must be a positive number of seconds."
   deadline=$((SECONDS + timeout))
   while (( SECONDS < deadline )); do
-    if docker compose exec -T app python -c 'import urllib.request; r = urllib.request.urlopen("http://127.0.0.1:8000/", timeout=3); assert r.status == 200' >/dev/null 2>&1; then
+    if docker compose exec -T app python -c 'import urllib.request; r = urllib.request.urlopen("http://127.0.0.1:8000/healthz", timeout=3); assert r.status == 200' >/dev/null 2>&1; then
       return 0
     fi
     sleep 2

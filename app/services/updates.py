@@ -1,3 +1,4 @@
+from scripts.update_metadata import check_remote, local_release
 """Update service: checks for GitHub updates, aggregates release changelogs,
 and proxies update/rollback requests to the autonomous updater daemon.
 """
@@ -119,119 +120,23 @@ def filter_intermediate_releases(
     return filtered
 
 
-def check_updates_available() -> Dict[str, Any]:
-    """Check for new versions from GitHub via updater service or directly.
-    
-    Aggregates changelogs of ALL intermediate releases between current and target versions.
-    """
+def check_updates_available():
     current_ver = get_current_local_version()
-
-    # 1. First, attempt to call the updater daemon API
-    for endpoint in [f"{UPDATER_URL}/check", f"{UPDATER_URL}/api/check"]:
-        try:
-            req = urllib.request.Request(endpoint, data=b'{}', headers={'Content-Type': 'application/json'})
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = json.loads(resp.read().decode('utf-8'))
-                if data.get('ok'):
-                    # Ensure intermediate releases filtering is applied
-                    latest_ver = data.get('latest_version', current_ver)
-                    has_up = data.get('has_update', False)
-                    releases = data.get('releases') or []
-                    if has_up and not releases and data.get('release'):
-                        releases = [data['release']]
-                    data['releases'] = releases
-                    data['total_intermediate_versions'] = len(releases)
-                    return data
-        except Exception as exc:
-            logger.debug("Updater daemon at %s unreachable: %s", endpoint, exc)
-
-    # 2. Fallback: Query GitHub directly
-    repo = getattr(settings, 'GITHUB_REPO', os.getenv('GITHUB_REPO', 'yrskrs/school_test'))
-    releases_url = f"https://raw.githubusercontent.com/{repo}/main/RELEASES.json"
-    version_url = f"https://raw.githubusercontent.com/{repo}/main/VERSION"
-    version_py_url = f"https://raw.githubusercontent.com/{repo}/main/app/version.py"
-    changelog_url = f"https://raw.githubusercontent.com/{repo}/main/CHANGELOG.md"
-
-    headers = {'User-Agent': 'SchoolTest-App/1.0'}
-    all_releases: List[Dict[str, Any]] = []
-    remote_ver = current_ver
-
-    # A. Try fetching RELEASES.json
+    payload = json.dumps({'current_version': current_ver}).encode('utf-8')
     try:
-        req_rel = urllib.request.Request(releases_url, headers=headers)
-        with urllib.request.urlopen(req_rel, timeout=7) as resp_rel:
-            all_releases = json.loads(resp_rel.read().decode('utf-8'))
-            if all_releases and isinstance(all_releases, list):
-                remote_ver = all_releases[0].get('version', current_ver)
-    except Exception as e:
-        logger.debug("Failed to fetch RELEASES.json from GitHub: %s", e)
+        req = urllib.request.Request(f"{UPDATER_URL}/api/check", data=payload,
+                                     headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req, timeout=35) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        if isinstance(data, dict) and 'ok' in data:
+            return data
+    except Exception as exc:
+        logger.debug("Updater check unavailable: %s", exc)
+    return check_remote(ROOT, os.environ.get('GITHUB_REPO', 'yrskrs/school_test'), current_ver)
 
-    # B. If RELEASES.json failed, try VERSION or app/version.py and CHANGELOG.md
-    if not all_releases:
-        try:
-            req_ver = urllib.request.Request(version_url, headers=headers)
-            with urllib.request.urlopen(req_ver, timeout=6) as resp_ver:
-                remote_ver = resp_ver.read().decode('utf-8').strip()
-        except Exception:
-            try:
-                req_vpy = urllib.request.Request(version_py_url, headers=headers)
-                with urllib.request.urlopen(req_vpy, timeout=6) as resp_vpy:
-                    v_text = resp_vpy.read().decode('utf-8')
-                    m = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', v_text)
-                    if m:
-                        remote_ver = m.group(1).strip()
-            except Exception:
-                pass
 
-        try:
-            req_c = urllib.request.Request(changelog_url, headers=headers)
-            with urllib.request.urlopen(req_c, timeout=6) as resp_c:
-                c_text = resp_c.read().decode('utf-8')
-                all_releases = parse_changelog_all_releases(c_text)
-        except Exception:
-            pass
-
-    # C. Fallback to local files if both network requests failed
-    if not all_releases:
-        local_rel_file = ROOT / 'RELEASES.json'
-        if local_rel_file.exists():
-            try:
-                all_releases = json.loads(local_rel_file.read_text(encoding='utf-8'))
-            except Exception:
-                pass
-
-    has_update = parse_version_tuple(remote_ver) > parse_version_tuple(current_ver)
-
-    # Compute intermediate releases between current and target
-    intermediate_releases = filter_intermediate_releases(all_releases, current_ver, remote_ver) if has_update else []
-    
-    target_release = None
-    if intermediate_releases:
-        target_release = intermediate_releases[0]
-    elif all_releases:
-        for r in all_releases:
-            if r.get('version') == remote_ver:
-                target_release = r
-                break
-        if not target_release:
-            target_release = all_releases[0]
-    else:
-        target_release = {
-            'version': remote_ver,
-            'title': f'Оновлення {remote_ver}',
-            'date': '',
-            'changes': ['Планове вдосконалення функцій та стабільності']
-        }
-
-    return {
-        'ok': True,
-        'current_version': current_ver,
-        'latest_version': remote_ver,
-        'has_update': has_update,
-        'releases': intermediate_releases,
-        'total_intermediate_versions': len(intermediate_releases),
-        'release': target_release
-    }
+def get_current_release():
+    return local_release(ROOT, get_current_local_version())
 
 
 def get_update_status() -> Dict[str, Any]:

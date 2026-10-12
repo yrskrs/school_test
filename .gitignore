@@ -61,3 +61,7 @@ compose.override.yaml
 update_status.json
 data/update_status.json
 .updater.lock
+
+# Runtime updater files
+.maintenance.lock
+.release-image.yaml

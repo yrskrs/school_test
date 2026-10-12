@@ -178,7 +178,14 @@ class TestUpdatesService(unittest.TestCase):
         mock_resp = MagicMock()
         mock_resp.read.return_value = json.dumps(sample_releases).encode("utf-8")
         mock_resp.__enter__.return_value = mock_resp
-        mock_urlopen.return_value = mock_resp
+        def response(req, timeout=None):
+            if req.full_url.endswith('VERSION'):
+                version_resp = MagicMock()
+                version_resp.read.return_value = b'1.6.0'
+                version_resp.__enter__.return_value = version_resp
+                return version_resp
+            return mock_resp
+        mock_urlopen.side_effect = response
 
         result = check_updates_available()
         self.assertTrue(result["ok"])
@@ -194,7 +201,7 @@ class TestUpdatesService(unittest.TestCase):
         mock_urlopen.side_effect = Exception("Connection timed out")
         result = check_updates_available()
         # Should not raise exception and should return a valid result
-        self.assertTrue(result["ok"])
+        self.assertFalse(result["ok"])
         self.assertIn("current_version", result)
         self.assertIn("has_update", result)
 
@@ -285,6 +292,9 @@ class TestUpdatesRoutesAndPermissions(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Оновлення системи", body)
         self.assertIn("Поточна встановлена версія", body)
         self.assertIn("Журнал виконання оновлення", body)
+        self.assertIn("⚡ Перезібрати поточну версію", body)
+        self.assertIn("Опис встановленої версії", body)
+        self.assertIn("Скопіювати помилку та журнал", body)
 
         status_status, body_status, _ = await http("GET", "/teacher/updates/api/status", cookie=self.admin_cookie, accept="application/json")
         self.assertEqual(status_status, 200)
@@ -300,7 +310,14 @@ class TestUpdatesRoutesAndPermissions(unittest.IsolatedAsyncioTestCase):
         mock_resp = MagicMock()
         mock_resp.read.return_value = json.dumps(sample_releases).encode("utf-8")
         mock_resp.__enter__.return_value = mock_resp
-        mock_urlopen.return_value = mock_resp
+        def response(req, timeout=None):
+            if req.full_url.endswith('VERSION'):
+                version_resp = MagicMock()
+                version_resp.read.return_value = b'1.6.0'
+                version_resp.__enter__.return_value = version_resp
+                return version_resp
+            return mock_resp
+        mock_urlopen.side_effect = response
 
         status_check, body_check, _ = await http("GET", "/teacher/updates/api/check", cookie=self.admin_cookie, accept="application/json")
         self.assertEqual(status_check, 200)
