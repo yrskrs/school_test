@@ -192,6 +192,7 @@ def get_session_roster_data(db: Session, session: models.TestSession):
         group_id = group.id if group else None
     return {
         'required': bool(session.roster_class_id),
+        'allow_outside_class': bool(session.test and session.test.allow_outside_class),
         'available': bool(group_id),
         'title': session.test.title if session.test else '',
         'subject': session.display_subject_name or '',

@@ -1,0 +1,16 @@
+{% set attempt_limit = test.attempt_limit if test is defined else 1 %}
+<div class="form-group">
+  <label for="attempt_limit_mode">Дозволені проходження тесту</label>
+  <select id="attempt_limit_mode" name="attempt_limit_mode">
+    <option value="limited" {% if attempt_limit is not none %}selected{% endif %}>Обмежена кількість</option>
+    <option value="unlimited" {% if attempt_limit is none %}selected{% endif %}>Без обмежень</option>
+  </select>
+  <p class="form-hint">Для кожного учня в межах однієї сесії тестування.</p>
+</div>
+<div class="form-group">
+  <label for="max_attempts">Кількість проходжень</label>
+  <input type="number" id="max_attempts" name="max_attempts" min="1" max="2147483647"
+         value="{{ attempt_limit if attempt_limit is not none else 1 }}"
+         {% if attempt_limit is none %}disabled{% else %}required{% endif %} />
+  <p class="form-hint">Включно з першим проходженням. 1 — без повторних спроб.</p>
+</div>

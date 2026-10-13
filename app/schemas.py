@@ -71,6 +71,9 @@ class TestBase(BaseModel):
     show_correct_answers: bool = False
     is_formative: bool = False
     use_fuzzy_matching: bool = False
+    allow_retake: bool = False
+    max_attempts: Optional[int] = Field(default=1, ge=1, le=2147483647)
+    allow_outside_class: bool = False
 
 
 class TestCreate(TestBase):

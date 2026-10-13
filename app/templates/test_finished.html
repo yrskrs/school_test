@@ -36,12 +36,16 @@
 
   <div class="finished-actions" style="margin: 1.5rem 0; display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;">
     <a href="/student/login" class="btn btn-secondary">Головна сторінка</a>
-    {% if test.allow_retake and attempt.session.is_active %}
+    {% if can_retake %}
     <form action="/student/test/{{ attempt.id }}/retake" method="post" style="margin:0;">
       <button type="submit" class="btn btn-primary">Повторно пройти тест</button>
     </form>
     {% endif %}
   </div>
+
+  <p class="form-hint">
+    Використано проходжень: {{ attempts_used }}{% if test.attempt_limit is not none %} з {{ test.attempt_limit }}{% else %}. Без обмежень{% endif %}.
+  </p>
 
   <div class="card" id="local-recovery" hidden>
     <p>На цьому пристрої залишилися відповіді, які сервер не підтвердив. Збережіть копію та передайте вчителю для перевірки.</p>

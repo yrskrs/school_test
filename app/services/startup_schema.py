@@ -5,7 +5,8 @@ from sqlalchemy import inspect, text
 def ensure_legacy_columns(engine):
     upgrades = {
         "teachers": {"subject": "VARCHAR(100)", "classes": "VARCHAR(255)"},
-        "tests": {"use_fuzzy_matching": "BOOLEAN DEFAULT FALSE"},
+        "tests": {"use_fuzzy_matching": "BOOLEAN DEFAULT FALSE",
+            "max_attempts": "INTEGER", "allow_outside_class": "BOOLEAN NOT NULL DEFAULT FALSE"},
         "test_sessions": {"roster_class_id": "INTEGER REFERENCES roster_classes(id)",
             "roster_subject_id": "INTEGER REFERENCES roster_subjects(id)",
             "lesson_date": "VARCHAR(10)", "lesson_number": "INTEGER"},

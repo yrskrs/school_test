@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.security import get_password_hash
+from app.services.testing_policy import normalize_attempt_settings
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +113,7 @@ def get_test_by_id(db: Session, test_id: int) -> Optional[models.Test]:
 
 
 def create_test(db: Session, teacher_id: int, data: dict) -> models.Test:
+    normalize_attempt_settings(data)
     questions_data = data.pop("questions", [])
     test = models.Test(teacher_id=teacher_id, **data)
     db.add(test)
@@ -132,6 +134,7 @@ def create_test(db: Session, teacher_id: int, data: dict) -> models.Test:
 
 
 def update_test(db: Session, test: models.Test, data: dict) -> models.Test:
+    normalize_attempt_settings(data)
     questions_data = data.pop("questions", [])
 
     for key, value in data.items():

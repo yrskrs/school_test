@@ -31,6 +31,22 @@ class StartupSchema(unittest.TestCase):
             ensure_legacy_columns(engine)
         engine.dispose()
 
+    def test_legacy_retake_policy_and_saved_new_settings_survive_upgrade(self):
+        engine = create_engine("sqlite:///:memory:")
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE teachers (id INTEGER PRIMARY KEY)"))
+            connection.execute(text("CREATE TABLE tests (id INTEGER PRIMARY KEY, allow_retake BOOLEAN)"))
+            connection.execute(text("INSERT INTO tests VALUES (1, FALSE), (2, TRUE)"))
+        ensure_legacy_columns(engine)
+        with engine.begin() as connection:
+            rows = connection.execute(text("SELECT allow_retake, max_attempts, allow_outside_class FROM tests ORDER BY id")).all()
+            self.assertEqual([tuple(row) for row in rows], [(0, None, 0), (1, None, 0)])
+            connection.execute(text("UPDATE tests SET max_attempts = 3, allow_outside_class = TRUE WHERE id = 2"))
+        ensure_legacy_columns(engine)
+        with engine.connect() as connection:
+            self.assertEqual(tuple(connection.execute(text("SELECT max_attempts, allow_outside_class FROM tests WHERE id = 2")).one()), (3, 1))
+        engine.dispose()
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

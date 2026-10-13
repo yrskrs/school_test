@@ -19,6 +19,7 @@ except ImportError:
 from sqlalchemy.orm import Session
 
 from app import crud, models
+from app.services.testing_policy import normalize_attempt_settings
 from app.services.test_file_service import (
     generate_new_folder_name,
     move_temp_images_to_test,
@@ -49,11 +50,12 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
         "time_limit_minutes", "shuffle_questions", "shuffle_options",
         "show_result_after_finish", "show_correct_answers", "is_formative",
         "time_limit_per_question", "allow_partial_grading", "use_fuzzy_matching",
-        "allow_retake", "max_grade", "random_questions_limit", "excluded_topics",
+        "allow_retake", "max_attempts", "allow_outside_class", "max_grade", "random_questions_limit", "excluded_topics",
     }
     test_data = {k: v for k, v in raw.items() if k in allowed_test_fields}
     if "title" not in test_data:
         raise ValueError("Поле 'title' є обов'язковим")
+    normalize_attempt_settings(test_data)
 
     questions_raw = raw.get("questions", [])
     

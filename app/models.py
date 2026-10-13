@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, Float, ForeignKey,
-    Integer, String, Text, JSON
+    Integer, String, Text, JSON, false
 )
 from sqlalchemy.orm import relationship
 
@@ -100,6 +100,8 @@ class Test(Base):
     use_fuzzy_matching = Column(Boolean, default=False)
     allow_partial_grading = Column(Boolean, default=False)
     allow_retake = Column(Boolean, default=False)
+    max_attempts = Column(Integer, nullable=True)
+    allow_outside_class = Column(Boolean, default=False, server_default=false(), nullable=False)
     max_grade = Column(Integer, default=12)
     random_questions_limit = Column(Integer, nullable=True)
     excluded_topics = Column(Text, nullable=True)
@@ -110,6 +112,11 @@ class Test(Base):
     teacher = relationship("Teacher", back_populates="tests")
     questions = relationship("Question", back_populates="test", cascade="all, delete-orphan", order_by="Question.order_index")
     sessions = relationship("TestSession", back_populates="test", cascade="all, delete-orphan")
+
+    @property
+    def attempt_limit(self):
+        # Older tests used only allow_retake; NULL preserves unlimited retakes.
+        return self.max_attempts if self.allow_retake else 1
 
 
 # ---------------------------------------------------------------------------

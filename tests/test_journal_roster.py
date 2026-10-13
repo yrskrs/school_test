@@ -42,6 +42,11 @@ class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(selected[0], 303, selected[1])
         attempt = self.db.query(models.StudentAttempt).filter_by(roster_student_id=pupil_id).one()
         self.assertEqual(attempt.student_name, 'Коваленко Ірина')
+        # Imported rosters obey the same teacher-controlled outside-class gate.
+        denied = await fixtures.http('POST', '/student/login', {'student_name': 'Позакласний Учень', 'access_code': 'CHECK1'}, form=True)
+        self.assertEqual(denied[0], 403)
+        self.test.allow_outside_class = True
+        self.db.commit()
         other = await fixtures.http('POST', '/student/login', {'student_name': 'Позакласний Учень', 'access_code': 'CHECK1', 'other_student': '1'}, form=True)
         self.assertEqual(other[0], 303)
         self.assertEqual(self.db.query(models.StudentAttempt).filter_by(student_name='Позакласний Учень').count(), 1)

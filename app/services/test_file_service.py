@@ -84,6 +84,8 @@ def test_to_dict(test: models.Test) -> dict:
         "allow_partial_grading": test.allow_partial_grading,
         "use_fuzzy_matching": test.use_fuzzy_matching,
         "allow_retake": test.allow_retake,
+        "max_attempts": test.attempt_limit,
+        "allow_outside_class": test.allow_outside_class,
         "time_limit_per_question": test.time_limit_per_question,
         "max_grade": test.max_grade,
         "random_questions_limit": test.random_questions_limit,

@@ -72,9 +72,9 @@
       <p class="form-hint roster-hint">Оберіть своє ім’я зі списку учнів вашого класу.</p>
 
       <!-- Галочка: "Мене немає у списку — введу ім’я самостійно" (ПІД ВИПАДАЮЧИМ СПИСКОМ) -->
-      <div class="other-student-toggle-wrap">
+      <div class="other-student-toggle-wrap" id="other-student-toggle-wrap" {% if not allow_outside_class %}style="display: none;"{% endif %}>
         <label for="other-student">
-          <input type="checkbox" name="other_student" value="1" id="other-student" {% if other_student %}checked{% endif %}>
+          <input type="checkbox" name="other_student" value="1" id="other-student" {% if other_student and allow_outside_class %}checked{% endif %} {% if not allow_outside_class %}disabled{% endif %}>
           <span>Мене немає у списку — введу ім’я самостійно</span>
         </label>
       </div>
@@ -135,6 +135,7 @@
   const manualNameGroup = document.getElementById('manual-name-group');
   const studentNameInput = document.getElementById('student_name');
   const otherCheckbox = document.getElementById('other-student');
+  const otherToggle = document.getElementById('other-student-toggle-wrap');
 
   const sessionInfoCard = document.getElementById('session-info-card');
   const sessionTestTitle = document.getElementById('session-test-title');
@@ -146,10 +147,13 @@
   const defaultSubtitle = document.getElementById('auth-default-subtitle');
 
   let hasRoster = {{ 'true' if roster_available else 'false' }};
-  let isRosterRequired = {{ 'true' if roster_required else 'false' }};
+  let allowOutsideClass = {{ 'true' if allow_outside_class else 'false' }};
   let revision = 0;
 
   function updateViewMode() {
+    otherToggle.style.display = hasRoster && allowOutsideClass ? 'block' : 'none';
+    otherCheckbox.disabled = !hasRoster || !allowOutsideClass;
+    if (otherCheckbox.disabled) otherCheckbox.checked = false;
     if (hasRoster) {
       // Список класу доступний:
       rosterGroup.style.display = 'block';
@@ -166,7 +170,7 @@
         manualNameGroup.style.display = 'none';
         studentNameInput.required = false;
         rosterSelect.disabled = false;
-        rosterSelect.required = isRosterRequired || true;
+        rosterSelect.required = true;
         if (rosterSelect.value) {
           studentNameInput.value = rosterSelect.selectedOptions[0].text;
         } else {
@@ -191,14 +195,17 @@
     const code = codeInput ? codeInput.value.trim() : '';
     if (!code) {
       hasRoster = false;
+      allowOutsideClass = false;
       updateViewMode();
       return;
     }
 
     try {
       const response = await fetch('/api/session-roster?code=' + encodeURIComponent(code));
+      if (current !== revision) return;
       if (!response.ok) {
         hasRoster = false;
+        allowOutsideClass = false;
         updateViewMode();
         return;
       }
@@ -237,8 +244,8 @@
         }
       }
 
-      hasRoster = Boolean(data.available || (data.students && data.students.length > 0));
-      isRosterRequired = Boolean(data.required);
+      hasRoster = Boolean(data.required || data.available || (data.students && data.students.length > 0));
+      allowOutsideClass = Boolean(data.allow_outside_class);
 
       const currentSelected = rosterSelect.value;
       rosterSelect.replaceChildren(new Option('— Оберіть себе зі списку —', ''));

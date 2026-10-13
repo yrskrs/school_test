@@ -59,6 +59,7 @@
         <label for="random_questions_limit">Кількість випадкових запитань</label>
         <input type="number" id="random_questions_limit" name="random_questions_limit" min="1" value="{{ test.random_questions_limit or '' }}" placeholder="Усі питання" />
       </div>
+      {% include "_test_attempt_settings.html" %}
     </div>
 
     <div class="form-checkboxes">
@@ -87,8 +88,8 @@
         Дозволити часткове нарахування балів (для Відповідності)
       </label>
       <label class="checkbox-label">
-        <input type="checkbox" name="allow_retake" value="true" {{ 'checked' if test.allow_retake }} />
-        Дозволити повторне проходження тесту
+        <input type="checkbox" name="allow_outside_class" value="true" {{ 'checked' if test.allow_outside_class }} />
+        Дозволити проходження поза списком класу
       </label>
       <label class="checkbox-label">
         <input type="checkbox" name="use_fuzzy_matching" value="true" {{ 'checked' if test.use_fuzzy_matching }} />
@@ -161,6 +162,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/test-settings.js?v={{ app_version }}"></script>
 <script id="initial-test-data" type="application/json">
   {{ test_json | from_json | tojson }}
 </script>

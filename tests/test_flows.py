@@ -593,7 +593,8 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(json.loads(roster[1])['required'])
         attempts = self.db.query(models.StudentAttempt).count()
         login = await http('POST', '/student/login', {'student_name': 'Інший Вигаданий', 'access_code': self.session.access_code}, form=True)
-        self.assertEqual(login[0], 400)
+        self.assertEqual(login[0], 403)
+        self.assertIn('Учитель не дозволив проходження поза списком класу', login[1])
         self.assertEqual(self.db.query(models.StudentAttempt).count(), attempts)
 
 

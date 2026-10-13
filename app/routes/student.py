@@ -12,9 +12,16 @@ from app.deps import get_owned_attempt
 from app.security import get_student_attempt_id, set_student_cookie
 from app.services import event_log_service, result_service, session_service, test_service
 from app.templating import templates
-from app.services.testing_policy import MAX_VIOLATIONS, VIOLATION_STOP_PREFIX, lock_attempt, stop_reason, violation_count
+from app.services.testing_policy import (
+    MAX_VIOLATIONS, VIOLATION_STOP_PREFIX, TERMINAL_STATUSES,
+    has_attempt_capacity, lock_attempt, lock_session, stop_reason, student_attempts, violation_count,
+)
 
 router = APIRouter()
+
+
+def _has_roster(roster_data):
+    return bool(roster_data and (roster_data.get('available') or roster_data.get('required') or roster_data.get('students')))
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +61,7 @@ async def student_login_page(request: Request, code: Optional[str] = None, db: S
         from app.routes.integrations import get_session_roster_data
         roster_data = get_session_roster_data(db, target_session)
 
-    has_roster = bool(roster_data and (roster_data.get('available') or roster_data.get('required') or roster_data.get('students')))
+    has_roster = _has_roster(roster_data)
 
     previous_id = get_student_attempt_id(request)
     previous = crud.get_attempt_by_id(db, previous_id) if previous_id else None
@@ -68,6 +75,7 @@ async def student_login_page(request: Request, code: Optional[str] = None, db: S
             "roster_available": has_roster,
             "roster_students": roster_data['students'] if roster_data else [],
             "roster_required": bool(roster_data and roster_data.get('required')),
+            "allow_outside_class": bool(target_session and target_session.test.allow_outside_class),
             "other_student": False,
         }
     )
@@ -87,13 +95,14 @@ async def student_login(
     access_code = access_code.strip().upper()
 
     session = session_service.find_active_session(db, access_code)
+    roster_data = None
+    if session:
+        from app.routes.integrations import get_session_roster_data
+        roster_data = get_session_roster_data(db, session)
 
     def render_login_error(error_msg: str, status_code: int = 400):
-        roster_data = None
-        if session:
-            from app.routes.integrations import get_session_roster_data
-            roster_data = get_session_roster_data(db, session)
-        has_roster = bool(roster_data and (roster_data.get('available') or roster_data.get('required') or roster_data.get('students')))
+        has_roster = _has_roster(roster_data)
+        allow_outside_class = bool(session and session.test.allow_outside_class)
         return templates.TemplateResponse(
             request,
             "student_login.html",
@@ -106,7 +115,8 @@ async def student_login(
                 "roster_available": has_roster,
                 "roster_students": roster_data['students'] if roster_data else [],
                 "roster_required": bool(roster_data and roster_data.get('required')),
-                "other_student": other_student == '1',
+                "allow_outside_class": allow_outside_class,
+                "other_student": other_student == '1' and allow_outside_class,
                 "roster_student_id": roster_student_id,
             },
             status_code=status_code,
@@ -114,6 +124,9 @@ async def student_login(
 
     if not session:
         return render_login_error("Невірний код доступу або сесія завершена")
+
+    if _has_roster(roster_data) and not roster_student_id and not session.test.allow_outside_class:
+        return render_login_error("Учитель не дозволив проходження поза списком класу. Оберіть себе зі списку.", 403)
 
     if not student_name and roster_student_id:
         pupil = db.get(models.RosterStudent, roster_student_id)
@@ -145,30 +158,20 @@ async def student_login(
             raise HTTPException(400, 'Оберіть учня зі списку саме цього класу.')
         student_name = pupil.full_name()[:200]
 
-    # Перевіряємо, чи є вже спроба від цього учня в цій сесії
-    existing_attempts = crud.get_attempts_by_session(db, session.id)
-    student_attempts = [a for a in existing_attempts if a.roster_student_id == roster_student_id] if roster_student_id else [a for a in existing_attempts if a.roster_student_id is None and a.student_name.lower() == student_name.lower()]
-    
-    existing = None
-    if student_attempts:
-        existing = sorted(student_attempts, key=lambda x: x.id, reverse=True)[0]
+    # Admission and counting share a transaction, including concurrent requests.
+    lock_session(db, session)
+    if not session.is_active:
+        return render_login_error("Сесія завершена", 403)
+    if _has_roster(roster_data) and not roster_student_id and not session.test.allow_outside_class:
+        return render_login_error("Учитель не дозволив проходження поза списком класу. Оберіть себе зі списку.", 403)
+    attempts = student_attempts(db, session.id, student_name, roster_student_id)
+    existing = next((a for a in reversed(attempts) if a.status not in TERMINAL_STATUSES), None)
 
-    if existing and existing.status in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
-        if not session.test.allow_retake:
-            return templates.TemplateResponse(
-            request,
-            "student_login.html", {
-                "error": "Ви вже завершили цей тест",
-                "student_name": student_name,
-            })
-        else:
-            existing = None  # Створюємо нову спробу
+    if not existing and not has_attempt_capacity(session.test, attempts):
+        return render_login_error("Ви використали всі дозволені проходження цього тесту.", 403)
 
     if existing and get_student_attempt_id(request) != existing.id:
-        return templates.TemplateResponse(request, "student_login.html", {
-            "error": "Цей учень уже проходить тест. Продовжіть у тому самому браузері або зверніться до вчителя.",
-            "student_name": student_name, "prefilled_code": access_code,
-        }, status_code=409)
+        return render_login_error("Цей учень уже проходить тест. Продовжіть у тому самому браузері або зверніться до вчителя.", 409)
 
     if existing:
         attempt = existing
@@ -463,6 +466,14 @@ async def test_finished_page(
     if attempt.max_score and attempt.max_score > 0:
         percent = round(attempt.score / attempt.max_score * 100, 1)
 
+    attempts = student_attempts(db, attempt.session_id, attempt.student_name, attempt.roster_student_id)
+    outside_allowed = True
+    if attempt.roster_student_id is None and not test.allow_outside_class:
+        from app.routes.integrations import get_session_roster_data
+        outside_allowed = not _has_roster(get_session_roster_data(db, attempt.session))
+    can_retake = (attempt.session.is_active and outside_allowed and has_attempt_capacity(test, attempts)
+                  and all(a.status in TERMINAL_STATUSES for a in attempts))
+
     return templates.TemplateResponse(
         request,
         "test_finished.html", {
@@ -473,6 +484,8 @@ async def test_finished_page(
         "confirmed_question_ids": [a.question_id for a in answers if a.answer_text is not None or a.selected_options_json is not None],
         "percent": percent,
         "stop_reason": stop_reason(db, attempt_id),
+        "can_retake": can_retake,
+        "attempts_used": len(attempts),
     })
 
 
@@ -581,9 +594,18 @@ async def retake_test(
     db: Session = Depends(get_db),
     attempt: models.StudentAttempt = Depends(get_owned_attempt),
 ):
-    if not attempt.session.is_active or not attempt.session.test.allow_retake:
+    outside_has_roster = False
+    if attempt.roster_student_id is None:
+        from app.routes.integrations import get_session_roster_data
+        outside_has_roster = _has_roster(get_session_roster_data(db, attempt.session))
+    lock_session(db, attempt.session)
+    test = attempt.session.test
+    attempts = student_attempts(db, attempt.session_id, attempt.student_name, attempt.roster_student_id)
+    if not attempt.session.is_active or not has_attempt_capacity(test, attempts):
         raise HTTPException(403, "Повторне проходження недоступне")
-    if attempt.status not in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
+    if outside_has_roster and not test.allow_outside_class:
+        raise HTTPException(403, "Учитель не дозволив проходження поза списком класу")
+    if any(a.status not in TERMINAL_STATUSES for a in attempts):
         raise HTTPException(409, "Спочатку завершіть поточну спробу")
     new_attempt = crud.create_attempt(db, attempt.session_id, attempt.student_name, roster_student_id=attempt.roster_student_id)
     event_log_service.log_event(db, new_attempt.id, models.EventType.login, "Повторне проходження")

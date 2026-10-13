@@ -382,6 +382,9 @@ async def create_test(
     use_fuzzy_matching: bool = Form(False),
     allow_partial_grading: bool = Form(False),
     allow_retake: bool = Form(False),
+    attempt_limit_mode: Optional[str] = Form(None),
+    max_attempts: Optional[int] = Form(None, ge=1, le=2147483647),
+    allow_outside_class: bool = Form(False),
     max_grade: int = Form(12),
     random_questions_limit: Optional[int] = Form(None),
     excluded_topics: Optional[str] = Form("[]"),
@@ -400,6 +403,7 @@ async def create_test(
 
     time_limit = int(time_limit_minutes) if time_limit_minutes and time_limit_minutes.strip() else None
     time_limit_q = int(time_limit_per_question) if time_limit_per_question and time_limit_per_question.strip() else None
+    attempt_limit = _parse_attempt_limit(attempt_limit_mode, max_attempts, allow_retake)
 
     test_data = {
         "title": title,
@@ -416,6 +420,8 @@ async def create_test(
         "use_fuzzy_matching": use_fuzzy_matching,
         "allow_partial_grading": allow_partial_grading,
         "allow_retake": allow_retake,
+        "max_attempts": attempt_limit,
+        "allow_outside_class": allow_outside_class,
         "max_grade": max_grade,
         "random_questions_limit": random_questions_limit,
         "excluded_topics": excluded_topics,
@@ -489,6 +495,9 @@ async def edit_test(
     use_fuzzy_matching: bool = Form(False),
     allow_partial_grading: bool = Form(False),
     allow_retake: bool = Form(False),
+    attempt_limit_mode: Optional[str] = Form(None),
+    max_attempts: Optional[int] = Form(None, ge=1, le=2147483647),
+    allow_outside_class: bool = Form(False),
     max_grade: int = Form(12),
     random_questions_limit: Optional[int] = Form(None),
     excluded_topics: Optional[str] = Form("[]"),
@@ -517,6 +526,7 @@ async def edit_test(
 
     time_limit = int(time_limit_minutes) if time_limit_minutes and time_limit_minutes.strip() else None
     time_limit_q = int(time_limit_per_question) if time_limit_per_question and time_limit_per_question.strip() else None
+    attempt_limit = _parse_attempt_limit(attempt_limit_mode, max_attempts, allow_retake)
 
     update_data = {
         "title": title,
@@ -533,6 +543,8 @@ async def edit_test(
         "use_fuzzy_matching": use_fuzzy_matching,
         "allow_partial_grading": allow_partial_grading,
         "allow_retake": allow_retake,
+        "max_attempts": attempt_limit,
+        "allow_outside_class": allow_outside_class,
         "max_grade": max_grade,
         "random_questions_limit": random_questions_limit,
         "excluded_topics": excluded_topics,
@@ -1907,6 +1919,19 @@ async def import_test_json(
 # Helper
 # ---------------------------------------------------------------------------
 
+def _parse_attempt_limit(mode, limit, allow_retake):
+    if mode == "unlimited":
+        return None
+    if mode == "limited":
+        if limit is None:
+            raise HTTPException(422, "Вкажіть кількість дозволених проходжень.")
+        return limit
+    if mode is not None:
+        raise HTTPException(422, "Невірний режим кількості проходжень.")
+    # Accept existing clients that still submit only the retake checkbox.
+    return limit if limit is not None else (None if allow_retake else 1)
+
+
 def _test_to_dict(test: models.Test) -> dict:
     return {
         "id": test.id,
@@ -1924,6 +1949,8 @@ def _test_to_dict(test: models.Test) -> dict:
         "allow_partial_grading": test.allow_partial_grading,
         "use_fuzzy_matching": test.use_fuzzy_matching,
         "allow_retake": test.allow_retake,
+        "max_attempts": test.attempt_limit,
+        "allow_outside_class": test.allow_outside_class,
         "max_grade": test.max_grade,
         "random_questions_limit": test.random_questions_limit,
         "excluded_topics": test.excluded_topics or "[]",

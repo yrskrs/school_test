@@ -109,6 +109,7 @@
         <label for="random_questions_limit">Кількість випадкових запитань</label>
         <input type="number" id="random_questions_limit" name="random_questions_limit" min="1" placeholder="Усі питання" />
       </div>
+      {% include "_test_attempt_settings.html" %}
     </div>
 
       <div class="form-group form-group--full" style="display:flex;gap:1.5rem;flex-wrap:wrap">
@@ -135,6 +136,10 @@
         <label class="checkbox-label">
           <input type="checkbox" name="allow_partial_grading" value="true" />
           Дозволити часткове нарахування балів (для Відповідності)
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" name="allow_outside_class" value="true" />
+          Дозволити проходження поза списком класу
         </label>
         <label class="checkbox-label">
           <input type="checkbox" name="use_fuzzy_matching" value="true" />
@@ -198,5 +203,6 @@
 {% block scripts %}
 {% if not (import_mode is defined and import_mode) %}
 <script src="/static/js/teacher.js?v={{ app_version }}"></script>
+<script src="/static/js/test-settings.js?v={{ app_version }}"></script>
 {% endif %}
 {% endblock %}
