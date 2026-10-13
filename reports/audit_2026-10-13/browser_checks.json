@@ -1,0 +1,10 @@
+{
+  "passed": [
+    "Teacher creates a question, selects imported 10-В, saves and launches through the real UI",
+    "Mobile pupil list: 17 pupils, no manual bypass; answer saved and graded, two attempts then limit enforced",
+    "Invalid URL code cannot switch to a pinned test; pupil can enter another code from a pinned page",
+    "Loading prevents early submission; a late roster response cannot overwrite a newer invalid code",
+    "Network failure is explained; a server-rendered known roster remains usable if refresh fails"
+  ],
+  "javascript_errors": []
+}

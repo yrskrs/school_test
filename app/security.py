@@ -63,7 +63,11 @@ def _verify_sign(signed: str) -> Optional[str]:
 
 def create_teacher_session(response: Response, teacher_id: int, username: str) -> None:
     """Встановлює підписану cookie-сесію вчителя."""
-    payload = json.dumps({"id": teacher_id, "u": username, "t": int(time.time())})
+    from app.database import SessionLocal
+    from app import models
+    with SessionLocal() as db:
+        nonce = db.query(models.Teacher.auth_nonce).filter_by(id=teacher_id).scalar()
+    payload = json.dumps({"id": teacher_id, "u": username, "t": int(time.time()), "n": nonce})
     import base64
     encoded = base64.b64encode(payload.encode()).decode()
     signed = _sign(encoded)
@@ -90,6 +94,12 @@ def get_teacher_session(request: HTTPConnection) -> Optional[dict]:
         age = int(time.time()) - payload.get("t", 0)
         if age > settings.SESSION_MAX_AGE:
             return None
+        from app.database import SessionLocal
+        from app import models
+        with SessionLocal() as db:
+            teacher = db.query(models.Teacher.username, models.Teacher.auth_nonce).filter_by(id=payload['id']).first()
+            if not teacher or teacher.username != payload.get('u') or teacher.auth_nonce != payload.get('n'):
+                return None
         return payload
     except Exception:
         return None
@@ -105,7 +115,11 @@ def clear_teacher_session(response: Response) -> None:
 
 def set_student_cookie(response: Response, attempt_id: int) -> None:
     """Зберігає attempt_id учня у підписаній cookie."""
-    payload = str(attempt_id)
+    from app.database import SessionLocal
+    from app import models
+    with SessionLocal() as db:
+        nonce = db.query(models.StudentAttempt.auth_nonce).filter_by(id=attempt_id).scalar()
+    payload = str(attempt_id) + ('.' + nonce if nonce else '')
     signed = _sign(payload)
     response.set_cookie(
         key=settings.STUDENT_COOKIE_NAME,
@@ -125,8 +139,18 @@ def get_student_attempt_id(request: HTTPConnection) -> Optional[int]:
     if not payload:
         return None
     try:
-        return int(payload)
-    except ValueError:
+        raw_id, separator, nonce = payload.partition('.')
+        attempt_id = int(raw_id)
+        if not 0 < attempt_id <= 9223372036854775807:
+            return None
+        from app.database import SessionLocal
+        from app import models
+        with SessionLocal() as db:
+            row = db.query(models.StudentAttempt.auth_nonce).filter_by(id=attempt_id).first()
+            if row is None or row.auth_nonce != (nonce if separator else None):
+                return None
+        return attempt_id
+    except (ValueError, TypeError):
         return None
 
 

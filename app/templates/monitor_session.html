@@ -2,6 +2,15 @@
 {% block title %}Моніторинг: {{ test.title }}{% endblock %}
 
 {% block content %}
+{% if roster_data is defined %}
+  {% if roster_data.error %}
+  <div class="alert alert-error">{{ roster_data.error }}</div>
+  {% elif not roster_data.available %}
+  <div class="alert alert-warning">Для класу «{{ session.display_class_name or 'Клас не вказано' }}» список учнів не підключений. Учні вводитимуть ім’я вручну. Щоб обирати учнів зі списку, <a href="/teacher/tests/{{ test.id }}/edit">виберіть потрібний клас у тесті</a> та запустіть нову сесію.</div>
+  {% elif not roster_data.students %}
+  <div class="alert alert-warning">У списку класу немає активних учнів. Перевірте <a href="/teacher/roster-sync">список класу</a> перед тестуванням.</div>
+  {% endif %}
+{% endif %}
 <div class="page-header">
   <div>
     <h1>Моніторинг сесії</h1>

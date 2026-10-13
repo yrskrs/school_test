@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-13",
+  "version": "1.6.1",
+  "base_revision": "1c00c9d",
+  "live_local_read_only": {
+    "version": "1.6.0",
+    "profile_classes": [
+      "10-А",
+      "11-А"
+    ],
+    "test_class": "11-А",
+    "active_sessions": 3,
+    "bound_active_sessions": 0,
+    "imported_class": "10-В",
+    "active_students": 17,
+    "mappings": 17
+  },
+  "backups_read_only": [
+    {
+      "backup": "20261013-134422-0izw4y5c",
+      "profile_classes": [
+        "10-А",
+        "11-А"
+      ],
+      "test_class": "11-А",
+      "roster_class_count": 0,
+      "roster_student_count": 0
+    },
+    {
+      "backup": "20261012-191337-sz4s649g",
+      "profile_classes": [
+        "10-А",
+        "11-А"
+      ],
+      "test_class": "11-А",
+      "roster_class_count": 0,
+      "roster_student_count": 0
+    }
+  ],
+  "reproduced_baseline_failures": {
+    "concurrent_roster_updates": {
+      "expected": 2,
+      "observed": 1
+    },
+    "deleted_teacher_api_grants": {
+      "expected": 0,
+      "observed": 1
+    },
+    "reused_teacher_cookie": {
+      "expected_http": 401,
+      "observed_http": 200
+    },
+    "reused_student_cookie": {
+      "expected_http": 401,
+      "observed_http": 200
+    }
+  },
+  "privacy": "No real student names, credentials, API keys or session tokens included.",
+  "delivery_status": "Release 1.6.1 source, documentation, regression checks and audit evidence are included in this repository for GitHub main. The live app was not updated during the audit and remains on 1.6.0.",
+  "final_checks": {
+    "python": {
+      "application": 105,
+      "sync": 22,
+      "updater_helpers": 16,
+      "total": 143
+    },
+    "chromium_groups": 5,
+    "chromium_javascript_errors": 0,
+    "upgrade_from": [
+      "1.5.9",
+      "1.6.0"
+    ],
+    "legacy_cookie_compatibility": "passed",
+    "account_delete_postgres": "passed"
+  },
+  "tested_image": {
+    "id": "sha256:b9344fda843fc266e1fcc4a1c99a04046c8b08b3158f3d56500b48a5987f756e",
+    "version": "1.6.1",
+    "revision_label": "1c00c9d-audit-working-tree",
+    "source_hashes_matched": 84
+  }
+}

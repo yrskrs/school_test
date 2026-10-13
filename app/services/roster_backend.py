@@ -12,12 +12,20 @@ from school_sync.transport import fetch
 class Store:
     def __init__(self, db):
         self.db = db
-        state = db.get(models.RosterState, 1)
-        if not state:
-            query = db.query(models.RosterState).filter_by(id=1)
-            if db.bind and db.bind.dialect.name != 'sqlite':
-                query = query.with_for_update()
-            state = query.first()
+        dialect = db.bind.dialect.name
+        if dialect in ('sqlite', 'postgresql'):
+            if dialect == 'sqlite':
+                from sqlalchemy.dialects.sqlite import insert
+            else:
+                from sqlalchemy.dialects.postgresql import insert
+            # The upsert serializes SQLite writers and safely creates the
+            # singleton under competing PostgreSQL requests.
+            db.execute(insert(models.RosterState).values(id=1, data={}).on_conflict_do_nothing(index_elements=['id']))
+        query = db.query(models.RosterState).filter_by(id=1)
+        if dialect != 'sqlite':
+            query = query.with_for_update()
+        # Reload after the lock, including an ORM row cached before it waited.
+        state = query.populate_existing().first()
         if not state:
             state = models.RosterState(id=1, data={})
             db.add(state)

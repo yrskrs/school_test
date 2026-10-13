@@ -40,14 +40,14 @@ async def root(request: Request, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.get("/student/login", response_class=HTMLResponse)
-async def student_login_page(request: Request, code: Optional[str] = None, db: Session = Depends(get_db)):
+async def student_login_page(request: Request, code: Optional[str] = None, manual: bool = False, db: Session = Depends(get_db)):
     if crud.count_teachers(db) == 0:
         return RedirectResponse(url="/setup", status_code=303)
     target_session = None
     if code:
         code = code.strip().upper()
         target_session = session_service.find_active_session(db, code)
-    if not target_session:
+    if not code and not manual:
         # Шукаємо закріплену сесію (головну)
         target_session = db.query(models.TestSession).filter(
             models.TestSession.is_active == True,
@@ -62,13 +62,16 @@ async def student_login_page(request: Request, code: Optional[str] = None, db: S
         roster_data = get_session_roster_data(db, target_session)
 
     has_roster = _has_roster(roster_data)
+    error = (roster_data or {}).get('error') or ('Невірний код доступу або сесія завершена' if code and not target_session else '')
 
     previous_id = get_student_attempt_id(request)
     previous = crud.get_attempt_by_id(db, previous_id) if previous_id else None
     return templates.TemplateResponse(
         request,
         "student_login.html", {
-            "prefilled_code": code or "",
+            "prefilled_code": code if target_session else "",
+            "error": error,
+            "roster_error": (roster_data or {}).get('error', ''),
             "session": target_session,
             "auto_session": target_session,
             "student_name": previous.student_name if previous else "",
@@ -118,12 +121,16 @@ async def student_login(
                 "allow_outside_class": allow_outside_class,
                 "other_student": other_student == '1' and allow_outside_class,
                 "roster_student_id": roster_student_id,
+                "roster_error": (roster_data or {}).get('error', ''),
             },
             status_code=status_code,
         )
 
     if not session:
         return render_login_error("Невірний код доступу або сесія завершена")
+
+    if roster_data.get('error'):
+        return render_login_error(roster_data['error'], 403)
 
     if _has_roster(roster_data) and not roster_student_id and not session.test.allow_outside_class:
         return render_login_error("Учитель не дозволив проходження поза списком класу. Оберіть себе зі списку.", 403)
@@ -136,27 +143,13 @@ async def student_login(
     if not student_name or (len(student_name) > 200 and not roster_student_id):
         return render_login_error("Введіть ім'я та прізвище (до 200 символів)")
 
-    if session.roster_class_id and not db.get(models.RosterClass, session.roster_class_id).active:
-        return render_login_error("Цей клас неактивний. Зверніться до вчителя.")
-    if session.roster_class_id and not (other_student == '1' and not roster_student_id):
-        pupil = db.query(models.RosterStudent).filter_by(id=roster_student_id, class_id=session.roster_class_id, active=True).first()
-        if not pupil or not db.get(models.RosterClass, session.roster_class_id).active:
-            return render_login_error("Оберіть свій запис зі списку цього класу.")
-        student_name = pupil.full_name()[:200]
-    elif roster_student_id:
-        from app.services.roster_backend import operate
-        from school_sync.journal_roster import imported_classes, historical_class_names
+    if roster_student_id:
+        if roster_student_id not in {row['id'] for row in roster_data['students']}:
+            return render_login_error('Оберіть учня зі списку саме цього класу.')
         pupil = db.get(models.RosterStudent, roster_student_id)
-        def belongs(engine, store):
-            if not pupil or not pupil.active or pupil.class_id not in imported_classes(store, session.test.teacher_id):
-                return False
-            group = db.get(models.RosterClass, pupil.class_id)
-            return group.active and (session.test.class_name or '').strip() in historical_class_names(store, session.test.teacher_id, group.id, group.name)
-        if not operate(belongs, db):
-            pupil = None
-        if not pupil:
-            raise HTTPException(400, 'Оберіть учня зі списку саме цього класу.')
         student_name = pupil.full_name()[:200]
+    elif session.roster_class_id and other_student != '1':
+        return render_login_error('Оберіть свій запис зі списку цього класу.')
 
     # Admission and counting share a transaction, including concurrent requests.
     lock_session(db, session)

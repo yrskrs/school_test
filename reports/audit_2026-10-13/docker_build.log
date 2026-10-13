@@ -1,0 +1,56 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 1.31kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.11-slim
+#2 DONE 1.1s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 681B done
+#3 DONE 0.0s
+
+#4 [1/8] FROM docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+#4 resolve docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce 0.0s done
+#4 DONE 0.1s
+
+#5 [internal] load build context
+#5 transferring context: 216.11kB 0.0s done
+#5 DONE 0.0s
+
+#6 [2/8] WORKDIR /app
+#6 CACHED
+
+#7 [3/8] RUN apt-get update     && apt-get install -y --no-install-recommends gcc libpq-dev     && rm -rf /var/lib/apt/lists/*
+#7 CACHED
+
+#8 [4/8] COPY requirements.txt .
+#8 CACHED
+
+#9 [5/8] RUN grep -v "PyQt6" requirements.txt > req_docker.txt     && pip install --no-cache-dir -r req_docker.txt
+#9 CACHED
+
+#10 [6/8] COPY . .
+#10 DONE 0.5s
+
+#11 [7/8] RUN mkdir -p /app/data /app/app/static/tests /app/app/static/uploads
+#11 DONE 0.5s
+
+#12 [8/8] RUN python scripts/check_runtime.py
+#12 1.109 Runtime import OK: postgresql
+#12 1.109 Runtime import OK: postgresql+psycopg
+#12 1.139 Runtime import OK: postgresql+psycopg2
+#12 2.169 Application import and templates OK: 1.6.1
+#12 DONE 2.6s
+
+#13 exporting to image
+#13 exporting layers
+#13 exporting layers 0.3s done
+#13 exporting manifest sha256:40ce7ca9a4fe2e81cbf993580357449c9fe489555d30fe75ac1022f361b1be85 0.0s done
+#13 exporting config sha256:59610abb64eda9de9d0404a2389643d4ce0f67994152059a17bc02f691990fea 0.0s done
+#13 exporting attestation manifest sha256:b1fd8c1d7e791eaa00c17295684f622ff3f27a69ab98d8e7c14aee8df342a192 0.0s done
+#13 exporting manifest list sha256:b9344fda843fc266e1fcc4a1c99a04046c8b08b3158f3d56500b48a5987f756e 0.0s done
+#13 naming to docker.io/library/schooltest-audit:1.6.1 done
+#13 unpacking to docker.io/library/schooltest-audit:1.6.1 0.1s done
+#13 DONE 0.5s

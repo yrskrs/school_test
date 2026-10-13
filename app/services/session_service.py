@@ -24,8 +24,14 @@ def generate_access_code(db: Session) -> str:
 
 
 def start_new_session(db: Session, test_id: int) -> models.TestSession:
+    from fastapi import HTTPException
+    from app.services.roster_service import resolve_roster_class
+    test = crud.get_test_by_id(db, test_id)
+    group, error = resolve_roster_class(db, test)
+    if error:
+        raise HTTPException(409, error)
     code = generate_access_code(db)
-    return crud.create_session(db, test_id=test_id, access_code=code)
+    return crud.create_session(db, test_id=test_id, access_code=code, roster_class_id=group.id if group else None)
 
 
 def find_active_session(db: Session, access_code: str) -> Optional[models.TestSession]:

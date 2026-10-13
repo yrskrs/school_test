@@ -1,0 +1,16 @@
+ Container schooltest-audit-20261013-app-1 Running
+ Container schooltest-audit-20261013-postgres-1 Running
+ Container schooltest-audit-20261013-postgres-1 Waiting
+ Container schooltest-audit-20261013-postgres-1 Healthy
+ Container schooltest-audit-20261013-app-1 Waiting
+ Container schooltest-audit-20261013-app-1 Healthy
+ Container schooltest-audit-20261013-checks-run-b1184218f4d1 Creating
+ Container schooltest-audit-20261013-checks-run-b1184218f4d1 Created
+PostgreSQL connection OK: postgresql
+PostgreSQL connection OK: postgresql+psycopg
+PostgreSQL connection OK: postgresql+psycopg2
+PostgreSQL matching notifications: normalized duplicate and HTTP 200 OK
+PostgreSQL legacy schema upgrade and repeated startup OK
+Migration: source preserved, rows/FKs copied, next IDs correct, occupied target refused
+Migration: invalid FK rolls back copied rows and newly created tables
+PASS: Python 3.11 image, PostgreSQL drivers, HTTP testing flows and SQLite migration (1.6.1)

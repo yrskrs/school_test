@@ -1,0 +1,9 @@
+ Container schooltest-audit-20261013-postgres-1 Running
+ Container schooltest-audit-20261013-app-1 Running
+ Container schooltest-audit-20261013-postgres-1 Waiting
+ Container schooltest-audit-20261013-postgres-1 Healthy
+ Container schooltest-audit-20261013-app-1 Waiting
+ Container schooltest-audit-20261013-app-1 Healthy
+ Container schooltest-audit-20261013-checks-run-ae0703ed68aa Creating
+ Container schooltest-audit-20261013-checks-run-ae0703ed68aa Created
+PASS PostgreSQL: account/tests/attempts/keys removed atomically; independent roster and historical log preserved; old key rejected

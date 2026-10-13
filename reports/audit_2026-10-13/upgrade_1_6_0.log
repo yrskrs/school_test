@@ -1,0 +1,12 @@
+ Container schooltest-upgrade160-audit-20261013-postgres-1 Running
+ Container schooltest-upgrade160-audit-20261013-app-1 Running
+ Container schooltest-upgrade160-audit-20261013-postgres-1 Waiting
+ Container schooltest-upgrade160-audit-20261013-postgres-1 Healthy
+ Container schooltest-upgrade160-audit-20261013-app-1 Waiting
+ Container schooltest-upgrade160-audit-20261013-app-1 Healthy
+ Container schooltest-upgrade160-audit-20261013-checks-run-412ba4f3d4bb Creating
+ Container schooltest-upgrade160-audit-20261013-checks-run-412ba4f3d4bb Created
+PASS upgrade: every old column/row/ID, profile, key, roster mapping, answer and result preserved
+PASS upgrade: legacy teacher/student cookies still authorize their original records
+PASS PostgreSQL: competing roster-state writes preserve both metadata updates
+PASS PostgreSQL: create/start/select 10-В, 17 pupils, scoped API and competing login lock

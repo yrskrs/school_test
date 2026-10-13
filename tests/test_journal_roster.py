@@ -1,10 +1,13 @@
 """Real FastAPI/SQLite roster exchange, entirely synthetic and isolated."""
 import hashlib
+import html
 import json
+import re
 import unittest
 import uuid
 import test_flows as fixtures
 from app import models
+from app.routes.teacher import _test_to_dict
 
 
 class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
@@ -24,6 +27,118 @@ class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
 
     async def send(self, data):
         return await fixtures.http('POST', '/api/v2/journal/roster/', data, authorization='Bearer synthetic-roster-key')
+
+    def class_options(self, page):
+        select = re.search(r'<select id="class_name"[^>]*>(.*?)</select>', page, re.S)
+        self.assertIsNotNone(select)
+        return re.findall(r'<option value="([^"]*)"([^>]*)>', html.unescape(select.group(1)))
+
+    async def test_new_imported_class_can_be_created_launched_and_selected(self):
+        self.assertIsNone(self.owner.classes)
+        self.key()
+        data = self.roster_payload()
+        data['class'].update(name='10-В', grade_level=10, letter='В')
+        received = await self.send(data)
+        self.assertEqual(received[0], 200, received[1])
+        pupil_id = json.loads(received[1])['mappings'][0]['local_id']
+
+        page = await fixtures.http('GET', '/teacher/tests/create', cookie=self.teacher_cookie)
+        self.assertEqual(page[0], 200)
+        self.assertIn('10-В', [value for value, _ in self.class_options(page[1])])
+        created = await fixtures.http('POST', '/teacher/tests/create', {
+            'title': 'Новий тест імпортованого класу', 'class_name': '10-В',
+            'questions_json': json.dumps([{'question_type': 'single_choice', 'question_text': '2 + 2?',
+                'options': [{'option_text': '4', 'is_correct': True}, {'option_text': '5'}]}]),
+        }, cookie=self.teacher_cookie, form=True)
+        self.assertEqual(created[0], 303, created[1])
+        self.db.expire_all()
+        test = self.db.query(models.Test).order_by(models.Test.id.desc()).first()
+        edited = await fixtures.http('GET', f'/teacher/tests/{test.id}/edit', cookie=self.teacher_cookie)
+        self.assertIn(('10-В', ' selected'), self.class_options(edited[1]))
+        started = await fixtures.http('POST', f'/teacher/tests/{test.id}/start-session', cookie=self.teacher_cookie)
+        self.assertEqual(started[0], 303, started[1])
+        self.db.expire_all()
+        session = self.db.query(models.TestSession).filter_by(test_id=test.id).one()
+        roster = await fixtures.http('GET', f'/api/session-roster?code={session.access_code}')
+        self.assertEqual(roster[0], 200)
+        self.assertEqual(json.loads(roster[1])['students'], [{'id': pupil_id, 'name': 'Коваленко Ірина'}])
+        login_page = await fixtures.http('GET', f'/student/login?code={session.access_code}')
+        self.assertIn('Коваленко Ірина', login_page[1])
+        login = await fixtures.http('POST', '/student/login', {
+            'access_code': session.access_code, 'roster_student_id': pupil_id,
+        }, form=True)
+        self.assertEqual(login[0], 303, login[1])
+        self.db.expire_all()
+        attempt = self.db.query(models.StudentAttempt).filter_by(session_id=session.id).one()
+        self.assertEqual(attempt.roster_student_id, pupil_id)
+
+    async def test_class_choices_combine_profile_and_own_imports_without_duplicates(self):
+        self.owner.classes = ' 5-А, 7-A, 5-А, '
+        self.db.commit()
+        self.key()
+        self.assertEqual((await self.send(self.roster_payload()))[0], 200)
+        for path in ('/teacher/tests/create', f'/teacher/tests/{self.test.id}/edit'):
+            page = await fixtures.http('GET', path, cookie=self.teacher_cookie)
+            self.assertEqual([value for value, _ in self.class_options(page[1])], ['', '5-А', '7-A'])
+        other = await fixtures.http('GET', '/teacher/tests/create', cookie=self.other_cookie)
+        self.assertNotIn('7-A', [value for value, _ in self.class_options(other[1])])
+
+    async def test_existing_test_without_class_gets_roster_after_class_is_saved(self):
+        self.test.class_name = None
+        self.db.commit()
+        self.key()
+        data = self.roster_payload()
+        data['class'].update(name='10-В', grade_level=10, letter='В')
+        received = await self.send(data)
+        self.assertEqual(received[0], 200, received[1])
+        pupil_id = json.loads(received[1])['mappings'][0]['local_id']
+        roster = json.loads((await fixtures.http('GET', '/api/session-roster?code=CHECK1'))[1])
+        self.assertFalse(roster['available'])
+        self.assertEqual(roster['students'], [])
+
+        page = await fixtures.http('GET', f'/teacher/tests/{self.test.id}/edit', cookie=self.teacher_cookie)
+        self.assertIn('10-В', [value for value, _ in self.class_options(page[1])])
+        saved = await fixtures.http('POST', f'/teacher/tests/{self.test.id}/edit', {
+            'title': self.test.title, 'class_name': '10-В',
+            'questions_json': json.dumps(_test_to_dict(self.test)['questions']),
+        }, cookie=self.teacher_cookie, form=True)
+        self.assertEqual(saved[0], 200, saved[1])
+        roster = json.loads((await fixtures.http('GET', '/api/session-roster?code=CHECK1'))[1])
+        self.assertTrue(roster['available'])
+        self.assertEqual(roster['students'], [{'id': pupil_id, 'name': 'Коваленко Ірина'}])
+        page = await fixtures.http('GET', '/student/login?code=CHECK1')
+        self.assertIn('Коваленко Ірина', page[1])
+        self.db.refresh(self.attempt)
+        self.assertIsNone(self.attempt.roster_student_id)
+
+    async def test_edit_preserves_saved_class_missing_from_profile(self):
+        page = await fixtures.http('GET', f'/teacher/tests/{self.test.id}/edit', cookie=self.teacher_cookie)
+        self.assertIn(('7-A', ' selected'), self.class_options(page[1]))
+
+    async def test_another_teachers_import_does_not_supply_same_named_test(self):
+        self.key(self.other)
+        imported = await self.send(self.roster_payload())
+        self.assertEqual(imported[0], 200)
+        pupil_id = json.loads(imported[1])['mappings'][0]['local_id']
+        roster = json.loads((await fixtures.http('GET', '/api/session-roster?code=CHECK1'))[1])
+        self.assertFalse(roster['available'])
+        self.assertEqual(roster['students'], [])
+        login = await fixtures.http('POST', '/student/login', {
+            'access_code': 'CHECK1', 'roster_student_id': pupil_id,
+        }, form=True)
+        self.assertEqual(login[0], 400)
+
+    async def test_renamed_import_appears_in_forms_and_preserves_old_test_class(self):
+        self.key()
+        data = self.roster_payload()
+        self.assertEqual((await self.send(data))[0], 200)
+        data['class'].update(name='8-Б', grade_level=8, letter='Б')
+        self.assertEqual((await self.send(data))[0], 200)
+        create = await fixtures.http('GET', '/teacher/tests/create', cookie=self.teacher_cookie)
+        self.assertIn('8-Б', [value for value, _ in self.class_options(create[1])])
+        edit = await fixtures.http('GET', f'/teacher/tests/{self.test.id}/edit', cookie=self.teacher_cookie)
+        self.assertIn(('7-A', ' selected'), self.class_options(edit[1]))
+        self.assertIn('8-Б', [value for value, _ in self.class_options(edit[1])])
 
     async def test_copy_repeat_keeps_legacy_login_and_attempt_history(self):
         self.key(); before = self.attempt.id

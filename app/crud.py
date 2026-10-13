@@ -88,8 +88,30 @@ def update_teacher(
 
 def delete_teacher(db: Session, teacher_id: int) -> bool:
     teacher = get_teacher_by_id(db, teacher_id)
-    if not teacher:
+    if not teacher or teacher.username == 'admin':
         return False
+    from sqlalchemy.orm.attributes import flag_modified
+    from app.services.roster_backend import Store
+    store = Store(db)
+    grant_ids = [str(row[0]) for row in db.query(models.GradeExportGrant.id).filter_by(teacher_id=teacher_id)]
+    db.query(models.GradeExportGrant).filter_by(teacher_id=teacher_id).delete(synchronize_session=False)
+    db.query(models.TeacherLog).filter_by(teacher_id=teacher_id).update(
+        {models.TeacherLog.teacher_id: None}, synchronize_session=False,
+    )
+    for test in db.query(models.Test).filter_by(teacher_id=teacher_id).all():
+        db.delete(test)
+    imports = store.meta.get('journal_imports', {})
+    for key in list(imports):
+        if key.startswith(str(teacher_id) + ':'):
+            # Preserve independent native rosters and their provenance without
+            # assigning an old binding to a reused SQLite teacher ID.
+            imports['deleted:' + key] = imports.pop(key)
+    store.meta.get('journal_subjects', {}).pop(str(teacher_id), None)
+    for key in grant_ids:
+        store.meta.get('api_grants_meta', {}).pop(key, None)
+        store.meta.get('journal_api_stats', {}).pop(key, None)
+    store.state.data = store.meta
+    flag_modified(store.state, 'data')
     db.delete(teacher)
     db.commit()
     return True
@@ -134,6 +156,8 @@ def create_test(db: Session, teacher_id: int, data: dict) -> models.Test:
 
 
 def update_test(db: Session, test: models.Test, data: dict) -> models.Test:
+    from app.services.test_edit_service import preserve_assigned_questions
+    preserve_assigned_questions(db, test, data.get('questions', []))
     normalize_attempt_settings(data)
     questions_data = data.pop("questions", [])
 
@@ -197,8 +221,8 @@ def delete_test(db: Session, test: models.Test) -> None:
 # TestSession CRUD
 # ---------------------------------------------------------------------------
 
-def create_session(db: Session, test_id: int, access_code: str) -> models.TestSession:
-    session = models.TestSession(test_id=test_id, access_code=access_code)
+def create_session(db: Session, test_id: int, access_code: str, roster_class_id=None) -> models.TestSession:
+    session = models.TestSession(test_id=test_id, access_code=access_code, roster_class_id=roster_class_id)
     db.add(session)
     db.commit()
     db.refresh(session)

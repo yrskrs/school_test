@@ -86,8 +86,9 @@
           {% endfor %}
         </select>
         {% if not teacher_classes %}
-          <p class="form-hint" style="color: var(--danger); margin-top: 4px;">Будь ласка, спочатку <a href="/teacher/profile" style="text-decoration: underline; color: var(--danger);">вкажіть класи</a> у профілі.</p>
+          <p class="form-hint" style="color: var(--danger); margin-top: 4px;">Додайте клас у <a href="/teacher/roster-sync">локальних списках</a>, вкажіть його в <a href="/teacher/profile">профілі</a> або передайте учнів із журналу.</p>
         {% endif %}
+        <p class="form-hint">Щоб учні обирали себе зі списку, виберіть клас із локального списку або переданий із журналу.</p>
       </div>
       <div class="form-group">
         <label for="time_limit_minutes">Ліміт часу (хвилини)</label>

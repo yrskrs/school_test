@@ -6,6 +6,17 @@ from sqlalchemy import case, func, or_
 from sqlalchemy.orm import joinedload
 
 from app import models
+from app.services.roster_service import teacher_roster_classes
+
+
+def test_class_choices(db, teacher, current_class=None):
+    """Combine profile names, native lists and own journal imports for test forms."""
+    names = [name.strip() for name in (teacher.classes or '').split(',') if name.strip()]
+    names.extend(group.name for group in teacher_roster_classes(db, teacher.id))
+    # Existing tests can predate imports or retain an old class label after a rename.
+    if current_class:
+        names.append(current_class)
+    return list(dict.fromkeys(names))
 
 
 def build_list(db, teacher_id, kind, *, page, per_page, tab, search, class_filter, state):

@@ -171,14 +171,41 @@ def validate_test_for_launch(test: models.Test) -> Optional[str]:
     """Повертає рядок з помилкою або None якщо тест готовий до запуску."""
     if not test.questions:
         return "Тест не має жодного питання"
-    for q in test.questions:
+    try:
+        excluded = json.loads(test.excluded_topics or '[]')
+        if not isinstance(excluded, list) or any(not isinstance(topic, str) for topic in excluded):
+            raise ValueError
+    except (ValueError, TypeError):
+        return 'Некоректний список виключених розділів тесту'
+    questions = [q for q in test.questions if (q.topic or '') not in excluded]
+    if not questions:
+        return 'Усі питання виключено з тесту. Увімкніть хоча б один розділ.'
+    for q in questions:
+        if not (q.question_text or '').strip() and not q.image_url:
+            return 'Питання не має тексту'
         if q.question_type in (
             models.QuestionType.single_choice,
             models.QuestionType.multiple_choice,
             models.QuestionType.true_false,
+            models.QuestionType.image_choice,
         ):
             if not q.options:
                 return f"Питання «{q.question_text[:40]}» не має варіантів відповіді"
             if not any(o.is_correct for o in q.options):
                 return f"Питання «{q.question_text[:40]}» не має правильного варіанту"
+            if q.question_type != models.QuestionType.multiple_choice and sum(bool(o.is_correct) for o in q.options) != 1:
+                return f'Питання «{q.question_text[:40]}» має містити рівно один правильний варіант'
+        elif q.question_type == models.QuestionType.short_text:
+            if not any(o.is_correct and o.option_text.strip() for o in q.options):
+                return f'Питання «{q.question_text[:40]}» не має правильної текстової відповіді'
+        elif q.question_type == models.QuestionType.matching:
+            if not q.options or any(not o.option_text.strip() or not (o.matching_text or '').strip() for o in q.options):
+                return f'Питання «{q.question_text[:40]}» має незаповнені пари відповідностей'
+        elif q.question_type == models.QuestionType.sequence:
+            if len(q.options) < 2:
+                return f'Питання «{q.question_text[:40]}» має містити щонайменше два елементи послідовності'
+        elif q.question_type == models.QuestionType.hotspot:
+            from app.services.result_service import parse_polygon
+            if not any(o.is_correct and len(parse_polygon(o.option_text)) >= 3 for o in q.options):
+                return f'Питання «{q.question_text[:40]}» не має правильної області зображення'
     return None

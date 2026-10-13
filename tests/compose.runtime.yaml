@@ -34,6 +34,8 @@ services:
     command: ["python", "/checks/runtime_postgres_check.py"]
     volumes:
       - ./runtime_postgres_check.py:/checks/runtime_postgres_check.py:ro
+      - ./upgrade_roster_check.py:/checks/upgrade_roster_check.py:ro
+      - ./teacher_delete_check.py:/checks/teacher_delete_check.py:ro
     depends_on:
       app:
         condition: service_healthy

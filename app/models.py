@@ -1,4 +1,5 @@
 import enum
+import secrets
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -69,6 +70,7 @@ class Teacher(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     full_name = Column(String(150), nullable=False)
     hashed_password = Column(String(256), nullable=False)
+    auth_nonce = Column(String(64), nullable=True, default=lambda: secrets.token_urlsafe(32))
     is_active = Column(Boolean, default=True)
     subject = Column(String(100), nullable=True)
     classes = Column(String(255), nullable=True)
@@ -205,6 +207,7 @@ class StudentAttempt(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("test_sessions.id"), nullable=False)
     student_name = Column(String(200), nullable=False)
+    auth_nonce = Column(String(64), nullable=True, default=lambda: secrets.token_urlsafe(32))
     roster_student_id = Column(Integer, ForeignKey('roster_students.id'), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     started_at = Column(DateTime, default=datetime.now)

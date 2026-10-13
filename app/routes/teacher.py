@@ -1,5 +1,6 @@
 import json
 import re
+from urllib.parse import urlencode
 from typing import Optional
 
 from fastapi import (
@@ -39,6 +40,8 @@ from app.services.test_file_service import (
 )
 
 from app.services.logger_service import log_teacher_action, check_and_create_archive
+from app.services.teacher_list_service import test_class_choices
+from app.services.test_edit_service import validate_editor_questions
 
 router = APIRouter(prefix="/teacher")
 
@@ -353,8 +356,9 @@ async def teacher_tests_list(
 async def create_test_page(
     request: Request,
     teacher: models.Teacher = Depends(get_current_teacher),
+    db: Session = Depends(get_db),
 ):
-    teacher_classes = [c.strip() for c in teacher.classes.split(",") if c.strip()] if teacher.classes else []
+    teacher_classes = test_class_choices(db, teacher)
     return templates.TemplateResponse(
         request,
         "create_test.html", {
@@ -368,12 +372,12 @@ async def create_test(
     request: Request,
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
-    title: str = Form(...),
-    subject: str = Form(""),
-    class_name: str = Form(""),
+    title: str = Form(..., min_length=1, max_length=255),
+    subject: str = Form("", max_length=100),
+    class_name: str = Form("", max_length=50),
     description: str = Form(""),
-    time_limit_minutes: Optional[str] = Form(None),
-    time_limit_per_question: Optional[str] = Form(None),
+    time_limit_minutes: Optional[int] = Form(None, ge=1, le=300),
+    time_limit_per_question: Optional[int] = Form(None, ge=1, le=3600),
     shuffle_questions: bool = Form(False),
     shuffle_options: bool = Form(False),
     show_result_after_finish: bool = Form(False),
@@ -385,8 +389,8 @@ async def create_test(
     attempt_limit_mode: Optional[str] = Form(None),
     max_attempts: Optional[int] = Form(None, ge=1, le=2147483647),
     allow_outside_class: bool = Form(False),
-    max_grade: int = Form(12),
-    random_questions_limit: Optional[int] = Form(None),
+    max_grade: int = Form(12, ge=1, le=1000),
+    random_questions_limit: Optional[int] = Form(None, ge=1),
     excluded_topics: Optional[str] = Form("[]"),
     questions_json: str = Form("[]"),
     upload_session_id: Optional[str] = Form(None),
@@ -398,11 +402,13 @@ async def create_test(
         request,
         "create_test.html", {
             "teacher": teacher,
+            "teacher_classes": test_class_choices(db, teacher),
             "error": "Невірний формат питань (JSON)",
         })
 
-    time_limit = int(time_limit_minutes) if time_limit_minutes and time_limit_minutes.strip() else None
-    time_limit_q = int(time_limit_per_question) if time_limit_per_question and time_limit_per_question.strip() else None
+    questions_data = validate_editor_questions(questions_data)
+    time_limit = time_limit_minutes
+    time_limit_q = time_limit_per_question
     attempt_limit = _parse_attempt_limit(attempt_limit_mode, max_attempts, allow_retake)
 
     test_data = {
@@ -448,6 +454,7 @@ async def edit_test_page(
     created: Optional[str] = None,
     imported: Optional[str] = None,
     folder_path: Optional[str] = None,
+    launch_error: Optional[str] = None,
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
@@ -456,7 +463,7 @@ async def edit_test_page(
         raise HTTPException(status_code=404, detail="Тест не знайдено")
 
     test_json = json.dumps(_test_to_dict(test), ensure_ascii=False)
-    teacher_classes = [c.strip() for c in teacher.classes.split(",") if c.strip()] if teacher.classes else []
+    teacher_classes = test_class_choices(db, teacher, test.class_name)
     
     success_msg = None
     if imported == "1" and folder_path:
@@ -472,6 +479,7 @@ async def edit_test_page(
         "test_json": test_json,
         "teacher_classes": teacher_classes,
         "success": success_msg,
+        "error": launch_error,
     })
 
 
@@ -481,12 +489,12 @@ async def edit_test(
     test_id: int,
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
-    title: str = Form(...),
-    subject: str = Form(""),
-    class_name: str = Form(""),
+    title: str = Form(..., min_length=1, max_length=255),
+    subject: str = Form("", max_length=100),
+    class_name: str = Form("", max_length=50),
     description: str = Form(""),
-    time_limit_minutes: Optional[str] = Form(None),
-    time_limit_per_question: Optional[str] = Form(None),
+    time_limit_minutes: Optional[int] = Form(None, ge=1, le=300),
+    time_limit_per_question: Optional[int] = Form(None, ge=1, le=3600),
     shuffle_questions: bool = Form(False),
     shuffle_options: bool = Form(False),
     show_result_after_finish: bool = Form(False),
@@ -498,10 +506,10 @@ async def edit_test(
     attempt_limit_mode: Optional[str] = Form(None),
     max_attempts: Optional[int] = Form(None, ge=1, le=2147483647),
     allow_outside_class: bool = Form(False),
-    max_grade: int = Form(12),
-    random_questions_limit: Optional[int] = Form(None),
+    max_grade: int = Form(12, ge=1, le=1000),
+    random_questions_limit: Optional[int] = Form(None, ge=1),
     excluded_topics: Optional[str] = Form("[]"),
-    questions_json: str = Form("[]"),
+    questions_json: Optional[str] = Form(None),
 ):
     test = crud.get_test_by_id(db, test_id)
     if not test or test.teacher_id != teacher.id:
@@ -510,7 +518,7 @@ async def edit_test(
     old_folder_name = get_test_folder_name(test)
 
     try:
-        questions_data = json.loads(questions_json)
+        questions_data = json.loads(questions_json) if questions_json is not None else _test_to_dict(test)['questions']
     except json.JSONDecodeError:
         if "application/json" in request.headers.get("accept", "") or request.headers.get("x-requested-with") == "XMLHttpRequest":
             raise HTTPException(status_code=400, detail="Невірний формат питань (JSON)")
@@ -521,11 +529,13 @@ async def edit_test(
             "teacher": teacher,
             "test": test,
             "test_json": test_json,
+            "teacher_classes": test_class_choices(db, teacher, test.class_name),
             "error": "Невірний формат питань (JSON)",
         })
 
-    time_limit = int(time_limit_minutes) if time_limit_minutes and time_limit_minutes.strip() else None
-    time_limit_q = int(time_limit_per_question) if time_limit_per_question and time_limit_per_question.strip() else None
+    questions_data = validate_editor_questions(questions_data)
+    time_limit = time_limit_minutes
+    time_limit_q = time_limit_per_question
     attempt_limit = _parse_attempt_limit(attempt_limit_mode, max_attempts, allow_retake)
 
     update_data = {
@@ -778,10 +788,12 @@ async def start_session(
     if not test or test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Тест не знайдено")
 
-    error = test_service.validate_test_for_launch(test)
+    from app.services.roster_service import resolve_roster_class
+    _, roster_error = resolve_roster_class(db, test)
+    error = test_service.validate_test_for_launch(test) or roster_error
     if error:
         return RedirectResponse(
-            url=f"/teacher/tests/{test_id}/edit?launch_error={error}",
+            url=f"/teacher/tests/{test_id}/edit?{urlencode({'launch_error': error})}",
             status_code=303,
         )
 
@@ -877,6 +889,8 @@ async def monitor_session(
         else:
             a.session_attempt_number = None
 
+    from app.routes.integrations import get_session_roster_data
+    roster_data = get_session_roster_data(db, session)
     return templates.TemplateResponse(
         request,
         "monitor_session.html", {
@@ -885,6 +899,7 @@ async def monitor_session(
         "attempts": attempts,
         "violation_counts": violation_counts,
         "test": session.test,
+        "roster_data": roster_data,
     })
 
 
@@ -2216,13 +2231,7 @@ async def delete_teacher_profile(
         return {"status": "error", "message": "Вчителя не знайдено."}
         
     try:
-        # Delete tests manually to avoid foreign key constraints if cascade isn't set up
-        tests = db.query(models.Test).filter(models.Test.teacher_id == target_teacher.id).all()
-        for t in tests:
-            db.delete(t)
-        
-        db.delete(target_teacher)
-        db.commit()
+        crud.delete_teacher(db, target_teacher.id)
         log_teacher_action(db, teacher.username, teacher.full_name, "delete_teacher", f"Видалено профіль вчителя: @{username}", teacher.id)
         return {"status": "ok", "message": f"Вчителя @{username} успішно видалено."}
     except Exception as e:

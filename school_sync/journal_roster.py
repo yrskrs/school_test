@@ -150,6 +150,10 @@ def import_students(engine, store, payload, owner, allowed_classes):
         else:
             candidates = []
             for local_id in engine.native.students(class_id):
+                # This journal has already assigned a different stable UUID to
+                # that pupil. Similar spelling is not a candidate identity.
+                if local_id in claimed and claimed[local_id] != ref:
+                    continue
                 current = engine.native.read('student', local_id)
                 if current and similar(current['name'], desired['name']):
                     candidates.append({'id': local_id, 'name': current['name']})

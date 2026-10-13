@@ -98,6 +98,7 @@
     <!-- 3. Код доступу (прихований якщо вже переданий, або поле для введення) -->
     {% if prefilled_code %}
       <input type="hidden" name="access_code" id="access_code" value="{{ prefilled_code }}">
+      <p class="form-hint"><a href="/student/login?manual=1">Ввести інший код тесту</a></p>
     {% else %}
     <div class="form-group">
       <label for="access_code">Код доступу</label>
@@ -116,7 +117,8 @@
     </div>
     {% endif %}
 
-    <button type="submit" class="btn btn-primary btn-full btn-student" id="btn-submit-login">Увійти на тест</button>
+    <p class="form-hint" id="roster-status" role="status" aria-live="polite" hidden></p>
+    <button type="submit" class="btn btn-primary btn-full btn-student" id="btn-submit-login" {% if roster_error %}disabled{% endif %}>Увійти на тест</button>
   </form>
 
   <div class="auth-divider"></div>
@@ -136,6 +138,8 @@
   const studentNameInput = document.getElementById('student_name');
   const otherCheckbox = document.getElementById('other-student');
   const otherToggle = document.getElementById('other-student-toggle-wrap');
+  const statusMessage = document.getElementById('roster-status');
+  const submitButton = document.getElementById('btn-submit-login');
 
   const sessionInfoCard = document.getElementById('session-info-card');
   const sessionTestTitle = document.getElementById('session-test-title');
@@ -149,8 +153,23 @@
   let hasRoster = {{ 'true' if roster_available else 'false' }};
   let allowOutsideClass = {{ 'true' if allow_outside_class else 'false' }};
   let revision = 0;
+  let loading = false;
+  let rosterError = {{ roster_error | default('') | tojson }};
+  let lastSuccessfulCode = {{ (session.access_code if session else '') | tojson }};
+
+  function showStatus(message) {
+    statusMessage.textContent = message;
+    statusMessage.hidden = !message;
+  }
+
+  function clearSessionInfo() {
+    sessionInfoCard.style.display = 'none';
+    if (defaultSubtitle) defaultSubtitle.style.display = 'block';
+    rosterSelect.replaceChildren(new Option('— Оберіть себе зі списку —', ''));
+  }
 
   function updateViewMode() {
+    submitButton.disabled = loading || Boolean(rosterError) || !codeInput.value.trim();
     otherToggle.style.display = hasRoster && allowOutsideClass ? 'block' : 'none';
     otherCheckbox.disabled = !hasRoster || !allowOutsideClass;
     if (otherCheckbox.disabled) otherCheckbox.checked = false;
@@ -196,17 +215,28 @@
     if (!code) {
       hasRoster = false;
       allowOutsideClass = false;
+      loading = false;
+      rosterError = '';
+      clearSessionInfo();
+      showStatus('');
       updateViewMode();
       return;
     }
 
+    loading = true;
+    showStatus('Завантаження списку учнів…');
+    updateViewMode();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch('/api/session-roster?code=' + encodeURIComponent(code));
+      const response = await fetch('/api/session-roster?code=' + encodeURIComponent(code), {signal: controller.signal, cache: 'no-store'});
       if (current !== revision) return;
       if (!response.ok) {
         hasRoster = false;
         allowOutsideClass = false;
-        updateViewMode();
+        rosterError = response.status === 404 ? 'Невірний код доступу або сесія завершена' : 'Не вдалося отримати список учнів. Повторіть введення коду.';
+        clearSessionInfo();
+        showStatus(rosterError);
         return;
       }
       const data = await response.json();
@@ -246,6 +276,12 @@
 
       hasRoster = Boolean(data.required || data.available || (data.students && data.students.length > 0));
       allowOutsideClass = Boolean(data.allow_outside_class);
+      rosterError = data.error || '';
+      lastSuccessfulCode = code.toUpperCase();
+      if (hasRoster && !data.students.length && !allowOutsideClass && !rosterError) {
+        rosterError = 'У списку класу немає активних учнів. Зверніться до вчителя.';
+      }
+      showStatus(rosterError || (hasRoster ? '' : 'Для цього тесту список учнів не підключений. Якщо ви очікували список, повідомте вчителя.'));
 
       const currentSelected = rosterSelect.value;
       rosterSelect.replaceChildren(new Option('— Оберіть себе зі списку —', ''));
@@ -258,9 +294,21 @@
         rosterSelect.value = currentSelected;
       }
 
-      updateViewMode();
     } catch (e) {
-      console.error(e);
+      if (current !== revision) return;
+      if (lastSuccessfulCode !== code.toUpperCase()) {
+        hasRoster = false;
+        allowOutsideClass = false;
+        clearSessionInfo();
+        rosterError = 'Не вдалося отримати список учнів. Перевірте зв’язок і повторіть введення коду.';
+      }
+      showStatus(rosterError || 'Не вдалося оновити список. Показано останній отриманий список учнів.');
+    } finally {
+      clearTimeout(timeout);
+      if (current === revision) {
+        loading = false;
+        updateViewMode();
+      }
     }
   }
 

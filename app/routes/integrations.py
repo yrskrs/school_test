@@ -179,21 +179,15 @@ def grades(request: Request, db: Session = Depends(get_db)):
 
 
 def get_session_roster_data(db: Session, session: models.TestSession):
-    group_id = session.roster_class_id
-    if not group_id and session.test and session.test.class_name:
-        from school_sync.journal_roster import imported_classes, historical_class_names
-        allowed, meta = operate(lambda engine, store: (imported_classes(store, session.test.teacher_id), store.meta), db)
-        class StoreView:
-            pass
-        store = StoreView(); store.meta = meta
-        candidates = [group for group in db.query(models.RosterClass).filter(models.RosterClass.id.in_(allowed))
-            if session.test.class_name.strip() in historical_class_names(store, session.test.teacher_id, group.id, group.name)]
-        group = candidates[0] if len(candidates) == 1 else None
-        group_id = group.id if group else None
+    from app.services.roster_service import resolve_roster_class
+    group, error = resolve_roster_class(db, session.test, session.roster_class_id)
+    group_id = group.id if group else None
     return {
-        'required': bool(session.roster_class_id),
+        'required': bool(session.roster_class_id or error),
         'allow_outside_class': bool(session.test and session.test.allow_outside_class),
         'available': bool(group_id),
+        'class_id': group_id,
+        'error': error,
         'title': session.test.title if session.test else '',
         'subject': session.display_subject_name or '',
         'class_name': session.display_class_name or '',
@@ -202,7 +196,7 @@ def get_session_roster_data(db: Session, session: models.TestSession):
         'students': [
             {'id': s.id, 'name': s.full_name()}
             for s in db.query(models.RosterStudent).filter_by(class_id=group_id, active=True).order_by(models.RosterStudent.last_name, models.RosterStudent.first_name)
-        ] if group_id else []
+        ] if group_id and not error else []
     }
 
 
