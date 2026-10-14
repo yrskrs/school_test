@@ -1,0 +1,8 @@
+{
+  "passed": [
+    "Class confirmed first; pupil suggestions are limited to its class; search keeps the current selection",
+    "Bulk confirms two exact pairs; explicit creation clears binding and selects received data; ready records are collapsed",
+    "Outside tab explains active/archive results; archive CSV keeps scope; return link and refresh preserve the tab"
+  ],
+  "javascript_errors": []
+}
