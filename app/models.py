@@ -203,6 +203,7 @@ class TestSession(Base):
 
 class StudentAttempt(Base):
     __tablename__ = "student_attempts"
+    outside_student_id = Column(String(36), nullable=True)
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("test_sessions.id"), nullable=False)

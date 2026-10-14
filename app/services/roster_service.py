@@ -19,7 +19,8 @@ def teacher_roster_classes(db, teacher_id, *, active_only=True):
     query = db.query(models.RosterClass).filter(~models.RosterClass.id.in_(imported - own))
     if active_only:
         query = query.filter(models.RosterClass.active.is_(True))
-    return query.order_by(models.RosterClass.grade_level, models.RosterClass.name).all()
+    return [group for group in query.order_by(models.RosterClass.grade_level, models.RosterClass.name).all()
+            if not (group.letter == 'ПК' and group.name.endswith(' (Позакласні)'))]
 
 
 def resolve_roster_class(db, test, explicit_class_id=None):
