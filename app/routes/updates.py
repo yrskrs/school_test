@@ -28,10 +28,10 @@ router = APIRouter(tags=["updates"])
 
 def _verify_admin_access(teacher: models.Teacher):
     """Enforce strict super-administrator access for system update operations."""
-    if not teacher or teacher.username != "admin":
+    if not teacher or not getattr(teacher, 'can_manage_updates', False):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Доступ до керування оновленнями системи дозволено лише адміністратору (admin)."
+            detail="Оновлення доступне адміністратору; якщо облікового запису admin немає — першому вчителю, який налаштував сайт."
         )
 
 
