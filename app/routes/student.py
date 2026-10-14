@@ -169,7 +169,9 @@ async def student_login(
     if existing:
         attempt = existing
     else:
-        attempt = crud.create_attempt(db, session_id=session.id, student_name=student_name, roster_student_id=roster_student_id)
+        from app.services.outside_students import browser_identity
+        outside_id, outside_cookies = browser_identity(request, session.test.teacher_id, student_name) if not roster_student_id else (None, {})
+        attempt = crud.create_attempt(db, session_id=session.id, student_name=student_name, roster_student_id=roster_student_id, outside_student_id=outside_id)
         event_log_service.log_event(db, attempt.id, models.EventType.login, f"name={student_name}")
         try:
             from app.websocket_manager import ws_manager
@@ -183,6 +185,9 @@ async def student_login(
 
     redirect = RedirectResponse(url=f"/student/instruction/{attempt.id}", status_code=303)
     set_student_cookie(redirect, attempt.id)
+    if not roster_student_id and not existing:
+        from app.services.outside_students import remember
+        remember(redirect, outside_cookies)
     return redirect
 
 
@@ -600,7 +605,7 @@ async def retake_test(
         raise HTTPException(403, "Учитель не дозволив проходження поза списком класу")
     if any(a.status not in TERMINAL_STATUSES for a in attempts):
         raise HTTPException(409, "Спочатку завершіть поточну спробу")
-    new_attempt = crud.create_attempt(db, attempt.session_id, attempt.student_name, roster_student_id=attempt.roster_student_id)
+    new_attempt = crud.create_attempt(db, attempt.session_id, attempt.student_name, roster_student_id=attempt.roster_student_id, outside_student_id=attempt.outside_student_id)
     event_log_service.log_event(db, new_attempt.id, models.EventType.login, "Повторне проходження")
     redirect = RedirectResponse(f"/student/instruction/{new_attempt.id}", status_code=303)
     set_student_cookie(redirect, new_attempt.id)

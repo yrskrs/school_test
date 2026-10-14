@@ -10,6 +10,20 @@ from app.services.startup_schema import ensure_legacy_columns
 
 
 class StartupSchema(unittest.TestCase):
+    def test_outside_identity_upgrade_keeps_existing_attempt_and_mark(self):
+        engine = create_engine('sqlite:///:memory:')
+        with engine.begin() as connection:
+            connection.execute(text('CREATE TABLE teachers (id INTEGER PRIMARY KEY)'))
+            connection.execute(text('CREATE TABLE tests (id INTEGER PRIMARY KEY)'))
+            connection.execute(text('CREATE TABLE student_attempts (id INTEGER PRIMARY KEY, student_name VARCHAR(200), score FLOAT)'))
+            connection.execute(text("INSERT INTO student_attempts VALUES (7, 'Synthetic pupil', 9)"))
+        ensure_legacy_columns(engine)
+        ensure_legacy_columns(engine)
+        with engine.connect() as connection:
+            self.assertEqual(tuple(connection.execute(text('SELECT id, student_name, score, outside_student_id FROM student_attempts')).one()),
+                             (7, 'Synthetic pupil', 9, None))
+        engine.dispose()
+
     def test_partial_legacy_schema_and_repeated_startup_preserve_data(self):
         engine = create_engine("sqlite:///:memory:")
         with engine.begin() as connection:

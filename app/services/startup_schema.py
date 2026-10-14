@@ -10,7 +10,7 @@ def ensure_legacy_columns(engine):
         "test_sessions": {"roster_class_id": "INTEGER REFERENCES roster_classes(id)",
             "roster_subject_id": "INTEGER REFERENCES roster_subjects(id)",
             "lesson_date": "VARCHAR(10)", "lesson_number": "INTEGER"},
-        "student_attempts": {"roster_student_id": "INTEGER REFERENCES roster_students(id)", "auth_nonce": "VARCHAR(64)", "updated_at": "TIMESTAMP WITH TIME ZONE" if engine.dialect.name == "postgresql" else "TIMESTAMP"},
+        "student_attempts": {"outside_student_id": "VARCHAR(36)", "roster_student_id": "INTEGER REFERENCES roster_students(id)", "auth_nonce": "VARCHAR(64)", "updated_at": "TIMESTAMP WITH TIME ZONE" if engine.dialect.name == "postgresql" else "TIMESTAMP"},
     }
     for table, definitions in upgrades.items():
         if table in ('test_sessions', 'student_attempts') and not inspect(engine).has_table(table):

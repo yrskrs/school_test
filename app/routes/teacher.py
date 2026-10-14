@@ -1275,6 +1275,7 @@ async def results_list(
     student_name: Optional[str] = None,
     tab: str = "active",
     view_mode: str = "grouped",
+    pupil_scope: str = "all",
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
@@ -1296,6 +1297,12 @@ async def results_list(
     student_names = sorted(list({a.student_name for a in all_attempts if a.student_name}))
 
     attempts = all_attempts
+    from app.services.outside_students import outside_predicate
+    is_outside = outside_predicate(db, teacher.id)
+    if pupil_scope == 'outside':
+        attempts = [a for a in attempts if is_outside(a)]
+    elif pupil_scope == 'roster':
+        attempts = [a for a in attempts if not is_outside(a)]
     if session_id and session_id.isdigit():
         attempts = [a for a in attempts if a.session_id == int(session_id)]
     if class_name:
@@ -1311,7 +1318,8 @@ async def results_list(
     for a in attempts:
         if not a.session or not a.session.test:
             continue
-        key = (a.student_name.strip().lower(), a.session.test_id)
+        identity = ('roster', a.roster_student_id) if a.roster_student_id else ('outside', a.outside_student_id) if a.outside_student_id else ('legacy', a.id)
+        key = (identity, a.session.test_id)
         if key not in groups_dict:
             groups_dict[key] = {
                 "key": f"grp_{len(groups_dict) + 1}",
@@ -1427,6 +1435,7 @@ async def results_list(
         "selected_session_id": int(session_id) if session_id and session_id.isdigit() else None,
         "selected_class_name": class_name,
         "selected_student_name": student_name,
+        "pupil_scope": pupil_scope,
         "page": page,
         "total_pages": total_pages,
         "total_attempts": total_attempts,
@@ -1569,10 +1578,15 @@ async def export_csv(
     session_id: Optional[str] = None,
     class_name: Optional[str] = None,
     student_name: Optional[str] = None,
+    pupil_scope: str = 'all',
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
     all_attempts = crud.get_all_finished_attempts(db, teacher.id)
+    from app.services.outside_students import outside_predicate
+    is_outside = outside_predicate(db, teacher.id)
+    if pupil_scope in ('outside', 'roster'):
+        all_attempts = [a for a in all_attempts if is_outside(a) == (pupil_scope == 'outside')]
     
     attempts = all_attempts
     if session_id and session_id.strip() and session_id.isdigit():

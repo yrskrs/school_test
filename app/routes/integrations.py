@@ -75,6 +75,8 @@ def grade_roster(request: Request, db: Session = Depends(get_db)):
     class_ids.update(row.id for row in db.query(models.RosterClass).filter(models.RosterClass.name.in_(class_names)))
     from school_sync.journal_roster import imported_classes
     class_ids.update(operate(lambda engine, store: imported_classes(store, teacher.id), db))
+    class_ids -= {row.id for row in db.query(models.RosterClass).filter_by(letter='ПК')
+                  if row.name.endswith(' (Позакласні)')}
     subject_ids.update(row.id for row in db.query(models.RosterSubject).filter(models.RosterSubject.name.in_(subject_names)))
     subject_ids.update(operate(lambda engine, store: set(store.meta.get('journal_subjects', {}).get(str(teacher.id), [])), db))
     return {'schema_version': 2, 'source': 'schooltest', 'capabilities': ['journal_roster_import'], 'instance_id': operate(lambda engine, store: engine.origin, db),
@@ -145,7 +147,7 @@ def grades(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(422, 'Забагато результатів у цьому контексті.')
     winners = {}
     for attempt in qs.order_by(models.StudentAttempt.id.desc()).yield_per(500):
-        identity = (attempt.session_id, attempt.roster_student_id) if attempt.roster_student_id else ('unmapped', attempt.id)
+        identity = (attempt.session_id, attempt.roster_student_id or attempt.outside_student_id) if attempt.roster_student_id or attempt.outside_student_id else ('unmapped', attempt.id)
         winners.setdefault(identity, attempt)
     records = []
     for attempt in sorted(winners.values(), key=lambda row: row.id):
@@ -161,9 +163,10 @@ def grades(request: Request, db: Session = Depends(get_db)):
         if updated.tzinfo is None:
             from zoneinfo import ZoneInfo
             updated = updated.replace(tzinfo=ZoneInfo(settings.LEGACY_RESULT_TIMEZONE))
-        record = {'source': 'schooltest', 'id': f'schooltest:session:{attempt.session_id}:student:{attempt.roster_student_id}' if attempt.roster_student_id else f'schooltest:unmapped:{attempt.id}',
+        record = {'source': 'schooltest', 'id': f'schooltest:session:{attempt.session_id}:student:{attempt.roster_student_id}' if attempt.roster_student_id else f'schooltest:session:{attempt.session_id}:outside:{attempt.outside_student_id}' if attempt.outside_student_id else f'schooltest:unmapped:{attempt.id}',
             'student_id': attempt.roster_student_id, 'student_name': attempt.student_name,
-            'student_key': str(attempt.roster_student_id) if attempt.roster_student_id else f'unmapped:{attempt.id}',
+            'student_key': str(attempt.roster_student_id) if attempt.roster_student_id else f'outside:{attempt.outside_student_id}' if attempt.outside_student_id else f'unmapped:{attempt.id}',
+            'outside_student_id': attempt.outside_student_id if not attempt.roster_student_id else None,
             'class_id': class_id, 'subject_id': subject_id,
             'work_id': attempt.session.test_id, 'title': attempt.session.test.title, 'attempt_id': attempt.id,
             'points': attempt.score, 'max_points': attempt.max_score, 'value': _scale_grade(attempt),
@@ -284,8 +287,10 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
     for row in rows:
         row['expected'] = _sign(json.dumps(row, sort_keys=True, ensure_ascii=False))
 
-    all_classes = db.query(models.RosterClass).order_by(models.RosterClass.grade_level, models.RosterClass.name).all()
-    all_students = db.query(models.RosterStudent).order_by(models.RosterStudent.class_id, models.RosterStudent.last_name, models.RosterStudent.first_name).all()
+    from app.services.roster_service import teacher_roster_classes
+    all_classes = teacher_roster_classes(db, teacher.id, active_only=False)
+    all_students = db.query(models.RosterStudent).filter(or_(models.RosterStudent.class_id.in_([c.id for c in all_classes]),
+        models.RosterStudent.class_id.is_(None))).order_by(models.RosterStudent.class_id, models.RosterStudent.last_name, models.RosterStudent.first_name).all()
 
     students_by_class = {c.id: [] for c in all_classes}
     unassigned_students = []
