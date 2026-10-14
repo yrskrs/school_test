@@ -92,6 +92,13 @@ async def http(method, path, data=None, cookie=None, form=False, content_type=No
 class TestVersionAndChangelogParsing(unittest.TestCase):
     """Unit tests for version parsing and multi-version changelog aggregation."""
 
+    def test_published_version_and_release_metadata_match_app(self):
+        from app.version import __version__
+        self.assertEqual((ROOT / 'VERSION').read_text().strip(), __version__)
+        releases = json.loads((ROOT / 'RELEASES.json').read_text())
+        self.assertEqual(releases[0]['version'], __version__)
+        self.assertTrue(releases[0]['changes'])
+
     def test_parse_version_tuple(self):
         self.assertEqual(parse_version_tuple("1.5.6"), (1, 5, 6))
         self.assertEqual(parse_version_tuple("v1.2.0"), (1, 2, 0))
@@ -284,6 +291,16 @@ class TestUpdatesRoutesAndPermissions(unittest.IsolatedAsyncioTestCase):
 
         status_rollback, _, _ = await http("POST", "/teacher/updates/api/rollback", data={}, cookie=self.teacher_cookie, accept="application/json")
         self.assertEqual(status_rollback, 403)
+
+    async def test_installation_owner_can_update_when_named_admin_is_absent(self):
+        self.admin.username = 'installation-owner'
+        self.db.commit()
+        owner_cookie = cookie_for(create_teacher_session, self.admin.id, self.admin.username)
+        status_page, body, _ = await http('GET', '/teacher/updates', cookie=owner_cookie)
+        self.assertEqual(status_page, 200)
+        self.assertIn('href="/teacher/updates"', body)
+        status_other, _, _ = await http('GET', '/teacher/updates', cookie=self.teacher_cookie)
+        self.assertEqual(status_other, 403)
 
     async def test_admin_access_granted(self):
         """Admin teacher must receive HTTP 200 on the updates page and status API."""

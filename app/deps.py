@@ -21,6 +21,20 @@ def get_database() -> Session:
 # Teacher auth dependency
 # ---------------------------------------------------------------------------
 
+def can_manage_updates(db, teacher):
+    """Keep named admin authority; installations without admin use their owner.
+
+    The first account is created during installation. Later teachers never
+    acquire this authority just because another account is inactive.
+    """
+    if not teacher or not teacher.is_active:
+        return False
+    admin = db.query(models.Teacher).filter(models.Teacher.username == 'admin').first()
+    if admin:
+        return teacher.id == admin.id
+    owner = db.query(models.Teacher.id).order_by(models.Teacher.id).first()
+    return bool(owner and teacher.id == owner[0])
+
 def get_current_teacher(
     request: Request,
     db: Session = Depends(get_db),
@@ -41,6 +55,7 @@ def get_current_teacher(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Обліковий запис вчителя не знайдено або деактивовано",
         )
+    teacher.can_manage_updates = can_manage_updates(db, teacher)
     return teacher
 
 
@@ -52,7 +67,10 @@ def get_optional_teacher(
     session_data = get_teacher_session(request)
     if not session_data:
         return None
-    return crud.get_teacher_by_id(db, teacher_id=session_data["id"])
+    teacher = crud.get_teacher_by_id(db, teacher_id=session_data["id"])
+    if teacher:
+        teacher.can_manage_updates = can_manage_updates(db, teacher)
+    return teacher
 
 
 # ---------------------------------------------------------------------------
