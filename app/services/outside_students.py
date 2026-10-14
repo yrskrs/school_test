@@ -35,3 +35,23 @@ def outside_predicate(db, teacher_id):
                      and item.get('remote_class', {}).get('name', '').endswith(' (Позакласні)'))
              for entry in item.get('students', {}).values()}
     return lambda attempt: attempt.roster_student_id is None or (bool(bindings) and attempt.roster_student_id not in known)
+
+
+def outside_summary(db, teacher_id):
+    from app import crud
+    is_outside = outside_predicate(db, teacher_id)
+    groups = {}
+    active, archived = 0, 0
+    for archive in (False, True):
+        for attempt in crud.get_all_finished_attempts(db, teacher_id, is_archived=archive):
+            if not is_outside(attempt):
+                continue
+            if archive:
+                archived += 1
+            else:
+                active += 1
+            identity = ('roster', attempt.roster_student_id) if attempt.roster_student_id else ('outside', attempt.outside_student_id) if attempt.outside_student_id else ('legacy', attempt.id)
+            group = groups.setdefault(identity, {'name': attempt.student_name, 'active': 0, 'archived': 0})
+            group['archived' if archive else 'active'] += 1
+    return {'count': len(groups), 'active': active, 'archived': archived,
+            'students': sorted(groups.values(), key=lambda item: item['name'])[:20]}

@@ -16,6 +16,8 @@ from app.database import get_db
 from app.deps import get_current_teacher
 from app.security import _sign, _verify_sign, get_teacher_session
 from app.services.roster_backend import operate
+from app.services.roster_review import prepare_review
+from app.services.roster_service import teacher_roster_classes
 from app.templating import templates, _scale_grade
 from school_sync.core import SyncError
 
@@ -235,22 +237,66 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
                     pass
             def change(engine, store):
                 nonlocal last_class_id
+                engine.capture()
+                allowed = teacher_roster_classes(db, teacher.id, active_only=False)
+                allowed_ids = {group.id for group in allowed}
+                def check_record(record):
+                    if not record or record['kind'] == 'alias':
+                        raise SyncError('Запис недоступний для рішення.')
+                    parent = record if record['kind'] == 'class' else store.get(engine.canonical(record['payload']['class_ref']))
+                    if parent and parent.get('native_id') is not None and parent['native_id'] not in allowed_ids:
+                        raise SyncError('Клас недоступний цьому вчителю.')
                 if action == 'share':
+                    if int(data['class_id']) not in allowed_ids:
+                        raise SyncError('Клас недоступний цьому вчителю.')
                     engine.share('class', int(data['class_id']))
                     last_class_id = int(data['class_id'])
                 elif action == 'resolve':
                     expected = _verify_sign(str(data.get('expected', '')))
                     if expected is None:
                         raise SyncError('Недійсна версія форми. Оновіть сторінку.')
+                    check_record(store.get(data['ref']))
+                    if data.get('native_id'):
+                        kind = store.get(data['ref'])['kind']
+                        target = engine.native.read(kind, int(data['native_id']))
+                        target_class = int(data['native_id']) if kind == 'class' else target.get('native_class_id') if target else None
+                        if target_class not in allowed_ids:
+                            raise SyncError('Вибраний запис недоступний цьому вчителю.')
+                        from school_sync.journal_roster import signature
+                        versions = _verify_sign(str(data.get('native_versions', '')))
+                        if versions is None:
+                            raise SyncError('Недійсна версія списку відповідностей. Оновіть сторінку.')
+                        if json.loads(versions).get(str(data['native_id'])) != signature(target):
+                            raise SyncError('Вибраний запис змінився після перегляду. Оновіть сторінку.')
                     choice = data.get('choice', 'local')
                     engine.resolve(data['ref'], 'local' if choice == 'local' else int(choice),
                         int(data['native_id']) if data.get('native_id') else None,
                         data.get('create') == '1', json.loads(expected))
+                elif action == 'resolve_matches':
+                    signed = _verify_sign(str(data.get('matches', '')))
+                    if signed is None:
+                        raise SyncError('Недійсна версія підбору. Оновіть сторінку.')
+                    matches = json.loads(signed)
+                    if not isinstance(matches, list) or not matches or len(matches) > 5000:
+                        raise SyncError('Немає доступних відповідностей для підтвердження.')
+                    pupils = db.query(models.RosterStudent).filter(models.RosterStudent.class_id.in_(allowed_ids)).all()
+                    _, current_batches = prepare_review(engine, store.all(), allowed, pupils)
+                    eligible = {(match['ref'], match['native_id']) for batch in current_batches.values() for match in batch}
+                    for match in matches:
+                        record = store.get(match['ref'])
+                        check_record(record)
+                        if ((match['ref'], match['native_id']) not in eligible or record != match['expected']
+                                or engine.payload('student', match['native_id']) != match['native_expected']):
+                            raise SyncError('Список змінився після підбору. Оновіть сторінку й перевірте відповідності.')
+                    for match in matches:
+                        engine.resolve(match['ref'], 'local', match['native_id'], expected=match['expected'])
                 elif action == 'class':
                     name = str(data.get('name', '')).strip()
                     grade = int(data.get('grade', '1'))
                     if not name or len(name) > 50 or not 1 <= grade <= 12:
                         raise SyncError('Потрібні назва класу до 50 символів і номер 1–12.')
+                    if data.get('id') and int(data['id']) not in allowed_ids:
+                        raise SyncError('Клас недоступний цьому вчителю.')
                     row = db.get(models.RosterClass, int(data['id'])) if data.get('id') else models.RosterClass()
                     row.name, row.grade_level, row.letter = name, grade, str(data.get('letter', '')).strip()[:10]
                     row.active = data.get('active') == '1'
@@ -260,9 +306,11 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
                 elif action == 'student':
                     cls = db.get(models.RosterClass, int(data['class_id']))
                     first, last, middle = [str(data.get(k, '')).strip() for k in ('first', 'last', 'middle')]
-                    if not cls or not first or not last or any(len(v) > 100 for v in (first, last, middle)):
+                    if not cls or cls.id not in allowed_ids or not first or not last or any(len(v) > 100 for v in (first, last, middle)):
                         raise SyncError('Оберіть клас, введіть прізвище та ім’я до 100 символів.')
                     row = db.get(models.RosterStudent, int(data['id'])) if data.get('id') else models.RosterStudent()
+                    if row is None or (row.id is not None and row.class_id is not None and row.class_id not in allowed_ids):
+                        raise SyncError('Учень недоступний цьому вчителю.')
                     row.class_id, row.first_name, row.last_name, row.middle_name = cls.id, first, last, middle
                     row.active = data.get('active') == '1'
                     db.add(row)
@@ -280,17 +328,35 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
                 success_msg = 'Клас приєднано до обміну.'
             elif action == 'resolve':
                 success_msg = 'Рішення синхронізації успішно застосовано.'
+            elif action == 'resolve_matches':
+                success_msg = 'Знайдені відповідності підтверджено. Подальші зміни передаватимуться за сталими ID.'
         except Exception as exc:
             db.rollback()
             error = str(exc) if isinstance(exc, (SyncError, ValueError, KeyError)) else 'Не вдалося зберегти. Перевірте дані та унікальність назви класу.'
-    rows, meta = operate(lambda engine, store: (engine.capture() or store.all(), store.meta), db)
-    for row in rows:
-        row['expected'] = _sign(json.dumps(row, sort_keys=True, ensure_ascii=False))
-
-    from app.services.roster_service import teacher_roster_classes
-    all_classes = teacher_roster_classes(db, teacher.id, active_only=False)
-    all_students = db.query(models.RosterStudent).filter(or_(models.RosterStudent.class_id.in_([c.id for c in all_classes]),
-        models.RosterStudent.class_id.is_(None))).order_by(models.RosterStudent.class_id, models.RosterStudent.last_name, models.RosterStudent.first_name).all()
+    def review(engine, store):
+        engine.capture()
+        all_classes = teacher_roster_classes(db, teacher.id, active_only=False)
+        all_students = db.query(models.RosterStudent).filter(or_(models.RosterStudent.class_id.in_([c.id for c in all_classes]),
+            models.RosterStudent.class_id.is_(None))).order_by(models.RosterStudent.class_id, models.RosterStudent.last_name, models.RosterStudent.first_name).all()
+        reviews, batches = prepare_review(engine, store.all(), all_classes, all_students)
+        return reviews, batches, store.meta, all_classes, all_students
+    reviews, batches, meta, all_classes, all_students = operate(review, db)
+    review_groups = {}
+    for item in reviews:
+        record = item['record']
+        # Sign the engine record before adding presentation-only fields.
+        record['expected'] = _sign(json.dumps(record, sort_keys=True, ensure_ascii=False))
+        item['native_versions'] = _sign(json.dumps(item['native_versions'], sort_keys=True))
+        if record['status'] != 'ready':
+            key = item['class_id'] if record['kind'] == 'student' else 'classes'
+            name = 'Класи' if key == 'classes' else item['class_name'] or 'Спочатку прив’яжіть клас'
+            group = review_groups.setdefault(key, {'name': name, 'items': []})
+            group['items'].append(item)
+    for key, matches in batches.items():
+        review_groups[key]['matches'] = _sign(json.dumps(matches, sort_keys=True, ensure_ascii=False))
+        review_groups[key]['match_count'] = len(matches)
+    review_groups = dict(sorted(review_groups.items(), key=lambda pair: (pair[0] != 'classes', pair[1]['name'])))
+    rows = [item['record'] for item in reviews]
 
     students_by_class = {c.id: [] for c in all_classes}
     unassigned_students = []
@@ -301,6 +367,7 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
             unassigned_students.append(s)
 
     unresolved_count = sum(1 for r in rows if r.get('status') != 'ready')
+    from app.services.outside_students import outside_summary
 
     return templates.TemplateResponse(request, 'roster_sync.html', {
         'teacher': teacher,
@@ -314,6 +381,8 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
         'students_by_class': students_by_class,
         'unassigned_students': unassigned_students,
         'unresolved_count': unresolved_count,
+        'review_groups': review_groups,
+        'outside_summary': outside_summary(db, teacher.id),
         'last_action': last_action,
         'last_class_id': last_class_id,
     })

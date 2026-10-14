@@ -3,7 +3,6 @@
 {% block body_class %}teacher-list-page{% endblock %}
 
 {% block content %}
-<p><a class="btn btn-primary" href="/teacher/results?pupil_scope=outside">Окремі учні та їхні результати</a></p>
 <div class="roster-page-wrapper">
   <!-- Заголовок сторінки та зведена статистика -->
   <div class="page-header list-page-header roster-page-header">
@@ -96,6 +95,9 @@
       {% else %}
       <span class="tab-count">{{ rows | length }}</span>
       {% endif %}
+    </button>
+    <button type="button" class="list-tab roster-tab-btn" id="tab-btn-outside" onclick="switchRosterTab('outside')">
+      Окремі учні <span class="tab-count">{{ outside_summary.count }}</span>
     </button>
   </nav>
 
@@ -586,7 +588,7 @@
       <h3 style="font-size: 1.05rem; margin: 0 0 0.5rem 0;">Як працює синхронізація списків</h3>
       <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin: 0 0 0.75rem 0;">
         Це постійна локальна копія. Вхід учнів працює зі збереженим списком навіть без підключення до інших сайтів.
-        Класи приєднує вчитель; ID учнів зіставляються явно, ПІБ не об’єднує записи автоматично.
+        Спочатку підтвердьте клас. Система знаходить відповідності ПІБ лише серед його учнів. Перевірте підбір і підтвердьте; надалі обмін працює автоматично за сталими ID.
         Після відновлення зв’язку обмін повторюється у фоні. Оцінки передаються лише за явною дією в журналі.
       </p>
       {% for id, peer in meta.get('peers', {}).items() %}
@@ -606,93 +608,99 @@
     <!-- Стан обміну та конфлікти -->
     <div class="card" style="padding: 1.15rem;">
       <h3 style="font-size: 1.05rem; margin: 0 0 0.35rem 0;">Стан обміну та рішення</h3>
-      <p style="font-size: 0.88rem; color: var(--text-muted); margin: 0 0 1rem 0;">
-        <strong>ready</strong> — узгоджена локальна версія;
-        <strong>unmapped</strong> — потрібне зіставлення ID;
-        <strong>conflict</strong> — зміни потребують ручного вибору.
-      </p>
-
-      {% if rows %}
-        {% for row in rows %}
-        {% if row.kind != 'alias' %}
-        <div class="roster-sync-item">
-          <div class="roster-sync-item-header">
-            <div>
-              <strong style="font-size: 1rem; color: var(--text);">{{ row.payload.name }}</strong>
-              <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">{{ row.ref }}</span>
-            </div>
-            <div>
-              {% if row.status == 'ready' %}
-              <span class="badge badge-status--finished">ready (узгоджено)</span>
-              {% elif row.status == 'unmapped' %}
-              <span class="badge badge-status--timeout">unmapped (потрібне зіставлення)</span>
-              {% else %}
-              <span class="badge badge-status--abandoned">{{ row.status }}</span>
-              {% endif %}
-            </div>
-          </div>
-
-          {% if row.message %}
-          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.25rem 0 0.5rem 0;">{{ row.message }}</p>
-          {% endif %}
-
-          {% if row.status != 'ready' %}
-          <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
-            <form method="post" action="/teacher/roster-sync">
-              <input type="hidden" name="csrf" value="{{ csrf }}">
-              <input type="hidden" name="action" value="resolve">
-              <input type="hidden" name="ref" value="{{ row.ref }}">
-              <input type="hidden" name="expected" value="{{ row.expected }}">
-
-              <div class="roster-edit-form-grid">
-                <div class="roster-edit-field" style="flex: 2 1 220px;">
-                  <label>Рішення версії</label>
-                  <select name="choice">
-                    <option value="local">Зберегти локальні дані вибраного ID</option>
-                    {% for p in row.pending %}
-                    <option value="{{ loop.index0 }}">Отримана версія {{ loop.index }}: {{ p.payload.name }} · {{ p.payload }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="roster-edit-field" style="flex: 2 1 220px;">
-                  <label>Прив'язка ID</label>
-                  <select name="native_id">
-                    <option value="">Поточна прив’язка / новий запис</option>
-                    {% if row.kind == 'class' %}
-                      {% for c in classes %}
-                      <option value="{{ c.id }}">{{ c.name }} · ID {{ c.id }}</option>
-                      {% endfor %}
-                    {% else %}
-                      {% for s in students %}
-                      <option value="{{ s.id }}">{{ s.full_name() }} · клас {{ s.class_id }} · ID {{ s.id }}</option>
-                      {% endfor %}
-                    {% endif %}
-                  </select>
-                </div>
-                {% if row.native_id == none %}
-                <div class="roster-edit-field" style="flex: 0 1 auto; justify-content: flex-end; padding-bottom: 0.35rem;">
-                  <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.85rem;">
-                    <input type="checkbox" name="create" value="1">
-                    <span>Створити новий запис</span>
-                  </label>
-                </div>
-                {% endif %}
-                <div class="roster-edit-buttons">
-                  <button type="submit" class="btn btn-sm btn-secondary">Застосувати рішення</button>
-                </div>
-              </div>
-            </form>
-          </div>
-          {% endif %}
-        </div>
+      <p class="form-hint">Узгоджено: {{ rows | length - unresolved_count }}. Потребують перевірки: {{ unresolved_count }}. Спочатку зіставте клас, потім підтвердьте його учнів. Тезки залишаються окремими записами.</p>
+      {% for key, group in review_groups.items() %}
+      <section class="roster-review-group" aria-label="{{ group.name }}">
+        <h4>{{ group.name }} · {{ group['items'] | length }} для перевірки</h4>
+        {% if group.match_count %}
+        <form method="post" action="/teacher/roster-sync#tab-sync" class="roster-match-batch">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <input type="hidden" name="action" value="resolve_matches">
+          <input type="hidden" name="matches" value="{{ group.matches }}">
+          <p>Знайдено {{ group.match_count }} однозначних збігів ПІБ. Перевірте пари нижче: підтвердження збереже локальні імена та всі наявні результати.</p>
+          <button type="submit" class="btn btn-primary btn-sm">Підтвердити точні збіги ({{ group.match_count }})</button>
+        </form>
         {% endif %}
-        {% endfor %}
-      {% else %}
-        <div class="roster-empty-state">
-          <p>Немає записів синхронізації або очікуваних рішень.</p>
+        {% for item in group['items'] %}
+        {% set row = item.record %}
+        <div class="roster-sync-item" data-sync-ref="{{ row.ref }}">
+          <div class="roster-sync-item-header">
+            <strong>{{ row.payload.name }}</strong>
+            <span class="badge {% if row.status == 'unmapped' %}badge-status--timeout{% else %}badge-status--abandoned{% endif %}">{% if row.status == 'unmapped' %}Потрібна прив’язка{% else %}Перевірте зміни{% endif %}</span>
+          </div>
+          {% if item.blocked %}
+          <p class="form-hint">Спочатку підтвердьте відповідний клас у розділі «Класи» вище. Після цього з’явиться підбір учнів.</p>
+          {% else %}
+          {% if item.suggested_id %}
+          <p class="roster-match-preview">{{ row.payload.name }} → {% for candidate in item.candidates %}{% if candidate.id == item.suggested_id %}<strong>{{ candidate.name }}</strong>{% endif %}{% endfor %}
+            <span class="form-hint">{% if item.exact %}Збіг ПІБ{% else %}Схоже ім’я — перевірте уважно{% endif %}</span>
+          </p>
+          {% elif row.native_id == none %}
+          <p class="form-hint">Однозначної відповідності немає. Оберіть учня цього класу або підтвердьте створення нового запису.</p>
+          {% endif %}
+          <form method="post" action="/teacher/roster-sync#tab-sync" class="roster-resolution-form">
+            <input type="hidden" name="csrf" value="{{ csrf }}">
+            <input type="hidden" name="action" value="resolve">
+            <input type="hidden" name="ref" value="{{ row.ref }}">
+            <input type="hidden" name="expected" value="{{ row.expected }}">
+            <input type="hidden" name="native_versions" value="{{ item.native_versions }}">
+            <div class="roster-edit-form-grid">
+              <div class="roster-edit-field">
+                <label for="choice-{{ row.ref }}">Які дані зберегти</label>
+                <select name="choice" id="choice-{{ row.ref }}">
+                  <option value="local" {% if row.native_id == none and not item.suggested_id %}disabled{% endif %}>Локальні дані вибраного учня / класу</option>
+                  {% for proposal in row.pending %}
+                  <option value="{{ loop.index0 }}" {% if row.native_id == none and not item.suggested_id and loop.first %}selected{% endif %}>Отримані: {{ proposal.payload.name }} · {% if proposal.payload.active %}активний{% else %}неактивний{% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="roster-edit-field">
+                <label for="native-{{ row.ref }}">{% if row.kind == 'class' %}Локальний клас{% else %}Учень класу {{ item.class_name }}{% endif %}</label>
+                <input type="search" class="roster-candidate-search" placeholder="Знайти у цьому списку…" aria-label="Пошук відповідності">
+                <select name="native_id" id="native-{{ row.ref }}">
+                  <option value="">{% if row.native_id != none %}Зберегти поточну прив’язку{% else %}Оберіть відповідність або створіть запис{% endif %}</option>
+                  {% for candidate in item.candidates %}
+                  <option value="{{ candidate.id }}" {% if row.native_id == none and candidate.id == item.suggested_id %}selected{% endif %}>{{ candidate.name }}{% if candidate.exact %} · збіг ПІБ{% elif candidate.match %} · схоже ім’я{% endif %}{% if not candidate.active %} · неактивний{% endif %} · ID {{ candidate.id }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              {% if row.native_id == none %}
+              <label class="roster-create-choice"><input type="checkbox" name="create" value="1"> Створити {% if row.kind == 'class' %}новий клас{% else %}нового учня{% endif %}</label>
+              {% endif %}
+              <div class="roster-edit-buttons"><button type="submit" class="btn btn-primary btn-sm">{% if row.native_id == none %}Підтвердити прив’язку{% else %}Зберегти рішення{% endif %}</button></div>
+            </div>
+          </form>
+          {% endif %}
+          <details class="roster-sync-details"><summary>Деталі обміну</summary><p class="form-hint">ID обміну: {{ row.ref }}</p>{% if row.message %}<p class="form-hint">{{ row.message }}</p>{% endif %}</details>
         </div>
+        {% endfor %}
+      </section>
+      {% else %}
+      <div class="roster-empty-state"><h4>Списки узгоджено</h4><p>Немає рішень для перевірки. Зміни вже прив’язаних учнів передаватимуться автоматично; одночасні зміни з’являться тут.</p></div>
+      {% endfor %}
+      {% if rows | length > unresolved_count %}
+      <details class="roster-sync-details"><summary>Узгоджені записи ({{ rows | length - unresolved_count }})</summary>
+        {% for row in rows if row.status == 'ready' %}<p>{{ row.payload.name }} · ID {{ row.native_id }}</p>{% endfor %}
+      </details>
       {% endif %}
     </div>
+  </div>
+  <div id="tab-pane-outside" class="roster-tab-pane" style="display: none;">
+    <section class="card" style="padding: 1.15rem;">
+      <h3>Окремі учні та їхні результати</h3>
+      <p>Тут учні, які проходили тести з ручним введенням імені, та учні, яких немає у переданому списку журналу. Їхні результати збережені окремо. Цей розділ не створює навчальний клас і не прив’язує учнів за іменем.</p>
+      <p>Учнів: <strong>{{ outside_summary.count }}</strong> · Активних спроб: <strong>{{ outside_summary.active }}</strong> · В архіві: <strong>{{ outside_summary.archived }}</strong></p>
+      <div class="roster-outside-actions">
+        <a class="btn btn-primary" href="/teacher/results?pupil_scope=outside">Переглянути результати ({{ outside_summary.active }})</a>
+        <a class="btn btn-secondary" href="/teacher/results?pupil_scope=outside&tab=archive">Архів ({{ outside_summary.archived }})</a>
+      </div>
+      {% if outside_summary.students %}
+      <div class="table-wrapper"><table class="data-table"><thead><tr><th>Учень</th><th>Активні спроби</th><th>В архіві</th></tr></thead><tbody>
+      {% for pupil in outside_summary.students %}<tr><td>{{ pupil.name }}</td><td>{{ pupil.active }}</td><td>{{ pupil.archived }}</td></tr>{% endfor %}
+      </tbody></table></div>
+      {% if outside_summary.count > 20 %}<p class="form-hint">Показано перші 20 записів. Повний список і пошук доступні в результатах.</p>{% endif %}
+      {% else %}<p class="roster-empty-state">Окремих учнів із завершеними результатами поки немає. Після проходження тесту поза списком їх буде видно тут.</p>{% endif %}
+    </section>
   </div>
 </div>
 {% endblock %}
@@ -706,13 +714,16 @@
 
   // Перемикання вкладок
   window.switchRosterTab = function(tabName) {
-    const tabs = ['students', 'classes', 'sync'];
+    const tabs = ['students', 'classes', 'sync', 'outside'];
     tabs.forEach(t => {
       const btn = document.getElementById('tab-btn-' + t);
       const pane = document.getElementById('tab-pane-' + t);
       if (btn && pane) {
         const isActive = (t === tabName);
         btn.classList.toggle('is-active', isActive);
+        btn.setAttribute('aria-selected', String(isActive));
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-controls', 'tab-pane-' + t);
         pane.style.display = isActive ? 'block' : 'none';
       }
     });
@@ -893,25 +904,51 @@
     // 1. Пріоритет: остання дія від сервера після POST
     if (serverLastAction === 'class' || serverLastAction === 'share') {
       initialTab = 'classes';
-    } else if (serverLastAction === 'resolve') {
+    } else if (['resolve', 'resolve_matches'].includes(serverLastAction)) {
       initialTab = 'sync';
     } else if (serverLastAction === 'student') {
       initialTab = 'students';
     } else if (window.location.hash && window.location.hash.startsWith('#tab-')) {
       const hashTab = window.location.hash.replace('#tab-', '');
-      if (['students', 'classes', 'sync'].includes(hashTab)) {
+      if (['students', 'classes', 'sync', 'outside'].includes(hashTab)) {
         initialTab = hashTab;
       }
     } else {
       try {
         const saved = localStorage.getItem('roster_active_tab');
-        if (saved && ['students', 'classes', 'sync'].includes(saved)) {
+        if (saved && ['students', 'classes', 'sync', 'outside'].includes(saved)) {
           initialTab = saved;
         }
       } catch(e) {}
     }
 
     switchRosterTab(initialTab);
+    document.querySelectorAll('.roster-resolution-form').forEach(form => {
+      const select = form.querySelector('[name=native_id]');
+      const search = form.querySelector('.roster-candidate-search');
+      const create = form.querySelector('[name=create]');
+      const choice = form.querySelector('[name=choice]');
+      const options = [...select.options].map(option => ({value: option.value, label: option.textContent}));
+      search.addEventListener('input', () => {
+        const current = select.value;
+        const query = search.value.trim().toLocaleLowerCase('uk');
+        select.replaceChildren(...options.filter(option => !option.value || option.value === current || option.label.toLocaleLowerCase('uk').includes(query)).map(option => new Option(option.label, option.value, false, option.value === current)));
+      });
+      if (create) {
+        const updateChoice = () => {
+          choice.options[0].disabled = create.checked || !select.value;
+          if (choice.options[0].disabled && choice.value === 'local') choice.value = choice.options[1]?.value || '';
+        };
+        create.addEventListener('change', () => {
+          if (create.checked) select.value = '';
+          select.disabled = create.checked;
+          search.disabled = create.checked;
+          updateChoice();
+        });
+        select.addEventListener('change', updateChoice);
+        updateChoice();
+      }
+    });
 
     // Якщо остання дія стосувалася конкретного класу, розгортаємо його
     if (serverLastClassId) {

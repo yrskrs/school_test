@@ -165,7 +165,7 @@ def export_results_to_csv(attempts: list[models.StudentAttempt]) -> str:
         class_name = ""
         if attempt.session and attempt.session.test:
             test_title = attempt.session.test.title
-            class_name = attempt.session.test.class_name or ""
+            class_name = attempt.session.display_class_name or ""
 
         score = attempt.score if attempt.score is not None else 0
         max_score = attempt.max_score if attempt.max_score is not None else 0

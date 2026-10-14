@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>Результати тестування</h1>
+    <h1>{% if pupil_scope == 'outside' %}Результати окремих учнів{% else %}Результати тестування{% endif %}</h1>
     <p class="page-subtitle" style="color: var(--text-muted); margin-top: 0.25rem; font-size: 0.95rem;">
       {% if view_mode == 'grouped' %}
         Згрупований перегляд результатів учнів за тестами
@@ -18,7 +18,7 @@
       <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path stroke-linecap="round" stroke-linejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
       Шкільний журнал
     </a>
-    <a href="/teacher/results/export?session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}"
+    <a href="/teacher/results/export?session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}&tab={{ tab }}"
        class="btn btn-secondary">
       ⬇ Завантажити CSV
     </a>
@@ -28,20 +28,20 @@
 <!-- Tabs & View Mode Switcher -->
 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
   <div class="tabs-container" style="display: flex; gap: 0.5rem; margin: 0;">
-    <a href="/teacher/results?tab=active&view_mode={{ view_mode }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn {% if tab != 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні результати</a>
-    <a href="/teacher/results?tab=archive&view_mode={{ view_mode }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
+    <a href="/teacher/results?tab=active&view_mode={{ view_mode }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn {% if tab != 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">Активні результати</a>
+    <a href="/teacher/results?tab=archive&view_mode={{ view_mode }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn {% if tab == 'archive' %}btn-primary{% else %}btn-secondary{% endif %}" style="border-radius: var(--radius-sm);">🗃 Архів</a>
   </div>
 
   <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
     <!-- Перемикач: Згруповано / Всі спроби -->
     <div style="display: inline-flex; background: rgba(125, 125, 125, 0.1); border: 1px solid var(--border-light); border-radius: 8px; padding: 3px; gap: 3px;">
-      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}"
+      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}"
          class="btn btn-sm {% if view_mode == 'grouped' %}btn-primary{% else %}btn-secondary{% endif %}" 
          style="border: none; margin: 0; font-size: 0.85rem; padding: 0.4rem 0.85rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem;"
          title="Групувати проходження одного учня для компактного та зручного перегляду">
         👥 Згруповано ({{ total_groups }})
       </a>
-      <a href="/teacher/results?tab={{ tab }}&view_mode=all&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}"
+      <a href="/teacher/results?tab={{ tab }}&view_mode=all&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}"
          class="btn btn-sm {% if view_mode == 'all' %}btn-primary{% else %}btn-secondary{% endif %}" 
          style="border: none; margin: 0; font-size: 0.85rem; padding: 0.4rem 0.85rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.35rem;"
          title="Показати кожну спробу окремим рядком списку">
@@ -83,6 +83,12 @@
 </details>
 {% endif %}
 
+{% if pupil_scope == 'outside' %}
+<div class="card" style="padding: 1rem; margin-bottom: 1rem;">
+  <p>Показано завершені спроби з ручним введенням імені та результати учнів поза переданим списком журналу. Тезки з різними ID відображаються окремо. Оберіть «Архів», щоб побачити архівні спроби.</p>
+  <a href="/teacher/roster-sync#tab-outside">← До окремих учнів</a> · <a href="/teacher/results">Усі результати</a>
+</div>
+{% endif %}
 <!-- Filter -->
 <div class="card filter-card">
   <form method="get" action="/teacher/results" class="filter-form">
@@ -133,7 +139,7 @@
         </datalist>
         <button type="submit" class="btn btn-primary" style="padding: 0 1.2rem; height: 38px;">Шукати</button>
         {% if selected_session_id or selected_class_name or selected_student_name %}
-        <a href="/teacher/results?tab={{ tab }}&view_mode={{ view_mode }}" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; height: 38px; padding: 0 1rem;" title="Скинути фільтри">
+        <a href="/teacher/results?tab={{ tab }}&view_mode={{ view_mode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; height: 38px; padding: 0 1rem;" title="Скинути фільтри">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
         </a>
         {% endif %}
@@ -385,7 +391,7 @@
   {% if total_pages > 1 %}
   <div class="pagination-container" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
     {% if page > 1 %}
-      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
+      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
     {% else %}
       <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">« Назад</button>
     {% endif %}
@@ -395,13 +401,13 @@
         {% if p == page %}
           <span class="btn btn-primary btn-sm" style="padding: 0.4rem 0.8rem; pointer-events: none; font-weight: 600; background: var(--primary);">{{ p }}</span>
         {% else %}
-          <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
+          <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
         {% endif %}
       {% endfor %}
     </div>
 
     {% if page < total_pages %}
-      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
+      <a href="/teacher/results?tab={{ tab }}&view_mode=grouped&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
     {% else %}
       <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">Далі »</button>
     {% endif %}
@@ -423,9 +429,15 @@
       <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
       <line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
+    {% if pupil_scope == 'outside' %}
+    <h3>Результатів окремих учнів у цьому перегляді немає</h3>
+    <p>Перевірте фільтри й вкладку {% if tab == 'archive' %}«Активні результати»{% else %}«Архів»{% endif %}. Після завершення тесту поза списком результат з’явиться тут.</p>
+    <a href="/teacher/roster-sync#tab-outside" class="btn btn-secondary">До окремих учнів</a>
+    {% else %}
     <h3>Результатів ще немає</h3>
     <p>Запустіть тестову сесію та зачекайте, поки учні пройдуть тест</p>
     <a href="/teacher/sessions" class="btn btn-primary">До сесій</a>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -508,7 +520,7 @@
   {% if total_pages > 1 %}
   <div class="pagination-container" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
     {% if page > 1 %}
-      <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
+      <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ page - 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">« Назад</a>
     {% else %}
       <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">« Назад</button>
     {% endif %}
@@ -518,13 +530,13 @@
         {% if p == page %}
           <span class="btn btn-primary btn-sm" style="padding: 0.4rem 0.8rem; pointer-events: none; font-weight: 600; background: var(--primary);">{{ p }}</span>
         {% else %}
-          <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
+          <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ p }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">{{ p }}</a>
         {% endif %}
       {% endfor %}
     </div>
 
     {% if page < total_pages %}
-      <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ selected_class_name or '' }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
+      <a href="/teacher/results?tab={{ tab }}&view_mode=all&page={{ page + 1 }}&session_id={{ selected_session_id or '' }}&class_name={{ (selected_class_name or '') | urlencode }}&student_name={{ (selected_student_name or '') | urlencode }}&pupil_scope={{ pupil_scope }}" class="btn btn-secondary btn-sm" style="padding: 0.4rem 0.8rem; font-weight: 500;">Далі »</a>
     {% else %}
       <button class="btn btn-secondary btn-sm" disabled style="padding: 0.4rem 0.8rem; opacity: 0.4; cursor: not-allowed; font-weight: 500;">Далі »</button>
     {% endif %}
@@ -538,9 +550,15 @@
       <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
       <line x1="6" y1="20" x2="6" y2="14"/>
     </svg>
+    {% if pupil_scope == 'outside' %}
+    <h3>Результатів окремих учнів у цьому перегляді немає</h3>
+    <p>Перевірте фільтри й вкладку {% if tab == 'archive' %}«Активні результати»{% else %}«Архів»{% endif %}. Після завершення тесту поза списком результат з’явиться тут.</p>
+    <a href="/teacher/roster-sync#tab-outside" class="btn btn-secondary">До окремих учнів</a>
+    {% else %}
     <h3>Результатів ще немає</h3>
     <p>Запустіть тестову сесію та зачекайте, поки учні пройдуть тест</p>
     <a href="/teacher/sessions" class="btn btn-primary">До сесій</a>
+    {% endif %}
   </div>
   {% endif %}
 {% endif %}

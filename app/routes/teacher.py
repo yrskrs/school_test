@@ -1293,9 +1293,6 @@ async def results_list(
     if class_name and class_name not in filter_classes:
         filter_classes.append(class_name)
 
-    # Унікальні імена учнів для автокомпліту
-    student_names = sorted(list({a.student_name for a in all_attempts if a.student_name}))
-
     attempts = all_attempts
     from app.services.outside_students import outside_predicate
     is_outside = outside_predicate(db, teacher.id)
@@ -1303,10 +1300,15 @@ async def results_list(
         attempts = [a for a in attempts if is_outside(a)]
     elif pupil_scope == 'roster':
         attempts = [a for a in attempts if not is_outside(a)]
+    else:
+        pupil_scope = 'all'
+    student_names = sorted({a.student_name for a in attempts if a.student_name})
+    filter_classes = sorted(set(filter_classes) | {a.session.display_class_name for a in attempts
+                            if a.session and a.session.display_class_name})
     if session_id and session_id.isdigit():
         attempts = [a for a in attempts if a.session_id == int(session_id)]
     if class_name:
-        attempts = [a for a in attempts if a.session and a.session.test and a.session.test.class_name == class_name]
+        attempts = [a for a in attempts if a.session and a.session.display_class_name == class_name]
     if student_name and student_name.strip():
         s_name_lower = student_name.strip().lower()
         attempts = [a for a in attempts if s_name_lower in a.student_name.lower()]
@@ -1326,7 +1328,7 @@ async def results_list(
                 "student_name": a.student_name.strip(),
                 "test": a.session.test,
                 "test_id": a.session.test_id,
-                "class_name": a.session.test.class_name or "",
+                "class_name": a.session.display_class_name or "",
                 "attempts": [],
             }
         groups_dict[key]["attempts"].append(a)
@@ -1579,10 +1581,11 @@ async def export_csv(
     class_name: Optional[str] = None,
     student_name: Optional[str] = None,
     pupil_scope: str = 'all',
+    tab: str = 'active',
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
-    all_attempts = crud.get_all_finished_attempts(db, teacher.id)
+    all_attempts = crud.get_all_finished_attempts(db, teacher.id, is_archived=(tab == 'archive'))
     from app.services.outside_students import outside_predicate
     is_outside = outside_predicate(db, teacher.id)
     if pupil_scope in ('outside', 'roster'):
@@ -1593,7 +1596,7 @@ async def export_csv(
         attempts = [a for a in attempts if a.session_id == int(session_id)]
         
     if class_name and class_name.strip():
-        attempts = [a for a in attempts if a.session and a.session.test and a.session.test.class_name == class_name]
+        attempts = [a for a in attempts if a.session and a.session.display_class_name == class_name]
 
     if student_name and student_name.strip():
         s_name_lower = student_name.strip().lower()
