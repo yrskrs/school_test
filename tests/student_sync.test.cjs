@@ -8,7 +8,7 @@ const cacheCode = fs.readFileSync(path.join(root, 'app/static/js/student-cache.j
 const studentCode = fs.readFileSync(path.join(root, 'app/static/js/student.js'), 'utf8');
 const values = new Map();
 const storage = {getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key)};
-function environment(fetcher = async () => ({ok: true, json: async () => ({status: 'in_progress'})}), customStorage = storage) {
+function environment(fetcher = async () => ({ok: true, json: async () => ({status: 'in_progress'})}), customStorage = storage, overrides = {}) {
   const elements = new Map();
   const listeners = {};
   const intervals = new Map();
@@ -29,7 +29,7 @@ function environment(fetcher = async () => ({ok: true, json: async () => ({statu
     location: {href: '', protocol: 'http:', host: 'local'}, AbortController, fetch: fetcher,
     WebSocket: Object.assign(class {constructor() {this.readyState = 1;}}, {OPEN: 1, CONNECTING: 0}),
     setTimeout: () => ++timerId, clearTimeout() {}, setInterval: fn => {intervals.set(++timerId, fn); return timerId;},
-    clearInterval: id => intervals.delete(id), alert() {}, console});
+    clearInterval: id => intervals.delete(id), alert() {}, console, ...overrides});
   context.window = context;
   vm.runInContext(cacheCode, context);
   vm.runInContext(studentCode, context);
@@ -303,7 +303,75 @@ async function runTests() {
   assert.equal(telemetry.run('violations'), 0, 'Esc keydown alone is not a fullscreen exit');
   assert.equal(telemetry.run('pendingEvents.length'), 2);
 
-  console.log('PASS: 17 student scenarios and 6 scripts parsed.');
-  return {passed: true, scenarios: 17, scriptsParsed: 6};
+  storage.removeItem('schooltest:attempt:42:v1');
+  const checkpointRequests = [];
+  const portable = environment(async (url, options = {}) => {
+    checkpointRequests.push({url, body: options.body && JSON.parse(options.body)});
+    return {ok: true, json: async () => ({status: 'in_progress'})};
+  }, storage, {ATTEMPT_STATUS: 'paused', TIME_REMAINING: 87,
+    TEST_DATA: {questions: [
+      {id: 1, question_type: 'single_choice', question_text: 'Q', options: [{id: 2, option_text: 'A'}]},
+      {id: 3, question_type: 'short_text', question_text: 'Draft', options: []},
+    ], time_limit_per_question: 10},
+    PROGRESS_STATE: {current_question_id: 3, time_left: 87, question_times: {3: 4}, draft_answers: {3: 'Серверна чернетка'}, generation: 1}});
+  portable.dispatch('DOMContentLoaded');
+  assert.equal(portable.run('questions[currentIndex].id'), 3);
+  assert.equal(portable.run('answers[3]'), 'Серверна чернетка');
+  assert.equal(portable.run('qTimeLeft'), 4);
+  assert.equal(portable.elements.get('pause-block').style.display, 'none', 'Fullscreen entry stays reachable before showing pause');
+  await portable.run('startFullscreenTest()');
+  assert.equal(portable.elements.get('pause-block').style.display, 'flex');
+  const pausedTick = portable.intervals.get(portable.run('timerInterval'));
+  const pausedQuestionTick = portable.intervals.get(portable.run('qTimerInterval'));
+  pausedTick(); await pausedQuestionTick();
+  assert.equal(portable.run('timeLeft'), 87);
+  assert.equal(portable.run('qTimeLeft'), 4);
+  await portable.run('syncProgress()');
+  const snapshot = checkpointRequests.findLast(r => r.url.endsWith('/progress')).body;
+  assert.equal(snapshot.current_question_id, 3);
+  assert.equal(snapshot.time_left, 87);
+  assert.equal(snapshot.question_times[3], 4);
+  assert.equal(snapshot.draft_answers[3], 'Серверна чернетка');
+  portable.run('handleResumeEvent()');
+  pausedTick(); await pausedQuestionTick();
+  assert.equal(portable.run('timeLeft'), 86);
+  assert.equal(portable.run('qTimeLeft'), 3);
+  assert.equal(portable.run('violations'), 0);
+  portable.dispatchWindow('beforeunload', {});
+  const reopened = environment(undefined, storage, {PROGRESS_STATE: {generation: 1}});
+  reopened.dispatch('DOMContentLoaded');
+  assert.equal(reopened.run('timeLeft'), 86, 'Same-browser recovery retains its local timer');
+  assert.equal(reopened.run('questionTimes[3]'), 3);
+  const expiredCookie = environment(undefined, storage, {TIME_REMAINING: 90,
+    PROGRESS_STATE: {generation: 2, previous_generation: 1}});
+  expiredCookie.dispatch('DOMContentLoaded');
+  assert.equal(expiredCookie.run('timeLeft'), 86, 'An expired cookie on the same device keeps the newer local checkpoint');
+  assert.equal(expiredCookie.run('attemptCache.state.generation'), 2);
+
+  // Stale local answers/timers from before a device transfer must not replace the server checkpoint.
+  const transferredAgain = environment(undefined, storage, {TIME_REMAINING: 70, PROGRESS_STATE: {generation: 4, previous_generation: 3}});
+  transferredAgain.dispatch('DOMContentLoaded');
+  assert.equal(transferredAgain.run('timeLeft'), 70);
+  assert.equal(transferredAgain.run('answers[3]'), undefined);
+  assert.equal(transferredAgain.run('Object.keys(pendingAnswers).length'), 0);
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const capturePause = environment(async (url, options = {}) => {
+    if (url.endsWith('/progress')) checkpointRequests.push({url, body: JSON.parse(options.body)});
+    return {ok: true, json: async () => ({status: 'in_progress'})};
+  });
+  capturePause.dispatch('DOMContentLoaded');
+  await capturePause.run('startFullscreenTest()');
+  capturePause.run('timeLeft = 53; questionTimes[1] = 2; handlePauseEvent()');
+  await capturePause.run('syncProgress()');
+  assert.equal(checkpointRequests.at(-1).body.time_left, 53, 'Pause immediately flushes exact remaining time');
+  assert.equal(checkpointRequests.at(-1).body.question_times[1], 2);
+  capturePause.context.document.fullscreenElement = null;
+  capturePause.run('handleResumeEvent()');
+  assert.equal(capturePause.run('hasStarted'), false, 'Return to fullscreen before continuing after a pause');
+  assert.equal(capturePause.elements.get('start-overlay').style.display, 'flex');
+
+  console.log('PASS: 22 student scenarios and 7 scripts parsed.');
+  return {passed: true, scenarios: 22, scriptsParsed: 7};
 }
 module.exports = runTests();

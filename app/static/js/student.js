@@ -25,9 +25,13 @@ const inFlightAnswers = new Map();
 let attemptCache;
 try { attemptCache = StudentCache.create(ATTEMPT_ID, window.localStorage); }
 catch { attemptCache = StudentCache.create(ATTEMPT_ID, {getItem() { return null; }, setItem() { throw new Error('Storage unavailable'); }, removeItem() {}}); }
+const serverProgress = window.PROGRESS_STATE || {};
+// A device transfer invalidates the previous browser's session and stale cache.
+if (attemptCache.state.generation !== (serverProgress.generation || 0)
+    && attemptCache.state.generation !== serverProgress.previous_generation) attemptCache.clear();
 const pendingAnswers = attemptCache.state.pending;
 const pendingEvents = attemptCache.state.events;
-const questionTimes = attemptCache.state.questionTimes;
+const questionTimes = {...(serverProgress.question_times || {}), ...attemptCache.state.questionTimes};
 let finishIntent = attemptCache.state.finish;
 let timerQuestionId = null;
 let answers       = {};               // { question_id: selectedOptions[] | textValue | dict }
@@ -51,6 +55,11 @@ const totalQ    = questions.length;
 
 // Dynamic queue of question indices to show
 let questionQueue = [];
+let progressReady = false;
+let progressSyncInFlight = null;
+let progressSyncAgain = false;
+let progressDebounce = null;
+let lastSyncedProgress = null;
 
 // Для matching та sequence потрібно перемішувати варіанти, щоб не показувати правильну відповідь
 function shuffleArray(array) {
@@ -67,6 +76,9 @@ function shuffleArray(array) {
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   const questionIds = new Set(questions.map(q => q.id));
+  Object.entries(serverProgress.draft_answers || {}).forEach(([id, value]) => {
+    if (questionIds.has(Number(id))) answers[Number(id)] = value;
+  });
   Object.entries(attemptCache.state.answers).forEach(([id, value]) => {
     if (questionIds.has(Number(id))) answers[Number(id)] = value;
   });
@@ -113,17 +125,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Build initial queue: exclude locked (already answered) questions
   initQueue();
+  const savedQueue = attemptCache.state.questionQueue.length ? attemptCache.state.questionQueue : serverProgress.question_queue || [];
+  const restoredQueue = [...new Set(savedQueue)].map(id => questions.findIndex(q => q.id === id))
+    .filter(index => questionQueue.includes(index));
+  questionQueue = [...restoredQueue, ...questionQueue.filter(index => !restoredQueue.includes(index))];
 
   buildNavigator();
   setupBrowserEvents();
-  if (questionQueue.length) renderFromQueue(0);
-  else { document.getElementById('start-overlay').style.display = 'none'; finishTest(); }
+  const restoredId = attemptCache.state.currentQuestionId || serverProgress.current_question_id;
+  const restoredQueueIndex = questionQueue.findIndex(index => questions[index].id === restoredId);
+  if (questionQueue.length) renderFromQueue(Math.max(0, restoredQueueIndex));
+  else if (!isPaused) { document.getElementById('start-overlay').style.display = 'none'; finishTest(); }
+  progressReady = true;
 
   if (isPaused) {
     handlePauseEvent();
   }
   connectStudentWebSocket();
   setInterval(fallbackCheckStatus, 5000);
+  setInterval(syncProgress, 5000);
   // Recover a missed browser fullscreen event without counting an exit twice.
   setInterval(checkFullscreenState, 500);
 
@@ -133,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('beforeunload', event => {
     if (hasStarted) logBrowserEvent('question_changed', 'action=page_leave');
     persistAttempt();
+    syncProgress(true);
     if (!testFinished && Object.keys(pendingAnswers).length) { event.preventDefault(); event.returnValue = ''; }
   });
 });
@@ -140,8 +161,58 @@ document.addEventListener('DOMContentLoaded', () => {
 function persistAttempt() {
   if (testFinished) return;
   attemptCache.save({answers, pending: pendingAnswers, events: pendingEvents,
-    skipped: [...skippedQuestions], violations, timeLeft, questionTimes, finish: finishIntent});
+    skipped: [...skippedQuestions], violations, timeLeft, questionTimes, finish: finishIntent,
+    currentQuestionId: questions[currentIndex]?.id || null, generation: serverProgress.generation || 0,
+    questionQueue: questionQueue.map(index => questions[index].id)});
   updateSyncStatus();
+}
+
+function progressBody() {
+  const drafts = {};
+  for (const [id, value] of Object.entries(answers)) {
+    if (!lockedQuestions.has(Number(id))) drafts[id] = value;
+  }
+  return {current_question_id: questions[currentIndex]?.id || null, time_left: timeLeft,
+    question_times: questionTimes, skipped_questions: [...skippedQuestions], draft_answers: drafts,
+    question_queue: questionQueue.map(index => questions[index].id)};
+}
+
+function scheduleProgress() {
+  clearTimeout(progressDebounce);
+  if (progressReady) progressDebounce = setTimeout(syncProgress, 400);
+}
+
+async function syncProgress(leaving = false) {
+  if (!progressReady || testFinished || isOffline) return;
+  if (progressSyncInFlight && !leaving) {
+    progressSyncAgain = true;
+    return progressSyncInFlight;
+  }
+  const body = JSON.stringify(progressBody());
+  if (body === lastSyncedProgress) return;
+  // Keep the last checkpoint alive when a tab is closed accidentally.
+  if (leaving) {
+    fetch(`/student/test/${ATTEMPT_ID}/progress`, {method: 'POST', keepalive: true,
+      headers: {'Content-Type': 'application/json'}, body}).catch(() => {});
+    return;
+  }
+  progressSyncInFlight = (async () => {
+    try {
+      const response = await studentFetch(`/student/test/${ATTEMPT_ID}/progress`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body,
+      });
+      if (response.ok) lastSyncedProgress = body;
+      else if (response.status === 401 || response.status === 404) {
+        syncError = 'Спробу відкрито в іншому браузері. Для продовження увійдіть у тест знову.';
+        goOffline();
+      } else if (!response.ok && response.status >= 500) goOffline();
+    } catch { goOffline(); }
+  })();
+  try { await progressSyncInFlight; }
+  finally {
+    progressSyncInFlight = null;
+    if (progressSyncAgain) { progressSyncAgain = false; syncProgress(); }
+  }
 }
 
 function updateSyncStatus() {
@@ -234,6 +305,7 @@ function hasUnconfirmedDraft() {
 
 function validateAnswer() {
   persistAttempt();
+  scheduleProgress();
   const btnNext = document.getElementById('btn-next');
   if (!btnNext) return;
   const qId = questions[currentIndex]?.id;
@@ -993,6 +1065,7 @@ async function startFullscreenTest() {
     fullscreenWasActive = isTestFullscreen();
     logBrowserEvent('tab_focus', 'fullscreen_start');
     document.getElementById('start-overlay').style.display = 'none';
+    if (isPaused) handlePauseEvent();
     if (violations >= MAX_VIOLATIONS) { await stopAfterViolations(); return; }
     if (!timerInterval) startTimer();
   } catch {
@@ -1328,17 +1401,25 @@ function connectStudentWebSocket() {
 }
 
 function handlePauseEvent() {
+  const wasPaused = isPaused;
   isPaused = true;
   validateAnswer();
   const pb = document.getElementById('pause-block');
-  if (pb) pb.style.display = 'flex';
+  // Fullscreen entry must remain reachable when reopening an already paused test.
+  if (pb) pb.style.display = hasStarted ? 'flex' : 'none';
+  if (!wasPaused) syncProgress();
 }
 
 function handleResumeEvent() {
   isPaused = false;
+  if (hasStarted && !isTestFullscreen()) {
+    hasStarted = false;
+    document.getElementById('start-overlay').style.display = 'flex';
+  }
   validateAnswer();
   const pb = document.getElementById('pause-block');
   if (pb) pb.style.display = 'none';
+  if (!questionQueue.length) finishTest();
   if (Object.keys(pendingAnswers).length || finishIntent) resumeConnection();
 }
 
@@ -1367,7 +1448,13 @@ async function fallbackCheckStatus() {
   checkingStatus = true;
   try {
     const res = await studentFetch(`/api/attempt/${ATTEMPT_ID}`);
-    if (!res.ok) return;
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 404) {
+        syncError = 'Сесію браузера не підтверджено. Увійдіть у тест знову.';
+        goOffline();
+      }
+      return;
+    }
     const data = await res.json();
     if (data.status === 'paused') {
       if (!isPaused) handlePauseEvent();

@@ -67,10 +67,13 @@
 
   <div class="instruction-student">
     <p>Учень: <strong>{{ attempt.student_name }}</strong></p>
+    {% if attempt.status.value == 'paused' %}
+    <p>Ваш тест на паузі. Відкрийте його та увімкніть повноекранний режим. Продовження буде доступне після команди вчителя.</p>
+    {% endif %}
   </div>
 
   <a href="/student/test/{{ attempt.id }}" class="btn btn-primary btn-full btn-start">
-    Почати тест
+    {% if attempt.status.value == 'not_started' %}Почати тест{% else %}Продовжити тест{% endif %}
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <line x1="5" y1="12" x2="19" y2="12"/>
       <polyline points="12,5 19,12 12,19"/>

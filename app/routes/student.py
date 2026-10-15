@@ -11,6 +11,7 @@ from app.database import get_db
 from app.deps import get_owned_attempt
 from app.security import get_student_attempt_id, set_student_cookie
 from app.services import event_log_service, result_service, session_service, test_service
+from app.services import attempt_progress
 from app.templating import templates
 from app.services.testing_policy import (
     MAX_VIOLATIONS, VIOLATION_STOP_PREFIX, TERMINAL_STATUSES,
@@ -163,10 +164,20 @@ async def student_login(
     if not existing and not has_attempt_capacity(session.test, attempts):
         return render_login_error("Ви використали всі дозволені проходження цього тесту.", 403)
 
-    if existing and get_student_attempt_id(request) != existing.id:
-        return render_login_error("Цей учень уже проходить тест. Продовжіть у тому самому браузері або зверніться до вчителя.", 409)
-
     if existing:
+        lock_attempt(db, existing)
+        if get_student_attempt_id(request) != existing.id:
+            if existing.status != models.AttemptStatus.paused:
+                return render_login_error("Цей учень уже проходить тест. Продовжіть у тому самому браузері або попросіть учителя поставити спробу на паузу для входу з іншого пристрою.", 409)
+            import secrets
+            state = attempt_progress.checkpoint(db, existing)
+            state['previous_generation'] = state.get('generation', 0)
+            state['generation'] = state.get('generation', 0) + 1
+            existing.progress_state = state
+            existing.auth_nonce = secrets.token_urlsafe(32)
+            db.add(models.EventLog(attempt_id=existing.id, event_type=models.EventType.reconnect,
+                details='Відновлення призупиненої спроби в іншому браузері'))
+        db.commit()
         attempt = existing
     else:
         from app.services.outside_students import browser_identity
@@ -304,11 +315,9 @@ async def take_test(
             except ValueError:
                 pass
 
-    # Розрахунок залишку часу
-    time_remaining_seconds = None
-    if test.time_limit_minutes and attempt.started_at:
-        elapsed = (datetime.now() - attempt.started_at).total_seconds()
-        time_remaining_seconds = max(0, test.time_limit_minutes * 60 - int(elapsed))
+    progress = attempt_progress.checkpoint(db, attempt)
+    if 'skipped_questions' in progress:
+        skipped_question_ids = [qid for qid in progress['skipped_questions'] if qid not in saved_answers]
 
     return templates.TemplateResponse(
         request,
@@ -319,12 +328,36 @@ async def take_test(
         "saved_answers": saved_answers,
         "locked_question_ids": locked_question_ids,
         "skipped_question_ids": skipped_question_ids,
-        "time_remaining_seconds": time_remaining_seconds,
+        "time_remaining_seconds": progress['time_left'],
+        "progress_state": progress,
         "session_id": attempt.session_id,
         "violation_count": db.query(models.EventLog).filter_by(
             attempt_id=attempt.id, event_type=models.EventType.tab_blur
         ).count(),
     })
+
+
+# Portable draft/position checkpoint, separate from immutable graded answers.
+@router.post("/student/test/{attempt_id}/progress")
+async def save_progress(
+    attempt_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    attempt: models.StudentAttempt = Depends(get_owned_attempt),
+):
+    try:
+        body = await request.json()
+    except ValueError:
+        raise HTTPException(422, 'Невірний JSON прогресу')
+    lock_attempt(db, attempt)
+    # The cookie may have been replaced while this request waited for the lock.
+    if get_student_attempt_id(request) != attempt.id:
+        raise HTTPException(401, 'Спробу відкрито в іншому браузері')
+    if attempt.status not in (models.AttemptStatus.in_progress, models.AttemptStatus.paused):
+        raise HTTPException(409, 'Тест завершено')
+    attempt.progress_state = attempt_progress.validate_checkpoint(db, attempt, body)
+    db.commit()
+    return {'status': 'ok'}
 
 
 # ---------------------------------------------------------------------------

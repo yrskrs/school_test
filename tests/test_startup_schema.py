@@ -45,6 +45,23 @@ class StartupSchema(unittest.TestCase):
             ensure_legacy_columns(engine)
         engine.dispose()
 
+    def test_progress_upgrade_preserves_existing_paused_attempt(self):
+        engine = create_engine('sqlite:///:memory:')
+        with engine.begin() as connection:
+            connection.execute(text('CREATE TABLE teachers (id INTEGER PRIMARY KEY)'))
+            connection.execute(text('CREATE TABLE tests (id INTEGER PRIMARY KEY)'))
+            connection.execute(text('CREATE TABLE student_attempts (id INTEGER PRIMARY KEY, status VARCHAR(20))'))
+            connection.execute(text("INSERT INTO student_attempts VALUES (5, 'paused')"))
+        ensure_legacy_columns(engine)
+        with engine.begin() as connection:
+            self.assertEqual(tuple(connection.execute(text('SELECT id, status, progress_state FROM student_attempts')).one()),
+                             (5, 'paused', None))
+            connection.execute(text('UPDATE student_attempts SET progress_state = :state WHERE id=5'), {'state': '{"time_left":117}'})
+        ensure_legacy_columns(engine)
+        with engine.connect() as connection:
+            self.assertEqual(connection.execute(text('SELECT progress_state FROM student_attempts')).scalar_one(), '{"time_left":117}')
+        engine.dispose()
+
     def test_legacy_retake_policy_and_saved_new_settings_survive_upgrade(self):
         engine = create_engine("sqlite:///:memory:")
         with engine.begin() as connection:

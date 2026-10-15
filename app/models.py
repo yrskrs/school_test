@@ -214,6 +214,7 @@ class StudentAttempt(Base):
     started_at = Column(DateTime, default=datetime.now)
     finished_at = Column(DateTime, nullable=True)
     status = Column(Enum(AttemptStatus), default=AttemptStatus.not_started)
+    progress_state = Column(JSON, nullable=True)
     score = Column(Float, nullable=True)
     max_score = Column(Float, nullable=True)
     is_archived = Column(Boolean, default=False)

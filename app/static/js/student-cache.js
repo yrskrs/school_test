@@ -2,7 +2,7 @@
 (function (global) {
   function emptyState() {
     return {version: 1, answers: {}, pending: {}, events: [], skipped: [],
-      violations: 0, timeLeft: null, questionTimes: {}, finish: null};
+      violations: 0, timeLeft: null, questionTimes: {}, finish: null, currentQuestionId: null, generation: 0, questionQueue: []};
   }
   function create(attemptId, storage) {
     const key = `schooltest:attempt:${attemptId}:v1`;
@@ -22,6 +22,9 @@
         state.timeLeft = Number.isFinite(saved.timeLeft) && saved.timeLeft >= 0 ? saved.timeLeft : null;
         state.questionTimes = Object.fromEntries(Object.entries(saved.questionTimes).filter(([, time]) => Number.isFinite(time) && time >= 0));
         state.finish = object(saved.finish) && typeof saved.finish.timeout === 'boolean' ? saved.finish : null;
+        state.currentQuestionId = Number.isInteger(saved.currentQuestionId) ? saved.currentQuestionId : null;
+        state.generation = Number.isInteger(saved.generation) ? saved.generation : 0;
+        state.questionQueue = Array.isArray(saved.questionQueue) ? saved.questionQueue.filter(Number.isInteger) : [];
       }
     } catch { available = false; }
     return {

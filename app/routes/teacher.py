@@ -42,6 +42,7 @@ from app.services.test_file_service import (
 from app.services.logger_service import log_teacher_action, check_and_create_archive
 from app.services.teacher_list_service import test_class_choices
 from app.services.test_edit_service import validate_editor_questions
+from app.services.attempt_progress import set_paused
 
 router = APIRouter(prefix="/teacher")
 
@@ -932,14 +933,11 @@ async def pause_all_attempts(
         raise HTTPException(status_code=404, detail="Сесію не знайдено")
 
     attempts = crud.get_attempts_by_session(db, session_id)
-    from app.services import event_log_service
     from app.websocket_manager import ws_manager
 
     count = 0
     for attempt in attempts:
-        if attempt.status == models.AttemptStatus.in_progress:
-            attempt.status = models.AttemptStatus.paused
-            event_log_service.log_event(db, attempt.id, models.EventType.pause_test, "Призупинено для всіх")
+        if set_paused(db, attempt, True, "Призупинено для всіх"):
             
             # Fire and forget websocket notifications
             import asyncio
@@ -965,14 +963,11 @@ async def resume_all_attempts(
         raise HTTPException(status_code=404, detail="Сесію не знайдено")
 
     attempts = crud.get_attempts_by_session(db, session_id)
-    from app.services import event_log_service
     from app.websocket_manager import ws_manager
 
     count = 0
     for attempt in attempts:
-        if attempt.status == models.AttemptStatus.paused:
-            attempt.status = models.AttemptStatus.in_progress
-            event_log_service.log_event(db, attempt.id, models.EventType.resume_test, "Відновлено для всіх")
+        if set_paused(db, attempt, False, "Відновлено для всіх"):
             
             import asyncio
             asyncio.create_task(ws_manager.send_to_student(attempt.id, {"event": "resume"}))
@@ -1038,14 +1033,8 @@ async def pause_attempt(
     if not attempt or attempt.session.test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
-    if attempt.status != models.AttemptStatus.in_progress:
+    if not set_paused(db, attempt, True, "Призупинено вчителем"):
         raise HTTPException(status_code=400, detail="Спроба не в процесі тестування")
-
-    attempt.status = models.AttemptStatus.paused
-    db.commit()
-
-    from app.services import event_log_service
-    event_log_service.log_event(db, attempt.id, models.EventType.pause_test, "Призупинено вчителем")
 
     # Notify student
     from app.websocket_manager import ws_manager
@@ -1072,14 +1061,8 @@ async def resume_attempt(
     if not attempt or attempt.session.test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
-    if attempt.status != models.AttemptStatus.paused:
+    if not set_paused(db, attempt, False, "Відновлено вчителем"):
         raise HTTPException(status_code=400, detail="Спроба не на паузі")
-
-    attempt.status = models.AttemptStatus.in_progress
-    db.commit()
-
-    from app.services import event_log_service
-    event_log_service.log_event(db, attempt.id, models.EventType.resume_test, "Відновлено вчителем")
 
     # Notify student
     from app.websocket_manager import ws_manager

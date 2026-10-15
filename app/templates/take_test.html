@@ -536,6 +536,7 @@
   "locked_questions": {{ locked_question_ids | tojson }},
   "skipped_questions": {{ skipped_question_ids | tojson }},
   "time_remaining": {{ time_remaining_seconds | tojson }},
+  "progress_state": {{ progress_state | tojson }},
   "attempt_status": "{{ attempt.status.value }}",
   "violation_count": {{ violation_count | default(0) }},
   "max_violations": {{ max_violations }}
@@ -551,11 +552,12 @@
     window.LOCKED_QUESTIONS = cfg.locked_questions || [];
     window.SKIPPED_QUESTIONS = cfg.skipped_questions;
     window.TIME_REMAINING = cfg.time_remaining;
+    window.PROGRESS_STATE = cfg.progress_state;
     window.ATTEMPT_STATUS = cfg.attempt_status;
     window.VIOLATION_COUNT = cfg.violation_count;
     window.MAX_VIOLATIONS = cfg.max_violations;
   }());
 </script>
-<script src="/static/js/student-cache.js?v={{ app_version }}"></script>
-<script src="/static/js/student.js?v={{ app_version }}"></script>
+<script src="/static/js/student-cache.js?v={{ app_version }}&amp;progress=1"></script>
+<script src="/static/js/student.js?v={{ app_version }}&amp;progress=1"></script>
 {% endblock %}
