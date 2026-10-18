@@ -45,6 +45,9 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
     except json.JSONDecodeError as exc:
         raise ValueError(f"Невірний JSON: {exc}")
 
+    if not isinstance(raw, dict):
+        raise ValueError('JSON тесту має бути об’єктом із назвою та списком питань.')
+
     allowed_test_fields = {
         "title", "subject", "class_name", "description",
         "time_limit_minutes", "shuffle_questions", "shuffle_options",
@@ -53,7 +56,7 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
         "allow_retake", "max_attempts", "allow_outside_class", "max_grade", "random_questions_limit", "excluded_topics",
     }
     test_data = {k: v for k, v in raw.items() if k in allowed_test_fields}
-    if "title" not in test_data:
+    if not isinstance(test_data.get('title'), str) or not test_data['title'].strip():
         raise ValueError("Поле 'title' є обов'язковим")
     normalize_attempt_settings(test_data)
 
@@ -70,6 +73,12 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
             url_mapping[filename] = new_url
 
     test_data["questions"] = _parse_questions(questions_raw, url_mapping)
+    from fastapi import HTTPException
+    from app.services.test_edit_service import validate_editor_questions
+    try:
+        test_data['questions'] = validate_editor_questions(test_data['questions'])
+    except HTTPException as error:
+        raise ValueError(error.detail) from None
 
     teacher = db.query(models.Teacher).filter(models.Teacher.id == teacher_id).first()
     if teacher:
@@ -92,6 +101,8 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
 
 
 def _parse_questions(questions_raw: list, url_mapping: dict | None = None) -> list:
+    if not isinstance(questions_raw, list) or any(not isinstance(row, dict) for row in questions_raw):
+        raise ValueError('Питання JSON мають бути списком об’єктів.')
     if url_mapping is None:
         url_mapping = {}
         
@@ -118,6 +129,8 @@ def _parse_questions(questions_raw: list, url_mapping: dict | None = None) -> li
 
 
 def _parse_options(options_raw: list, url_mapping: dict | None = None) -> list:
+    if not isinstance(options_raw, list) or any(not isinstance(row, dict) for row in options_raw):
+        raise ValueError('Варіанти відповіді JSON мають бути списком об’єктів.')
     if url_mapping is None:
         url_mapping = {}
         
@@ -684,7 +697,13 @@ def import_test_from_docx(
     if Document is None:
         raise ImportError("Бібліотека python-docx не встановлена. Встановіть її через pip install python-docx")
     
-    doc = Document(io.BytesIO(docx_content))
+    from zipfile import BadZipFile
+    from docx.opc.exceptions import PackageNotFoundError
+    from lxml.etree import XMLSyntaxError
+    try:
+        doc = Document(io.BytesIO(docx_content))
+    except (BadZipFile, PackageNotFoundError, KeyError, XMLSyntaxError, ValueError, RuntimeError):
+        raise ValueError('Файл DOCX пошкоджений або не містить документа Word. Збережіть його повторно як .docx.') from None
     
     test_title = fallback_title
     title_candidate = ""
