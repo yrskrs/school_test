@@ -35,7 +35,12 @@ class ImportValidation(unittest.IsolatedAsyncioTestCase):
         for data in ([], None, {'title': 'Synthetic', 'questions': {}},
                      {'title': 'Synthetic', 'questions': [None]},
                      {'title': 'Synthetic', 'questions': [{'options': [None]}]},
-                     {'title': 'Synthetic', 'questions': [{'points': -1}]}):
+                     {'title': 'Synthetic', 'questions': [{'points': -1}]},
+                     {'title': 'Synthetic', 'time_limit_minutes': {}},
+                     {'title': 'Synthetic', 'max_grade': 0},
+                     {'title': 'Synthetic', 'subject': []},
+                     {'title': 'Synthetic', 'questions': [{'image_url': {'bad': True}}]},
+                     {'title': 'Synthetic', 'embedded_images': {'test.png': {}}}):
             with self.subTest(data=data):
                 result = await fixtures.http('POST', '/teacher/tests/import-json',
                     {'json_text': json.dumps(data)}, self.teacher_cookie, form=True)
