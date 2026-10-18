@@ -26,6 +26,23 @@ from app.services.test_file_service import (
     save_test_locally,
 )
 
+from pydantic import ConfigDict, Field, ValidationError
+from app.schemas import TestBase
+
+
+class ImportedTestSettings(TestBase):
+    model_config = ConfigDict(extra='forbid')
+    title: str = Field(min_length=1, max_length=255)
+    subject: str | None = Field(default=None, max_length=100)
+    class_name: str | None = Field(default=None, max_length=50)
+    time_limit_minutes: int | None = Field(default=None, ge=1, le=300)
+    time_limit_per_question: int | None = Field(default=None, ge=1, le=3600)
+    max_grade: int = Field(default=12, ge=1, le=1000)
+    random_questions_limit: int | None = Field(default=None, ge=1, le=2147483647)
+    allow_partial_grading: bool = False
+    excluded_topics: str | None = None
+
+
 # ---------------------------------------------------------------------------
 # JSON Import
 # ---------------------------------------------------------------------------
@@ -45,6 +62,9 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
     except json.JSONDecodeError as exc:
         raise ValueError(f"Невірний JSON: {exc}")
 
+    if not isinstance(raw, dict):
+        raise ValueError('JSON тесту має бути об’єктом із назвою та списком питань.')
+
     allowed_test_fields = {
         "title", "subject", "class_name", "description",
         "time_limit_minutes", "shuffle_questions", "shuffle_options",
@@ -53,9 +73,14 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
         "allow_retake", "max_attempts", "allow_outside_class", "max_grade", "random_questions_limit", "excluded_topics",
     }
     test_data = {k: v for k, v in raw.items() if k in allowed_test_fields}
-    if "title" not in test_data:
+    if not isinstance(test_data.get('title'), str) or not test_data['title'].strip():
         raise ValueError("Поле 'title' є обов'язковим")
     normalize_attempt_settings(test_data)
+    try:
+        test_data = ImportedTestSettings.model_validate(test_data).model_dump(exclude_unset=True)
+    except ValidationError:
+        raise ValueError('Некоректні налаштування тесту у JSON: перевірте типи полів, час та шкалу оцінок.') from None
+
 
     questions_raw = raw.get("questions", [])
     
@@ -65,11 +90,19 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
     if embedded_images and isinstance(embedded_images, dict):
         temp_session_id = f"import_json_{uuid.uuid4().hex}"
         for filename, b64 in embedded_images.items():
+            if not isinstance(b64, str):
+                raise ValueError('Зображення JSON має бути рядком base64.')
             ext = "." + filename.split(".")[-1] if "." in filename else ".png"
             new_url = save_base64_image(b64, ext, temp_session_id)
             url_mapping[filename] = new_url
 
     test_data["questions"] = _parse_questions(questions_raw, url_mapping)
+    from fastapi import HTTPException
+    from app.services.test_edit_service import validate_editor_questions
+    try:
+        test_data['questions'] = validate_editor_questions(test_data['questions'])
+    except HTTPException as error:
+        raise ValueError(error.detail) from None
 
     teacher = db.query(models.Teacher).filter(models.Teacher.id == teacher_id).first()
     if teacher:
@@ -92,6 +125,8 @@ def import_test_from_json(db: Session, teacher_id: int, json_data: str) -> model
 
 
 def _parse_questions(questions_raw: list, url_mapping: dict | None = None) -> list:
+    if not isinstance(questions_raw, list) or any(not isinstance(row, dict) for row in questions_raw):
+        raise ValueError('Питання JSON мають бути списком об’єктів.')
     if url_mapping is None:
         url_mapping = {}
         
@@ -106,7 +141,7 @@ def _parse_questions(questions_raw: list, url_mapping: dict | None = None) -> li
         q_data.setdefault("points", 1.0)
         q_data.setdefault("question_type", "single_choice")
         
-        if q_data.get("image_url"):
+        if isinstance(q_data.get("image_url"), str) and q_data["image_url"]:
             fname = os.path.basename(q_data["image_url"])
             if fname in url_mapping:
                 q_data["image_url"] = url_mapping[fname]
@@ -118,6 +153,8 @@ def _parse_questions(questions_raw: list, url_mapping: dict | None = None) -> li
 
 
 def _parse_options(options_raw: list, url_mapping: dict | None = None) -> list:
+    if not isinstance(options_raw, list) or any(not isinstance(row, dict) for row in options_raw):
+        raise ValueError('Варіанти відповіді JSON мають бути списком об’єктів.')
     if url_mapping is None:
         url_mapping = {}
         
@@ -128,7 +165,7 @@ def _parse_options(options_raw: list, url_mapping: dict | None = None) -> list:
         o_data.setdefault("order_index", i)
         o_data.setdefault("is_correct", False)
         
-        if o_data.get("image_url"):
+        if isinstance(o_data.get("image_url"), str) and o_data["image_url"]:
             fname = os.path.basename(o_data["image_url"])
             if fname in url_mapping:
                 o_data["image_url"] = url_mapping[fname]
@@ -684,7 +721,13 @@ def import_test_from_docx(
     if Document is None:
         raise ImportError("Бібліотека python-docx не встановлена. Встановіть її через pip install python-docx")
     
-    doc = Document(io.BytesIO(docx_content))
+    from zipfile import BadZipFile
+    from docx.opc.exceptions import PackageNotFoundError
+    from lxml.etree import XMLSyntaxError
+    try:
+        doc = Document(io.BytesIO(docx_content))
+    except (BadZipFile, PackageNotFoundError, KeyError, XMLSyntaxError, ValueError, RuntimeError):
+        raise ValueError('Файл DOCX пошкоджений або не містить документа Word. Збережіть його повторно як .docx.') from None
     
     test_title = fallback_title
     title_candidate = ""

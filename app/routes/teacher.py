@@ -591,7 +591,7 @@ async def import_test_xml(
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
-    if not file.filename.endswith(".xml"):
+    if not (file.filename or '').lower().endswith(".xml"):
         raise HTTPException(status_code=400, detail="Файл має бути формату .xml")
 
     content = await file.read()
@@ -670,7 +670,7 @@ async def import_test_docx(
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
-    if not file.filename.endswith(".docx"):
+    if not (file.filename or '').lower().endswith(".docx"):
         raise HTTPException(status_code=400, detail="Файл має бути формату .docx")
 
     content = await file.read()
@@ -1901,12 +1901,7 @@ async def import_test_json(
     json_file: UploadFile = File(None),
     json_text: str = Form(""),
 ):
-    if json_file and json_file.filename:
-        raw = await json_file.read()
-        json_data = raw.decode("utf-8")
-    elif json_text.strip():
-        json_data = json_text
-    else:
+    if not (json_file and json_file.filename) and not json_text.strip():
         return templates.TemplateResponse(
         request,
         "create_test.html", {
@@ -1916,15 +1911,24 @@ async def import_test_json(
         })
 
     try:
+        if json_file and json_file.filename:
+            raw = await json_file.read()
+            try:
+                json_data = raw.decode('utf-8-sig')
+            except UnicodeDecodeError:
+                raise ValueError('JSON-файл має бути збережений у кодуванні UTF-8.') from None
+        else:
+            json_data = json_text
         test = import_export_service.import_test_from_json(db, teacher.id, json_data)
     except ValueError as exc:
+        db.rollback()
         return templates.TemplateResponse(
         request,
         "create_test.html", {
             "teacher": teacher,
             "import_mode": True,
             "error": str(exc),
-        })
+        }, status_code=400)
 
     log_teacher_action(db, teacher.username, teacher.full_name, "import_test_json", f"Імпортовано тест з JSON '{test.title}' (ID: {test.id})", teacher.id)
     return RedirectResponse(url=f"/teacher/tests/{test.id}/edit?created=1", status_code=303)
