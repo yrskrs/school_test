@@ -7,7 +7,7 @@
     <div>
       <h1 style="margin:0 0 0.35rem 0">Підключення до журналу</h1>
       <p style="margin:0;color:var(--text-muted);font-size:0.95rem">
-        Керування API-ключами для синхронізації з електронним журналом, імпорту списків класів та експорту оцінок.
+        Керування API-ключами, редагування описів, моніторинг статистики взаємодії та синхронізація оцінок з електронним журналом.
       </p>
     </div>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
@@ -22,6 +22,9 @@
         ⏸ На паузі: <strong>{{ paused_grants_count }}</strong>
       </span>
       {% endif %}
+      <span class="badge" style="padding:0.4rem 0.75rem;border-radius:999px;background:var(--bg-card2);border:1px solid var(--border);font-size:0.85rem">
+        📈 Запитів: <strong>{{ total_requests_count }}</strong>
+      </span>
     </div>
   </div>
 
@@ -40,17 +43,39 @@
   {% endif %}
 
   <!-- Покрокова інструкція підключення -->
-  <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem">
-    <h3 style="margin:0 0 0.5rem 0;font-size:1.05rem;display:flex;align-items:center;gap:0.4rem">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-      Як працює зв'язок із журналом
-    </h3>
-    <ol style="margin:0 0 0.5rem 1.25rem;padding:0;font-size:0.92rem;line-height:1.5">
-      <li>Створіть ключ API нижче (можна вказати власну зрозумілу назву, наприклад «Журнал 7-А» чи «Мій домашній журнал»).</li>
-      <li>У вашому журналі відкрийте розділ підключення тестів та вставте <strong>адресу цього сайту</strong> і скопійований <strong>ключ API</strong>.</li>
-      <li>Журнал автоматично передасть сюди списки класів та учнів. Оцінки завершені учнями також можна буде передавати в журнал за одну секунду.</li>
-    </ol>
-    <p style="margin:0;font-size:0.88rem;color:var(--text-muted)">
+  <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1.5rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
+      <h3 style="margin:0;font-size:1.05rem;display:flex;align-items:center;gap:0.4rem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        Як працює взаємодія з журналом
+      </h3>
+      <a href="#api-reference-section" style="font-size:0.85rem;color:var(--primary);text-decoration:none;font-weight:600">
+        📖 Довідник API та специфікація v2 &darr;
+      </a>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:0.85rem;margin-bottom:0.75rem">
+      <div style="background:var(--bg);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.25rem;color:var(--primary)">1. Створіть ключ API</div>
+        <div style="font-size:0.86rem;color:var(--text-muted)">
+          Задайте зрозумілу назву (наприклад, «Журнал 7-А») та додайте опис призначення, щоб легко розрізняти підключення.
+        </div>
+      </div>
+      <div style="background:var(--bg);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.25rem;color:var(--primary)">2. Вставте адресу й ключ у журнал</div>
+        <div style="font-size:0.86rem;color:var(--text-muted)">
+          У журналі відкрийте «Підключити тести / завдання» та вставте скопійовану адресу цього сайту й секретний ключ.
+        </div>
+      </div>
+      <div style="background:var(--bg);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+        <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.25rem;color:var(--primary)">3. Авто-синхронізація та моніторинг</div>
+        <div style="font-size:0.86rem;color:var(--text-muted)">
+          Журнал передасть списки учнів сюди, а готові оцінки завантажуватимуться в журнал за кліком. Уся статистика запитів фіксується нижче.
+        </div>
+      </div>
+    </div>
+
+    <p style="margin:0;font-size:0.86rem;color:var(--text-muted)">
       Той самий ключ дозволяє журналу передати сюди копію класу та учнів. Список залишається у власній базі тестів; учні вибирають імена без службових ID. Якщо дитини немає у списку, вона може ввести ім’я самостійно — її результат збережеться в «Позакласних учнях» журналу до рішення вчителя.
     </p>
   </div>
@@ -94,6 +119,11 @@
       <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-muted)">Код для попередніх версій журналу (JSON)</summary>
       <textarea id="journal-connection-code" readonly rows="3" style="width:100%;margin-top:0.4rem;padding:0.5rem;font-family:monospace;font-size:0.82rem;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text)">{{ connection_code }}</textarea>
     </details>
+
+    <div style="margin-top:0.75rem;padding:0.6rem 0.85rem;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);font-size:0.85rem">
+      <strong>Швидка перевірка зв'язку (curl):</strong>
+      <pre style="margin:0.35rem 0 0 0;padding:0.4rem;background:var(--bg-card);border-radius:4px;overflow-x:auto;font-size:0.82rem">curl -H "Authorization: Bearer {{ token }}" {{ site_url }}/api/v2/journal/roster/</pre>
+    </div>
   </div>
   {% endif %}
 
@@ -103,42 +133,64 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
       Створити нове підключення (новий ключ API)
     </h3>
-    <form method="post" action="/teacher/integrations" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+    <form method="post" action="/teacher/integrations" style="display:flex;flex-direction:column;gap:0.75rem">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="action" value="simple_key">
-      <div style="flex:1;min-width:260px">
-        <input
-          type="text"
-          name="name"
-          placeholder="Назва ключа (наприклад: Електронний журнал 7-А, NZ.ua, Робочий ноутбук)"
-          maxlength="100"
-          style="width:100%;padding:0.6rem 0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.95rem"
-        >
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:0.75rem">
+        <div>
+          <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:0.25rem;color:var(--text)">
+            Назва підключення:
+          </label>
+          <input
+            type="text"
+            name="name"
+            placeholder="Наприклад: Журнал 7-А (Інформатика), Домашній сервер, Ноутбук №2"
+            maxlength="100"
+            style="width:100%;padding:0.6rem 0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.95rem"
+          >
+        </div>
+        <div>
+          <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:0.25rem;color:var(--text)">
+            Опис призначення (необов’язково):
+          </label>
+          <input
+            type="text"
+            name="description"
+            placeholder="Наприклад: Для оцінок тестів у кабінеті №12, синхронізація щоп'ятниці"
+            maxlength="500"
+            style="width:100%;padding:0.6rem 0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.95rem"
+          >
+        </div>
       </div>
-      <button type="submit" class="btn btn-primary" style="white-space:nowrap">
-        Створити ключ API
-      </button>
+      <div>
+        <button type="submit" class="btn btn-primary" style="white-space:nowrap">
+          + Створити ключ API
+        </button>
+      </div>
     </form>
     <p style="margin:0.5rem 0 0 0;font-size:0.85rem;color:var(--text-muted)">
-      Створення нового ключа не вимикає попередніх. Кожен ключ має власну назву, статус і статистику запитів.
+      Створення нового ключа не вимикає попередніх. Кожен ключ має власну назву, опис, статус активності та детальну статистику звернень.
     </p>
   </div>
 
   <!-- Список усіх створених API-ключів -->
   <div style="margin-bottom:2rem">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.85rem;flex-wrap:wrap;gap:0.5rem">
       <h2 style="margin:0;font-size:1.25rem;display:flex;align-items:center;gap:0.5rem">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         Ваші підключені API-ключі ({{ total_grants_count }})
       </h2>
+      <span style="font-size:0.88rem;color:var(--text-muted)">
+        Натисніть «✏️ Редагувати», щоб змінити назву, опис або провести ротацію ключа
+      </span>
     </div>
 
     {% if api_grants and api_grants | length > 0 %}
     <div style="display:flex;flex-direction:column;gap:0.85rem">
       {% for grant in api_grants %}
-      <div class="card" style="padding:1rem 1.25rem;border-radius:var(--radius);border:1px solid {% if grant.active %}var(--border){% else %}var(--border-light){% endif %};background:{% if grant.active %}var(--bg-card){% else %}var(--bg-card2){% endif %};opacity:{% if grant.active %}1{% else %}0.85{% endif %};transition:box-shadow var(--transition)">
+      <div class="card" style="padding:1.15rem 1.25rem;border-radius:var(--radius);border:1px solid {% if grant.active %}var(--border){% else %}var(--border-light){% endif %};background:{% if grant.active %}var(--bg-card){% else %}var(--bg-card2){% endif %};opacity:{% if grant.active %}1{% else %}0.88{% endif %};transition:box-shadow var(--transition)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem">
-          <div>
+          <div style="flex:1;min-width:280px">
             <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.35rem">
               <span style="font-size:1.1rem;font-weight:700;color:var(--text)" id="key-title-{{ grant.id }}">
                 {{ grant.name }}
@@ -155,16 +207,52 @@
                 ⏸ На паузі
               </span>
               {% endif %}
+              {% if grant.blocked_attempts > 0 %}
+              <span class="badge" style="font-size:0.78rem;padding:0.18rem 0.5rem;border-radius:999px;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);font-weight:600" title="Остання спроба: {{ grant.last_blocked_at }} (IP: {{ grant.last_blocked_ip }})">
+                ⚠️ {{ grant.blocked_attempts }} призупинених запитів
+              </span>
+              {% endif %}
             </div>
 
-            <!-- Форма перейменування (прихована за замовчуванням) -->
-            <form id="rename-form-{{ grant.id }}" method="post" action="/teacher/integrations" style="display:none;margin:0.5rem 0;gap:0.5rem;align-items:center">
+            <!-- Блок опису ключа -->
+            {% if grant.description %}
+            <div style="margin:0.35rem 0 0.55rem 0;font-size:0.9rem;color:var(--text);background:var(--bg);padding:0.45rem 0.75rem;border-radius:4px;border-left:3px solid var(--primary)">
+              <span style="color:var(--primary);font-weight:600">Опис:</span> {{ grant.description }}
+            </div>
+            {% else %}
+            <div style="margin:0.25rem 0 0.5rem 0;font-size:0.85rem;color:var(--text-muted);font-style:italic">
+              Опис відсутній. Натисніть «✏️ Редагувати», щоб додати корисні примітки про цей ключ.
+            </div>
+            {% endif %}
+
+            <!-- Форма повного редагування (прихована за замовчуванням) -->
+            <form id="rename-form-{{ grant.id }}" method="post" action="/teacher/integrations" style="display:none;margin:0.75rem 0;padding:0.85rem;background:var(--bg);border:1px solid var(--primary);border-radius:var(--radius-sm);flex-direction:column;gap:0.6rem">
               <input type="hidden" name="csrf" value="{{ csrf }}">
-              <input type="hidden" name="action" value="rename_key">
+              <input type="hidden" name="action" value="edit_key">
               <input type="hidden" name="grant_id" value="{{ grant.id }}">
-              <input type="text" name="name" value="{{ grant.name }}" maxlength="100" style="padding:0.35rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--primary);background:var(--bg);color:var(--text);font-size:0.9rem">
-              <button type="submit" class="btn btn-sm btn-primary">Зберегти назву</button>
-              <button type="button" class="btn btn-sm btn-secondary" onclick="toggleRenameForm('{{ grant.id }}')">Скасувати</button>
+              
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:0.5rem">
+                <div>
+                  <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem">Назва ключа:</label>
+                  <input type="text" name="name" value="{{ grant.name }}" maxlength="100" style="width:100%;padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.9rem">
+                </div>
+                <div>
+                  <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem">Опис призначення:</label>
+                  <input type="text" name="description" value="{{ grant.description }}" maxlength="500" placeholder="Призначення, клас, примітки" style="width:100%;padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.9rem">
+                </div>
+              </div>
+
+              <div style="margin-top:0.25rem;font-size:0.85rem">
+                <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+                  <input type="checkbox" name="rotate_token" value="1">
+                  <span>Згенерувати новий секретний ключ API (ротація токена без видалення підключення та збереженням статистики)</span>
+                </label>
+              </div>
+
+              <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.35rem">
+                <button type="submit" class="btn btn-sm btn-primary">Зберегти зміни</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="toggleRenameForm('{{ grant.id }}')">Скасувати</button>
+              </div>
             </form>
 
             <div style="display:flex;flex-wrap:wrap;gap:1rem;font-size:0.86rem;color:var(--text-muted);margin-top:0.4rem">
@@ -178,13 +266,19 @@
                   {% endif %}
                 </strong>
               </span>
+              {% if grant.client_ip %}
+              <span>🌐 IP: <strong style="color:var(--text)">{{ grant.client_ip }}</strong></span>
+              {% endif %}
               {% if grant.created_at %}
               <span>📅 Створено: {{ grant.created_at }}</span>
+              {% endif %}
+              {% if grant.updated_at and grant.updated_at != grant.created_at %}
+              <span>✏️ Оновлено: {{ grant.updated_at }}</span>
               {% endif %}
             </div>
           </div>
 
-          <!-- Кнопки дій -->
+          <!-- Кнопки дій над ключем -->
           <div style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
             <!-- Кнопка Пауза / Відновлення -->
             <form method="post" action="/teacher/integrations" style="margin:0">
@@ -202,9 +296,14 @@
               {% endif %}
             </form>
 
-            <!-- Кнопка Перейменувати -->
-            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleRenameForm('{{ grant.id }}')" title="Змінити назву цього ключа">
-              ✏️ Назва
+            <!-- Кнопка Редагувати -->
+            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleRenameForm('{{ grant.id }}')" title="Змінити назву, опис або згенерувати новий ключ">
+              ✏️ Редагувати
+            </button>
+
+            <!-- Кнопка Деталі статистики -->
+            <button type="button" class="btn btn-sm btn-secondary" onclick="toggleStatsDetails('{{ grant.id }}')" title="Переглянути детальну статистику звернень">
+              📊 Статистика
             </button>
 
             <!-- Кнопка Видалити -->
@@ -216,6 +315,81 @@
                 🗑 Видалити
               </button>
             </form>
+          </div>
+        </div>
+
+        <!-- Розкривна панель детальної статистики взаємодії -->
+        <div id="stats-details-{{ grant.id }}" style="display:none;margin-top:1rem;padding-top:1rem;border-top:1px dashed var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
+            <h4 style="margin:0;font-size:0.95rem;display:flex;align-items:center;gap:0.4rem">
+              📊 Детальна статистика взаємодії: {{ grant.name }}
+            </h4>
+            <!-- Кнопка скидання статистики -->
+            <form method="post" action="/teacher/integrations" style="margin:0" onsubmit="return confirm('Скинути лічильники та журнал останніх звернень для ключа «{{ grant.name }}»? Сам ключ залишиться чинним.');">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="action" value="reset_stats">
+              <input type="hidden" name="grant_id" value="{{ grant.id }}">
+              <button type="submit" class="btn btn-sm btn-secondary" style="font-size:0.78rem;padding:0.2rem 0.5rem">
+                Скинути лічильник
+              </button>
+            </form>
+          </div>
+
+          <!-- Розбивка за операціями -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:0.6rem;margin-bottom:0.85rem">
+            <div style="background:var(--bg);padding:0.6rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+              <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase">Усього запитів</div>
+              <div style="font-size:1.4rem;font-weight:700;color:var(--text)">{{ grant.requests }}</div>
+            </div>
+            <div style="background:var(--bg);padding:0.6rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+              <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase">Експорт оцінок</div>
+              <div style="font-size:1.4rem;font-weight:700;color:var(--primary)">{{ grant.endpoints.get('Експорт оцінок', 0) }}</div>
+            </div>
+            <div style="background:var(--bg);padding:0.6rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+              <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase">Списки учнів (GET/POST)</div>
+              <div style="font-size:1.4rem;font-weight:700;color:var(--success)">{{ grant.endpoints.get('Запит списків (GET)', 0) + grant.endpoints.get('Синхронізація списків (POST)', 0) }}</div>
+            </div>
+            <div style="background:var(--bg);padding:0.6rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+              <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase">Останній IP клієнта</div>
+              <div style="font-size:1rem;font-weight:600;color:var(--text);margin-top:0.35rem">{{ grant.client_ip or '—' }}</div>
+            </div>
+          </div>
+
+          <!-- Останні виклики (журнал останніх 10 запитів) -->
+          <div>
+            <div style="font-weight:600;font-size:0.85rem;margin-bottom:0.4rem;color:var(--text)">
+              Журнал останніх звернень:
+            </div>
+            {% if grant.recent_calls and grant.recent_calls | length > 0 %}
+            <div style="overflow-x:auto;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)">
+              <table style="width:100%;border-collapse:collapse;font-size:0.82rem;text-align:left">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);background:var(--bg-card2)">
+                    <th style="padding:0.4rem 0.6rem">Час (UTC)</th>
+                    <th style="padding:0.4rem 0.6rem">Операція</th>
+                    <th style="padding:0.4rem 0.6rem">Маршрут</th>
+                    <th style="padding:0.4rem 0.6rem">IP адреса</th>
+                    <th style="padding:0.4rem 0.6rem">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for call in grant.recent_calls %}
+                  <tr style="border-bottom:1px solid var(--border)">
+                    <td style="padding:0.4rem 0.6rem;font-family:monospace">{{ call.time }}</td>
+                    <td style="padding:0.4rem 0.6rem;font-weight:600">{{ call.action }}</td>
+                    <td style="padding:0.4rem 0.6rem;font-family:monospace">{{ call.method }} {{ call.path }}</td>
+                    <td style="padding:0.4rem 0.6rem;font-family:monospace">{{ call.client_ip }}</td>
+                    <td style="padding:0.4rem 0.6rem"><span class="badge" style="background:var(--success-bg);color:var(--success);font-size:0.75rem;padding:0.1rem 0.4rem">{{ call.status }}</span></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <p style="margin:0;font-size:0.85rem;color:var(--text-muted);font-style:italic">
+              Журнал останніх запитів порожній. Щойно журнал звернеться до тестів за цим ключем, тут відображатимуться записи.
+            </p>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -233,10 +407,10 @@
     {% endif %}
   </div>
 
-  <!-- Блок сирої статистики API для сумісності з тестами -->
+  <!-- Блок сирої статистики API для повної сумісності з тестами -->
   <details style="margin-bottom:1.5rem;padding:0.75rem 1rem;background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--radius-sm)">
     <summary style="cursor:pointer;font-weight:600;font-size:0.92rem">
-      Детальна статистика API запитів
+      Детальна статистика API запитів (сумісність)
     </summary>
     <div style="margin-top:0.75rem">
       <h2 style="font-size:1rem;margin:0 0 0.5rem 0">Статистика API</h2>
@@ -249,6 +423,70 @@
       {% endfor %}
     </div>
   </details>
+
+  <!-- Довідник взаємодії з API (API Reference) -->
+  <section id="api-reference-section" class="card" style="margin-bottom:1.5rem;padding:1.25rem;border:1px solid var(--border);background:var(--bg-card2)">
+    <h3 style="margin:0 0 0.5rem 0;font-size:1.15rem;display:flex;align-items:center;gap:0.4rem;color:var(--primary)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+      Документація та взаємодія з API (School API v2)
+    </h3>
+    <p style="margin:0 0 1rem 0;font-size:0.92rem;color:var(--text-muted)">
+      SchoolTest надає уніфікований REST API контракт версії 2 для безпечного обміну списками та оцінками з електронним журналом.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:1rem;font-size:0.9rem">
+      <div>
+        <h4 style="margin:0 0 0.35rem 0;font-size:0.98rem;color:var(--text)">🔑 Автентифікація</h4>
+        <p style="margin:0 0 0.4rem 0;color:var(--text-muted)">
+          Усі запити до API повинні містити HTTP-заголовок <code>Authorization: Bearer &lt;ВАШ_КЛЮЧ_API&gt;</code>. Ключ створюється вчителем і прив'язується до його профілю. Доступ мають лише сесії та тести цього вчителя.
+        </p>
+      </div>
+
+      <div>
+        <h4 style="margin:0 0 0.35rem 0;font-size:0.98rem;color:var(--text)">📡 Основні маршрути (Endpoints)</h4>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          <div style="background:var(--bg);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+              <span class="badge" style="background:var(--primary-glow);color:var(--primary);font-weight:700;font-size:0.8rem">GET</span>
+              <code style="font-weight:700">/api/v2/journal/roster/</code>
+            </div>
+            <div style="color:var(--text-muted);font-size:0.85rem">
+              Повертає списки класів, предметів та учнів учителя для вибору в журналі. Додає позначку <code>journal_roster_import</code>.
+            </div>
+          </div>
+
+          <div style="background:var(--bg);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+              <span class="badge" style="background:var(--success-bg);color:var(--success);font-weight:700;font-size:0.8rem">POST</span>
+              <code style="font-weight:700">/api/v2/journal/roster/</code>
+            </div>
+            <div style="color:var(--text-muted);font-size:0.85rem">
+              Приймає копію списку учнів із журналу. Створює або оновлює локальні записи класу та учнів без видалення наявних даних.
+            </div>
+          </div>
+
+          <div style="background:var(--bg);padding:0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+              <span class="badge" style="background:var(--primary-glow);color:var(--primary);font-weight:700;font-size:0.8rem">GET</span>
+              <code style="font-weight:700">/api/v2/journal/grades/?class_id=&subject_id=&date_from=&date_to=&cursor=0</code>
+            </div>
+            <div style="color:var(--text-muted);font-size:0.85rem">
+              Повертає оцінки учнів за вибраний період для конкретного класу та предмета. Підтримує курсорну пагінацію до 500 записів на сторінку.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4 style="margin:0 0 0.35rem 0;font-size:0.98rem;color:var(--text)">💡 Поради та типові запитання</h4>
+        <ul style="margin:0 0 0 1.25rem;padding:0;color:var(--text-muted);line-height:1.5">
+          <li><strong>Зміна IP-адреси (школа / дім):</strong> Ключ API прив'язаний до бази сайту, а не до IP-адреси. Якщо ви змінили мережу, просто оновіть IP-адресу сайту в журналі — сам ключ змінювати не потрібно.</li>
+          <li><strong>Тимчасова пауза:</strong> Якщо ви хочете тимчасово заблокувати запити журналу (наприклад, під час канікул або редагування тестів), натисніть «⏸ На паузу». Журнал отримуватиме зрозумілу відповідь 401, а спроби запитів фіксуватимуться в лічильнику.</li>
+          <li><strong>Ротація ключа:</strong> Якщо ключ потрапив до сторонніх осіб, відкрийте «✏️ Редагувати» та оберіть «Згенерувати новий секретний токен». Попередній токен негайно анулюється, а ID та історія статистики збережуться.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
 
   <!-- Розширені налаштування контексту сесій та предметів -->
   <details {% if error %}open{% endif %} style="border:1px solid var(--border);border-radius:var(--radius);padding:1rem">
@@ -352,6 +590,13 @@ function toggleRenameForm(id) {
     const input = form.querySelector('input[name="name"]');
     if (input) input.focus();
   }
+}
+
+function toggleStatsDetails(id) {
+  const panel = document.getElementById('stats-details-' + id);
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none' || panel.style.display === '';
+  panel.style.display = isHidden ? 'block' : 'none';
 }
 </script>
 {% endblock %}

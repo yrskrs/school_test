@@ -281,6 +281,101 @@ class JournalRosterAPITests(unittest.IsolatedAsyncioTestCase):
         deleted_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=auth_header)
         self.assertEqual(deleted_call[0], 401)
 
+    async def test_api_keys_description_editing_rotation_and_statistics(self):
+        import re, html
+        page = await fixtures.http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        token = re.search(r'name="csrf" value="([^"]+)"', page[1]).group(1)
+
+        # 1. Create a key with name and description
+        create_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'simple_key',
+            'name': 'Журнал 8-А Інформатика',
+            'description': 'Основний ключ для синхронізації тестів з кабінету 12',
+            'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(create_res[0], 200)
+        self.assertIn('Журнал 8-А Інформатика', create_res[1])
+        self.assertIn('Основний ключ для синхронізації тестів з кабінету 12', create_res[1])
+        api_key = html.unescape(re.search(r'id="journal-api-key"[^>]*>(.*?)</textarea>', create_res[1], re.S).group(1))
+
+        grant = self.db.query(models.GradeExportGrant).filter_by(teacher_id=self.owner.id, active=True).order_by(models.GradeExportGrant.id.desc()).first()
+        self.assertIsNotNone(grant)
+        grant_id = grant.id
+        auth_header = 'Bearer ' + api_key
+
+        # 2. Make an API call (GET roster) and verify statistics are recorded
+        res1 = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=auth_header)
+        self.assertEqual(res1[0], 200)
+
+        # Check that page reflects 1 request and recent call
+        page_after_call = await fixtures.http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        self.assertIn('Запитів: <strong style="color:var(--text)">1</strong>', page_after_call[1])
+        self.assertIn('Запит списків (GET)', page_after_call[1])
+
+        # 3. Edit name and description via action="edit_key"
+        edit_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'edit_key',
+            'grant_id': grant_id,
+            'name': 'Оновлений Журнал 8-А',
+            'description': 'Оновлений опис: перенесено на домашній сервер',
+            'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(edit_res[0], 200)
+        self.assertIn('Оновлений Журнал 8-А', edit_res[1])
+        self.assertIn('Оновлений опис: перенесено на домашній сервер', edit_res[1])
+
+        # 4. Token rotation without deleting the grant
+        rotate_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'edit_key',
+            'grant_id': grant_id,
+            'name': 'Оновлений Журнал 8-А',
+            'description': 'Оновлений опис: перенесено на домашній сервер',
+            'rotate_token': '1',
+            'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(rotate_res[0], 200)
+        self.assertIn('Згенеровано новий секретний ключ', rotate_res[1])
+        new_api_key = html.unescape(re.search(r'id="journal-api-key"[^>]*>(.*?)</textarea>', rotate_res[1], re.S).group(1))
+        self.assertNotEqual(new_api_key, api_key)
+
+        # Old key should now return 401
+        old_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=auth_header)
+        self.assertEqual(old_call[0], 401)
+
+        # New key works and request counter increases to 2
+        new_auth_header = 'Bearer ' + new_api_key
+        new_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=new_auth_header)
+        self.assertEqual(new_call[0], 200)
+
+        page_after_rot = await fixtures.http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        self.assertIn('Запитів: <strong style="color:var(--text)">2</strong>', page_after_rot[1])
+
+        # 5. Pause key and verify paused attempt tracking
+        await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'toggle_key', 'grant_id': grant_id, 'csrf': token
+        }, self.teacher_cookie, form=True)
+
+        paused_call = await fixtures.http('GET', '/api/v2/journal/roster/', authorization=new_auth_header)
+        self.assertEqual(paused_call[0], 401)
+
+        page_after_pause = await fixtures.http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        self.assertIn('призупинених запитів', page_after_pause[1])
+
+        # Reactivate key
+        await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'toggle_key', 'grant_id': grant_id, 'csrf': token
+        }, self.teacher_cookie, form=True)
+
+        # 6. Reset statistics
+        reset_res = await fixtures.http('POST', '/teacher/integrations', {
+            'action': 'reset_stats', 'grant_id': grant_id, 'csrf': token
+        }, self.teacher_cookie, form=True)
+        self.assertEqual(reset_res[0], 200)
+        self.assertIn('успішно скинуто', reset_res[1])
+
+        page_after_reset = await fixtures.http('GET', '/teacher/integrations', cookie=self.teacher_cookie)
+        self.assertIn('Запитів: <strong style="color:var(--text)">0</strong>', page_after_reset[1])
+
 
 if __name__ == '__main__':
     try:

@@ -37,14 +37,58 @@ def grant(request, db):
     header = request.headers.get('authorization', '')
     if not header.startswith('Bearer ') or not header[7:]:
         raise HTTPException(401, 'Потрібен чинний Bearer-ключ експорту.')
-    row = db.query(models.GradeExportGrant).filter_by(token_hash=hashlib.sha256(header[7:].encode()).hexdigest(), active=True).first()
+    token_str = header[7:].strip()
+    token_hash = hashlib.sha256(token_str.encode()).hexdigest()
+    row = db.query(models.GradeExportGrant).filter_by(token_hash=token_hash).first()
+    if not row:
+        raise HTTPException(401, 'Потрібен чинний Bearer-ключ експорту.')
+    if not row.active:
+        def log_blocked(engine, store):
+            item = store.meta.setdefault('journal_api_stats', {}).setdefault(str(row.id), {'requests': 0})
+            item['blocked_attempts'] = item.get('blocked_attempts', 0) + 1
+            item['last_blocked_at'] = dt.datetime.now(dt.timezone.utc).isoformat()
+            client_ip = request.headers.get('x-forwarded-for', '').split(',')[0].strip() or (request.client.host if request.client else '127.0.0.1')
+            item['last_blocked_ip'] = client_ip
+        operate(log_blocked, db)
+        raise HTTPException(401, 'Ключ API тимчасово поставлено на паузу. Активуйте його в налаштуваннях тестів.')
+
     teacher = db.get(models.Teacher, row.teacher_id) if row else None
     if not teacher or not teacher.is_active:
         raise HTTPException(401, 'Потрібен чинний Bearer-ключ експорту.')
+
     def usage(engine, store):
         item = store.meta.setdefault('journal_api_stats', {}).setdefault(str(row.id), {'requests': 0})
-        item.update(requests=item['requests'] + 1, last_used=dt.datetime.now(dt.timezone.utc).isoformat(),
-            path=request.url.path, method=request.method)
+        item['requests'] = item.get('requests', 0) + 1
+        now_dt = dt.datetime.now(dt.timezone.utc)
+        item['last_used'] = now_dt.isoformat()
+        path = request.url.path
+        item['path'] = path
+        item['method'] = request.method
+        client_ip = request.headers.get('x-forwarded-for', '').split(',')[0].strip() or (request.client.host if request.client else '127.0.0.1')
+        item['client_ip'] = client_ip
+
+        # Endpoint categorization
+        endpoints = item.setdefault('endpoints', {})
+        if '/journal/roster/' in path:
+            ep_name = 'Синхронізація списків (POST)' if request.method == 'POST' else 'Запит списків (GET)'
+        elif '/journal/grades/' in path:
+            ep_name = 'Експорт оцінок'
+        else:
+            ep_name = f"{request.method} {path}"
+        endpoints[ep_name] = endpoints.get(ep_name, 0) + 1
+
+        # Recent activity log (keep last 10 entries)
+        recent = item.setdefault('recent_calls', [])
+        recent.insert(0, {
+            'time': now_dt.strftime('%Y-%m-%d %H:%M:%S'),
+            'action': ep_name,
+            'method': request.method,
+            'path': path,
+            'client_ip': client_ip,
+            'status': '200 OK'
+        })
+        item['recent_calls'] = recent[:10]
+
     operate(usage, db)
     return teacher
 
@@ -423,14 +467,62 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
                 db.add(grant_row)
                 db.flush()
                 raw_name = str(data.get('name', '')).strip()
+                raw_desc = str(data.get('description', '')).strip()
+                if len(raw_name) > 100:
+                    raise SyncError('Назва ключа має бути до 100 символів.')
+                if len(raw_desc) > 500:
+                    raise SyncError('Опис ключа має бути до 500 символів.')
                 grant_name = raw_name if raw_name else f"Ключ API #{grant_row.id}"
                 def record_grant_meta(engine, store):
                     store.meta.setdefault('api_grants_meta', {})[str(grant_row.id)] = {
                         'name': grant_name,
+                        'description': raw_desc,
                         'created_at': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M'),
+                        'updated_at': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M'),
                     }
                 operate(record_grant_meta, db)
                 success_msg = f'Ключ API «{grant_name}» успішно створено.'
+            elif action == 'edit_key':
+                grant_id = int(data.get('grant_id', 0))
+                grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
+                if not grant_row:
+                    raise HTTPException(404, 'Ключ API не знайдено.')
+                new_name = str(data.get('name', '')).strip()
+                new_desc = str(data.get('description', '')).strip()
+                if len(new_name) > 100:
+                    raise SyncError('Назва ключа має бути до 100 символів.')
+                if len(new_desc) > 500:
+                    raise SyncError('Опис ключа має бути до 500 символів.')
+                final_name = new_name if new_name else f"Ключ API #{grant_id}"
+
+                rotated = False
+                rotate_val = str(data.get('rotate_token', '')).strip().lower()
+                custom_tok = str(data.get('custom_token', '')).strip()
+                if rotate_val in ('1', 'true', 'yes', 'on'):
+                    token = secrets.token_urlsafe(32)
+                    grant_row.token_hash = hashlib.sha256(token.encode()).hexdigest()
+                    rotated = True
+                elif custom_tok:
+                    if len(custom_tok) < 16 or any(c in custom_tok for c in ('\r', '\n', ' ')):
+                        raise SyncError('Ключ API повинен містити щонайменше 16 символів без пробілів і переносів рядків.')
+                    new_hash = hashlib.sha256(custom_tok.encode()).hexdigest()
+                    existing = db.query(models.GradeExportGrant).filter_by(token_hash=new_hash).first()
+                    if existing and existing.id != grant_id:
+                        raise SyncError('Такий ключ API вже використовується іншим підключенням.')
+                    grant_row.token_hash = new_hash
+                    token = custom_tok
+                    rotated = True
+
+                def update_grant_meta(engine, store):
+                    entry = store.meta.setdefault('api_grants_meta', {}).setdefault(str(grant_id), {})
+                    entry['name'] = final_name
+                    entry['description'] = new_desc
+                    entry['updated_at'] = dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M')
+                operate(update_grant_meta, db)
+                if rotated:
+                    success_msg = f'Ключ «{final_name}» оновлено. Згенеровано новий секретний ключ доступу — скопіюйте його нижче.'
+                else:
+                    success_msg = f'Дані ключа «{final_name}» успішно збережено.'
             elif action == 'toggle_key':
                 grant_id = int(data.get('grant_id', 0))
                 grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
@@ -444,15 +536,39 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
             elif action == 'rename_key':
                 grant_id = int(data.get('grant_id', 0))
                 new_name = str(data.get('name', '')).strip()
+                new_desc = str(data.get('description', '')).strip() if 'description' in data else None
                 if not new_name or len(new_name) > 100:
                     raise SyncError('Введіть назву ключа (до 100 символів).')
+                if new_desc is not None and len(new_desc) > 500:
+                    raise SyncError('Опис ключа має бути до 500 символів.')
                 grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
                 if not grant_row:
                     raise HTTPException(404, 'Ключ API не знайдено.')
                 def rename_grant(engine, store):
-                    store.meta.setdefault('api_grants_meta', {}).setdefault(str(grant_id), {})['name'] = new_name
+                    entry = store.meta.setdefault('api_grants_meta', {}).setdefault(str(grant_id), {})
+                    entry['name'] = new_name
+                    if new_desc is not None:
+                        entry['description'] = new_desc
+                    entry['updated_at'] = dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M')
                 operate(rename_grant, db)
                 success_msg = f'Назву ключа оновлено на «{new_name}».'
+            elif action == 'reset_stats':
+                grant_id = int(data.get('grant_id', 0))
+                grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
+                if not grant_row:
+                    raise HTTPException(404, 'Ключ API не знайдено.')
+                key_name = operate(lambda engine, store: store.meta.get('api_grants_meta', {}).get(str(grant_id), {}).get('name'), db) or f"Ключ API #{grant_id}"
+                def reset_grant_stats(engine, store):
+                    if str(grant_id) in store.meta.get('journal_api_stats', {}):
+                        store.meta['journal_api_stats'][str(grant_id)] = {
+                            'requests': 0,
+                            'endpoints': {},
+                            'recent_calls': [],
+                            'last_used': '',
+                            'reset_at': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%M')
+                        }
+                operate(reset_grant_stats, db)
+                success_msg = f'Статистику запитів для ключа «{key_name}» успішно скинуто.'
             elif action == 'delete_key':
                 grant_id = int(data.get('grant_id', 0))
                 grant_row = db.query(models.GradeExportGrant).filter_by(id=grant_id, teacher_id=teacher.id).first()
@@ -514,18 +630,29 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
     api_grants_meta, filtered_api_stats = meta_and_stats
 
     grants_list = []
+    total_requests_count = 0
     for g in teacher_grants:
         g_meta = api_grants_meta.get(str(g.id), {})
         g_stats = filtered_api_stats.get(str(g.id), {})
+        reqs = g_stats.get('requests', 0)
+        total_requests_count += reqs
         grants_list.append({
             'id': g.id,
             'active': bool(g.active),
             'name': g_meta.get('name') or f"Ключ API #{g.id}",
+            'description': g_meta.get('description') or '',
             'created_at': g_meta.get('created_at', ''),
-            'requests': g_stats.get('requests', 0),
+            'updated_at': g_meta.get('updated_at', ''),
+            'requests': reqs,
             'last_used': g_stats.get('last_used', ''),
             'path': g_stats.get('path', ''),
             'method': g_stats.get('method', ''),
+            'client_ip': g_stats.get('client_ip', ''),
+            'endpoints': g_stats.get('endpoints', {}),
+            'recent_calls': g_stats.get('recent_calls', []),
+            'blocked_attempts': g_stats.get('blocked_attempts', 0),
+            'last_blocked_at': g_stats.get('last_blocked_at', ''),
+            'last_blocked_ip': g_stats.get('last_blocked_ip', ''),
         })
 
     sessions = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id).order_by(models.TestSession.id.desc()).all()
@@ -547,6 +674,7 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
         'total_grants_count': len(grants_list),
         'active_grants_count': sum(1 for g in grants_list if g['active']),
         'paused_grants_count': sum(1 for g in grants_list if not g['active']),
+        'total_requests_count': total_requests_count,
         'attempts': db.query(models.StudentAttempt).filter(
             models.StudentAttempt.session_id.in_([s.id for s in sessions]),
             models.StudentAttempt.roster_student_id.is_(None)
