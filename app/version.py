@@ -1,5 +1,5 @@
 """Release version: also used to invalidate cached frontend assets."""
-__version__ = '1.6.6'
+__version__ = '1.6.7'
 RELEASE_SUMMARY = 'Розширене керування ключами API, ротація токенів та журнал запитів журналу'
 RELEASE_HIGHLIGHTS = (
     'Додано можливість редагувати назву й опис ключів API та проводити безпечну ротацію секретних токенів без втрати ID підключення.',
