@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import asyncio
+import posixpath
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -63,11 +64,17 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 @app.middleware("http")
 async def add_cache_control_header(request: Request, call_next):
     # Older installations still have exported answer keys under /static/tests.
-    if request.url.path.startswith("/static/") and request.url.path.rstrip("/").lower().endswith("/test.json"):
+    # StaticFiles normalizes dot segments before looking up a file. Apply the
+    # same normalization here so /test.json/. cannot bypass this protection.
+    static_path = posixpath.normpath(request.url.path.replace("\\", "/")).lower()
+    if request.url.path.startswith("/static/") and static_path.endswith("/test.json"):
         from fastapi.responses import Response
-        return Response(status_code=404)
-    response = await call_next(request)
+        response = Response(status_code=404)
+    else:
+        response = await call_next(request)
     response.headers["X-App-Version"] = settings.APP_VERSION
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
     else:

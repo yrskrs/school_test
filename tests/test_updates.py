@@ -16,12 +16,13 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlencode
+from isolated_database import configure, validate_engine
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 WORK = tempfile.TemporaryDirectory(prefix="schooltest-updates-")
-os.environ["DATABASE_URL"] = f"sqlite:///{WORK.name}/checks.db"
+configure(WORK.name)
 os.environ["SECRET_KEY"] = "synthetic-updates-key"
 os.environ["DEBUG"] = "False"
 os.environ["ROSTER_PEERS"] = "[]"
@@ -32,6 +33,7 @@ settings.ROSTER_PEERS = []
 from app.main import app
 from app import crud, models
 from app.database import Base, SessionLocal, engine
+validate_engine(engine, WORK.name)
 from app.security import create_teacher_session
 from app.services.updates import (
     check_updates_available,
@@ -241,6 +243,7 @@ class TestUpdatesRoutesAndPermissions(unittest.IsolatedAsyncioTestCase):
             while True:
                 await asyncio.sleep(.01)
         self.ticker = asyncio.create_task(ticker())
+        engine.dispose()
         Base.metadata.drop_all(engine)
         Base.metadata.create_all(engine)
 

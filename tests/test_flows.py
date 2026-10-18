@@ -8,11 +8,12 @@ import sys
 import tempfile
 import unittest
 from urllib.parse import urlencode
+from isolated_database import configure, validate_engine
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 WORK = tempfile.TemporaryDirectory(prefix="schooltest-regression-")
-os.environ["DATABASE_URL"] = f"sqlite:///{WORK.name}/checks.db"
+configure(WORK.name)
 os.environ["SECRET_KEY"] = "synthetic-regression-key"
 os.environ["DEBUG"] = "False"
 os.environ["ROSTER_PEERS"] = "[]"
@@ -26,8 +27,7 @@ from app.security import create_teacher_session, set_student_cookie
 from app.services import test_service, teacher_list_service
 from fastapi.responses import Response
 
-if engine.url.get_backend_name() != "sqlite" or not Path(engine.url.database).resolve().is_relative_to(Path(WORK.name).resolve()):
-    raise RuntimeError("Regression tests require a separate process and their own temporary database")
+validate_engine(engine, WORK.name)
 
 
 def cookie_for(function, *args):
@@ -80,6 +80,9 @@ class Flows(unittest.IsolatedAsyncioTestCase):
             while True:
                 await asyncio.sleep(.01)
         self.ticker = asyncio.create_task(ticker())
+        # Recreated PostgreSQL enum types have new OIDs; do not reuse the old
+        # driver's prepared statements between synthetic schemas.
+        engine.dispose()
         Base.metadata.drop_all(engine)
         self.lifespan = app.router.lifespan_context(app)
         await self.lifespan.__aenter__()

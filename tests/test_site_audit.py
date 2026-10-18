@@ -5,6 +5,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 import unittest
+from unittest.mock import patch
 
 import test_flows as fixtures
 from app import models
@@ -155,12 +156,27 @@ class SiteAudit(unittest.IsolatedAsyncioTestCase):
         self.db.add(models.RosterStudent(class_id=group.id, first_name='First', last_name='Synthetic'))
         self.test.allow_outside_class = True
         self.db.commit()
-        for group_id, expected in ((None, 'Цей клас неактивний'), (99999, 'Список класу цієї сесії недоступний')):
+        for group_id, expected in ((None, 'Цей клас неактивний'), (group.id, 'Цей клас неактивний')):
             self.session.roster_class_id = group_id
             self.db.commit()
             response = await fixtures.http('GET', '/api/session-roster?code=CHECK1')
             self.assertEqual(response[0], 200)
             self.assertIn(expected, json.loads(response[1])['error'])
+            login = await fixtures.http('POST', '/student/login', {
+                'access_code': 'CHECK1', 'student_name': 'Manual', 'other_student': '1',
+            }, form=True)
+            self.assertEqual(login[0], 403)
+
+        # A missing legacy class is an invalid FK on PostgreSQL. Verify the
+        # resolver and its HTTP handling without inserting corrupt records.
+        from app.services.roster_service import resolve_roster_class
+        missing, error = resolve_roster_class(self.db, self.test, 99999)
+        self.assertIsNone(missing)
+        self.assertIn('Список класу цієї сесії недоступний', error)
+        with patch('app.services.roster_service.resolve_roster_class', return_value=(missing, error)):
+            response = await fixtures.http('GET', '/api/session-roster?code=CHECK1')
+            self.assertEqual(response[0], 200)
+            self.assertEqual(json.loads(response[1])['error'], error)
             login = await fixtures.http('POST', '/student/login', {
                 'access_code': 'CHECK1', 'student_name': 'Manual', 'other_student': '1',
             }, form=True)
@@ -235,6 +251,8 @@ class SiteAudit(unittest.IsolatedAsyncioTestCase):
         # SQLite may reuse the highest deleted primary key. The new account
         # must not inherit the removed account's API token or journal binding.
         replacement = crud.create_teacher(self.db, 'replacement', 'Synthetic Replacement', 'synthetic-password')
+        replacement.id = target_id
+        self.db.commit()
         self.assertEqual(replacement.id, target_id)
         rejected = await fixtures.http('GET', '/api/v2/journal/roster/', authorization='Bearer delete-audit')
         self.assertEqual(rejected[0], 401)
@@ -243,6 +261,8 @@ class SiteAudit(unittest.IsolatedAsyncioTestCase):
         old_id, username = self.other.id, self.other.username
         self.db.delete(self.other); self.db.commit()
         replacement = crud.create_teacher(self.db, username, 'New Synthetic Owner', 'new-synthetic-password')
+        replacement.id = old_id
+        self.db.commit()
         self.assertEqual(replacement.id, old_id)
         response = await fixtures.http('GET', '/teacher/tests', cookie=self.other_cookie)
         self.assertEqual(response[0], 401)
@@ -251,6 +271,8 @@ class SiteAudit(unittest.IsolatedAsyncioTestCase):
         old_id = self.attempt.id
         self.db.delete(self.attempt); self.db.commit()
         replacement = crud.create_attempt(self.db, self.session.id, 'New Synthetic Pupil')
+        replacement.id = old_id
+        self.db.commit()
         self.assertEqual(replacement.id, old_id)
         response = await fixtures.http('GET', f'/student/instruction/{replacement.id}', cookie=self.student_cookie)
         self.assertEqual(response[0], 401)
