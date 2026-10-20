@@ -1,0 +1,43 @@
+{
+  "version": "1.6.9",
+  "date": "2026-10-20",
+  "python_application_tests": 142,
+  "python_protocol_tests": 22,
+  "student_js_scenarios": 26,
+  "js_files_parsed": 8,
+  "browser_stability_groups": 7,
+  "browser_layouts": 136,
+  "browser_geometry_groups": 8,
+  "javascript_errors": [],
+  "native_dialogs": [],
+  "postgres_http_and_migration": "passed",
+  "postgres_expected_attempts": "passed",
+  "instruction_visible_without_scrolling": [
+    {
+      "width": 1366,
+      "height": 768,
+      "scale": 100
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "scale": 100
+    },
+    {
+      "width": 1024,
+      "height": 600,
+      "scale": 100
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "scale": 150
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "scale": 150
+    }
+  ],
+  "application_files_hashed": 77
+}

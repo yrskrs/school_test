@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Інструкція — {{ test.title }}{% endblock %}
 {% block navbar %}{% endblock %}
-{% block body_class %}student-page{% endblock %}
+{% block body_class %}student-page instruction-page{% endblock %}
 
 {% block content %}
 <div class="instruction-card">
@@ -45,21 +45,20 @@
     <div class="istat">
       <span class="istat-icon">💾</span>
       <span class="istat-value">Авто</span>
-      <span class="istat-label">збереження</span>
+      <span class="istat-label">копія у браузері</span>
     </div>
   </div>
 
   <div class="instruction-rules">
     <h2>Правила проходження</h2>
     <ul>
-      <li>Уважно читайте кожне питання перед відповіддю</li>
-      <li>Відповіді зберігаються автоматично після кожного вибору</li>
-      <li>Ви можете переходити між питаннями та змінювати відповіді</li>
+      <li>Оберіть відповідь і натисніть «Відповісти». До надсилання її можна змінити</li>
+      <li>Пропущені питання повернуться наприкінці. Після завершення змінювати відповіді не можна</li>
+      <li>Працюйте в повному екрані. Третє порушення зупиняє тест</li>
+      <li>При втраті зв’язку тест і таймери призупиняються; відновлення — автоматичне</li>
       {% if test.time_limit_minutes %}
-      <li>Час обмежено: <strong>{{ test.time_limit_minutes }} хвилин</strong>. Після закінчення тест завершиться автоматично</li>
-      {% endif %}
-      <li>Після натискання «Завершити тест» повернутись буде неможливо</li>
-      {% if test.show_result_after_finish %}
+      <li>Після <strong>{{ test.time_limit_minutes }} хвилин</strong> тест завершиться автоматично{% if test.show_result_after_finish %}; результат буде показано одразу{% endif %}</li>
+      {% elif test.show_result_after_finish %}
       <li>Результат буде показано одразу після завершення</li>
       {% endif %}
     </ul>

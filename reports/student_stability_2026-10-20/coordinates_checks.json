@@ -1,0 +1,13 @@
+{
+  "checks": [
+    "Hotspot coordinates/marker and both drag ghosts at 60%",
+    "Hotspot coordinates/marker and both drag ghosts at 80%",
+    "Hotspot coordinates/marker and both drag ghosts at 100%",
+    "Hotspot coordinates/marker and both drag ghosts at 150%",
+    "Teacher hotspot editor selection/polygon at 60%",
+    "Teacher hotspot editor selection/polygon at 80%",
+    "Teacher hotspot editor selection/polygon at 100%",
+    "Teacher hotspot editor selection/polygon at 150%"
+  ],
+  "javascript_errors": []
+}

@@ -1,0 +1,57 @@
+{
+  "checks": [
+    "Roster entry: compact instructions and start button fit without scrolling at 1366x768, 1280x720 and 1024x600; theme and scale align",
+    "Three real fullscreen exits with a saved answer and a draft: finished page, exactly three violations, no alert or endless overlay",
+    "Teacher stop with an unsent draft opens result and offers a downloadable local copy",
+    "Rejected draft + lost third-stop HTTP acknowledgement + disconnected WebSocket: fallback reaches result and preserves local copy",
+    "Third warning while offline blocks work locally; reconnect sends draft and three events, then opens stopped result",
+    "Manual check reports success/failure; offline freezes both timers and blocks editing; native reconnect and a 503 outage auto-recover with the draft intact",
+    "Recovery preserves teacher pause and clears the retry interval; teacher resume and normal finish still work"
+  ],
+  "layouts": [
+    {
+      "width": 1366,
+      "height": 768,
+      "startBottom": 452.546875,
+      "scrollHeight": 768,
+      "scaleTop": 12,
+      "themeTop": 12,
+      "scaleHeight": 36,
+      "themeHeight": 36
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "startBottom": 452.546875,
+      "scrollHeight": 720,
+      "scaleTop": 12,
+      "themeTop": 12,
+      "scaleHeight": 36,
+      "themeHeight": 36
+    },
+    {
+      "width": 1024,
+      "height": 600,
+      "startBottom": 470.921875,
+      "scrollHeight": 600,
+      "scaleTop": 12,
+      "themeTop": 12,
+      "scaleHeight": 36,
+      "themeHeight": 36
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "scale": 150,
+      "startBottom": 677.421875
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "scale": 150,
+      "startBottom": 677.421875
+    }
+  ],
+  "javascript_errors": [],
+  "native_dialogs": []
+}

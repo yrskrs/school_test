@@ -86,10 +86,12 @@
   </script>
 </head>
 <body class="{% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>
+  <div class="display-tools" id="display-tools">
   <div class="page-scale-controls" id="page-scale-controls" role="group" aria-label="Масштаб сторінки">
     <button type="button" data-scale-action="decrease" aria-label="Зменшити масштаб" title="Зменшити масштаб">−</button>
     <button type="button" data-scale-action="reset" aria-label="Скинути масштаб до 100%" title="Скинути масштаб до 100%"><output id="page-scale-value" aria-live="polite">100%</output></button>
     <button type="button" data-scale-action="increase" aria-label="Збільшити масштаб" title="Збільшити масштаб">+</button>
+  </div>
   </div>
 
   <!-- Верхня смужка статусу завантаження сторінки (Top Loading Bar) -->

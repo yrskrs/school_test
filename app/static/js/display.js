@@ -24,6 +24,10 @@
     const controls = document.getElementById('page-scale-controls');
     const toolbar = document.querySelector('.test-topbar-right') || document.querySelector('header.navbar');
     if (toolbar) toolbar.appendChild(controls);
+    else {
+      const theme = document.getElementById('floating-theme-btn');
+      if (theme) document.getElementById('display-tools').appendChild(theme);
+    }
     applyScale();
     controls.addEventListener('click', event => {
       const button = event.target.closest('[data-scale-action]');

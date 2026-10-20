@@ -3545,3 +3545,61 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--primary); outli
   .page-scale-controls, .floating-theme-btn { display: none !important; }
 }
 
+/* Keep scale and theme controls in one aligned row on pages without a navbar. */
+.display-tools {
+  position: fixed;
+  top: .75rem;
+  right: 1rem;
+  z-index: 101;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.display-tools:empty { display: none; }
+.page-scale-controls { position: static; height: 36px; padding: 2px; }
+.page-scale-controls button { min-height: 30px; height: 30px; }
+.display-tools .floating-theme-btn {
+  position: static;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+}
+.navbar .navbar-theme-btn, .test-topbar .test-theme-toggle { height: 36px; width: 36px; min-width: 36px; margin: 0; }
+.connection-check-feedback { font-size: .8rem; color: var(--success); }
+.connection-check-feedback:empty { display: none; }
+.connection-check-feedback[data-state="checking"] { color: var(--text-muted); }
+.connection-check-feedback[data-state="error"] { color: var(--warning); }
+.student-sync-status[data-state="offline"] .connection-check-feedback,
+.student-sync-status[data-state="error"] .connection-check-feedback { color: inherit; }
+.student-sync-status { padding: .35rem 1rem; gap: .35rem .6rem; }
+
+/* Compact instruction: the start button remains in the initial desktop viewport. */
+.instruction-page .main-content { max-width: 880px; padding: 3rem 1rem .5rem; }
+.instruction-page .instruction-card { padding: .75rem 1.25rem; animation: none; }
+.instruction-page .instruction-header { margin-bottom: .5rem; }
+.instruction-page .instruction-icon { display: none; }
+.instruction-page .instruction-title { font-size: 1.2rem; line-height: 1.3; overflow-wrap: anywhere; }
+.instruction-page .instruction-meta { font-size: .82rem; }
+.instruction-page .instruction-description { padding: .5rem .75rem; margin-bottom: .45rem; font-size: .85rem; }
+.instruction-page .instruction-description p { margin: 0; }
+.instruction-page .instruction-stats { padding: .45rem; margin-bottom: .5rem; gap: .5rem; }
+.instruction-page .istat-icon { display: none; }
+.instruction-page .istat-value { font-size: 1.05rem; }
+.instruction-page .istat-label { font-size: .75rem; }
+.instruction-page .instruction-rules { margin-bottom: .5rem; }
+.instruction-page .instruction-rules h2 { margin-bottom: .35rem; font-size: .9rem; }
+.instruction-page .instruction-rules ul { gap: .25rem; }
+.instruction-page .instruction-rules li { font-size: .82rem; line-height: 1.4; }
+.instruction-page .instruction-student { margin-bottom: .4rem; font-size: .85rem; }
+.instruction-page .instruction-student p { margin: 0; }
+.instruction-page .btn-start { padding: .65rem 1rem; font-size: .95rem; }
+@media (max-height: 650px) and (min-width: 700px) {
+  .instruction-page .main-content { max-width: 1000px; padding-top: 3.5rem; }
+  .instruction-page .instruction-rules ul { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1.5rem; gap: .25rem 1.5rem; }
+}
+

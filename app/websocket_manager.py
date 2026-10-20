@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Dict, List, Set
 
@@ -11,6 +12,7 @@ class ConnectionManager:
     """
 
     def __init__(self):
+        self.send_timeout = 2.0
         # session_id -> list of connected websockets
         self._active: Dict[int, List[WebSocket]] = {}
         # attempt_id -> active student websocket
@@ -41,22 +43,20 @@ class ConnectionManager:
         ws = self._student_websockets.get(attempt_id)
         if ws:
             try:
-                await ws.send_json(event)
+                await asyncio.wait_for(ws.send_json(event), timeout=self.send_timeout)
             except Exception:
                 self.disconnect_student(attempt_id, ws)
 
     async def broadcast(self, session_id: int, event: dict) -> None:
         """Надсилає JSON-подію всім підключеним до сесії."""
-        connections = self._active.get(session_id, [])
-        dead: List[WebSocket] = []
+        connections = tuple(self._active.get(session_id, []))
         message = json.dumps(event, ensure_ascii=False, default=str)
-        for ws in connections:
+        async def send(ws):
             try:
-                await ws.send_text(message)
+                await asyncio.wait_for(ws.send_text(message), timeout=self.send_timeout)
             except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.disconnect(ws, session_id)
+                self.disconnect(ws, session_id)
+        await asyncio.gather(*(send(ws) for ws in connections))
 
     def session_connection_count(self, session_id: int) -> int:
         return len(self._active.get(session_id, []))

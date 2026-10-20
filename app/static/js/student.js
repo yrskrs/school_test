@@ -21,6 +21,7 @@ let recoveringConnection = false;
 let hasStarted = false;
 let finishInProgress = false;
 let syncError = '';
+let connectionFeedback = '';
 const inFlightAnswers = new Map();
 let attemptCache;
 try { attemptCache = StudentCache.create(ATTEMPT_ID, window.localStorage); }
@@ -219,15 +220,29 @@ function updateSyncStatus() {
   const status = document.getElementById('student-sync-status');
   if (!status) return;
   const count = Object.keys(pendingAnswers).length;
-  status.dataset.state = syncError || !attemptCache.available ? 'error' : isOffline ? 'offline' : count ? 'pending' : 'saved';
+  const drafts = questions.filter(q => !lockedQuestions.has(q.id) && hasAnswer(q.id)).length;
+  status.dataset.state = syncError || !attemptCache.available ? 'error' : isOffline ? 'offline' : count ? 'pending' : drafts ? 'draft' : 'saved';
   const offlineMessage = document.getElementById('offline-message');
   if (offlineMessage) offlineMessage.textContent = syncError || (attemptCache.available
-    ? 'Відповіді збережено на цьому пристрої. Після відновлення зв’язку вони будуть повторно надіслані. Залиште сторінку відкритою.'
+    ? 'Локальна резервна копія збережена у браузері. Перевіряємо зв’язок кожні 3 секунди; після відновлення надішлемо непідтверджені відповіді. Залиште сторінку відкритою.'
     : 'Локальне збереження недоступне. Відповіді зберігаються лише у відкритій вкладці. Не оновлюйте й не закривайте сторінку.');
   status.querySelector('span').textContent = syncError || (!attemptCache.available
     ? 'Локальне збереження недоступне. Не оновлюйте сторінку, доки відповіді не надіслано.'
-    : isOffline ? `Зв’язок втрачено. Відповіді збережені на цьому пристрої${count ? `, очікують надсилання: ${count}` : ''}.`
-    : count ? `Очікують підтвердження сервера: ${count}` : 'Відповіді зберігаються на цьому пристрої та після підтвердження — на сервері.');
+    : isOffline ? 'Зв’язок втрачено. Тест і таймери призупинено. Автоперевірка кожні 3 с.'
+    : count ? `Очікують підтвердження сервера: ${count}. Резервна копія є у браузері.`
+    : drafts ? 'Чернетка збережена у браузері. Натисніть «Відповісти», щоб надіслати її на сервер.'
+    : lockedQuestions.size ? `Сервер підтвердив відповідей: ${lockedQuestions.size}. Копія у браузері — резервна.`
+    : 'Відповіді надсилаються на сервер кнопкою «Відповісти».');
+  const feedback = document.getElementById('connection-check-feedback');
+  if (feedback) feedback.textContent = connectionFeedback;
+  document.querySelectorAll('[data-connection-feedback]').forEach(element => {
+    element.textContent = connectionFeedback;
+    element.dataset.state = recoveringConnection ? 'checking' : isOffline || syncError ? 'error' : 'ok';
+  });
+  document.querySelectorAll('[data-connection-check]').forEach(button => {
+    button.disabled = recoveringConnection;
+    button.textContent = recoveringConnection ? 'Перевіряємо…' : 'Перевірити зв’язок';
+  });
 }
 
 async function studentFetch(url, options = {}) {
@@ -299,6 +314,11 @@ function hasAnswer(questionId) {
   return String(ans).trim() !== '';
 }
 
+function canEditQuestion(questionId) {
+  return !testFinished && !isOffline && !isPaused && !finishIntent
+    && !lockedQuestions.has(questionId) && !pendingAnswers[questionId];
+}
+
 function hasUnconfirmedDraft() {
   return questions.some(q => !lockedQuestions.has(q.id) && hasAnswer(q.id));
 }
@@ -306,6 +326,8 @@ function hasUnconfirmedDraft() {
 function validateAnswer() {
   persistAttempt();
   scheduleProgress();
+  const card = document.getElementById('question-card');
+  if (card) card.inert = isOffline || isPaused || !!finishIntent || testFinished;
   const btnNext = document.getElementById('btn-next');
   if (!btnNext) return;
   const qId = questions[currentIndex]?.id;
@@ -598,7 +620,7 @@ function restoreAnswer(q) {
 // Відповіді — hotspot
 // ---------------------------------------------------------------------------
 function handleHotspotClick(event, qId) {
-  if (lockedQuestions.has(qId) || pendingAnswers[qId]) return;
+  if (!canEditQuestion(qId)) return;
   const img = event.target;
   const rect = img.getBoundingClientRect();
   const scaleX = img.naturalWidth / rect.width;
@@ -637,7 +659,7 @@ function restoreHotspotMarker(qId) {
 // Відповіді — single choice / image choice
 // ---------------------------------------------------------------------------
 function selectSingle(questionId, optionId) {
-  if (lockedQuestions.has(questionId) || pendingAnswers[questionId]) return;
+  if (!canEditQuestion(questionId)) return;
   const q = questions.find(q => q.id === questionId);
   if (!q) return;
   // знімаємо виділення з усіх
@@ -655,7 +677,7 @@ function selectSingle(questionId, optionId) {
 // Відповіді — multiple choice
 // ---------------------------------------------------------------------------
 function toggleMulti(questionId, optionId) {
-  if (lockedQuestions.has(questionId) || pendingAnswers[questionId]) return;
+  if (!canEditQuestion(questionId)) return;
   const q = questions.find(q => q.id === questionId);
   if (!q) return;
 
@@ -681,7 +703,7 @@ function toggleMulti(questionId, optionId) {
 // Відповіді — short text
 // ---------------------------------------------------------------------------
 function debouncedSaveText(questionId, value) {
-  if (lockedQuestions.has(questionId) || pendingAnswers[questionId]) return;
+  if (!canEditQuestion(questionId)) return;
   answers[questionId] = value;
   validateAnswer();
 }
@@ -708,7 +730,7 @@ function updateMatchingDropdowns(questionId) {
 }
 
 function saveMatching(questionId, optionId, matchValue) {
-  if (lockedQuestions.has(questionId) || pendingAnswers[questionId]) return;
+  if (!canEditQuestion(questionId)) return;
   if (!answers[questionId]) answers[questionId] = {};
   if (matchValue === "") {
     delete answers[questionId][optionId];
@@ -729,7 +751,7 @@ function saveMatching(questionId, optionId, matchValue) {
 
 function unmatchOption(event, questionId, optionId) {
   if (event) event.stopPropagation();
-  if (lockedQuestions.has(questionId) || pendingAnswers[questionId]) return;
+  if (!canEditQuestion(questionId)) return;
   if (answers[questionId]) {
     delete answers[questionId][optionId];
     renderQuestion(currentIndex);
@@ -742,7 +764,7 @@ function unmatchOption(event, questionId, optionId) {
 // Відповіді — sequence
 // ---------------------------------------------------------------------------
 function moveSequence(questionId, idx, dir) {
-  if (lockedQuestions.has(questionId) || pendingAnswers[questionId]) return;
+  if (!canEditQuestion(questionId)) return;
   const q = questions.find(q => q.id === questionId);
   if (!q) return;
   const currentOrder = answers[questionId] || sequenceOrders[questionId] || q.options.map(o => o.id);
@@ -1301,6 +1323,10 @@ async function stopAfterViolations() {
   document.getElementById('violation-count').textContent = violations;
   document.getElementById('violation-return-timer').style.display = 'none';
   document.getElementById('violation-return-btn').style.display = 'none';
+  const actions = document.getElementById('violation-stop-actions');
+  if (actions) actions.hidden = false;
+  const rule = document.getElementById('violation-future-rule');
+  if (rule) rule.textContent = 'Продовжувати тест не можна. Очікуємо підтвердження сервера.';
   stopFullscreenReturnTimer();
   validateAnswer();
   // Freeze drafts before the stop event reaches the server. If transmission
@@ -1313,11 +1339,13 @@ async function stopAfterViolations() {
     }
   }
   persistAttempt();
+  // Retry until the terminal state is acknowledged, including a lost event response.
+  startOfflinePing();
   try {
     await flushPendingAnswers();
     stopEventsReady = true;
     if (!await flushBrowserEvents()) { goOffline(); return; }
-    await fallbackCheckStatus();
+    await fallbackCheckStatus(true);
   } finally { stoppingForViolations = false; }
 }
 
@@ -1421,26 +1449,21 @@ function handleResumeEvent() {
 
 function handleStopEvent(reason = null) {
   if (testFinished) return;
-  const message = reason === 'violations' || finishIntent?.reason === 'violations'
-    ? 'Тест зупинено після третього порушення правил.' : 'Проходження тесту завершено.';
   stopFullscreenReturnTimer();
-  if (Object.keys(pendingAnswers).length || hasUnconfirmedDraft()) {
-    syncError = `${message} Непідтверджені відповіді залишилися на пристрої. Збережіть копію для вчителя.`;
-    isPaused = true;
+  if (Object.keys(pendingAnswers).length || hasUnconfirmedDraft() || pendingEvents.length) {
+    // The finished page offers the unresolved local copy. Never let a rejected
+    // draft keep a server-confirmed terminal attempt behind an endless overlay.
     persistAttempt();
-    document.getElementById('offline-block').style.display = 'flex';
-    return;
-  }
+  } else attemptCache.clear();
   testFinished = true;
+  if (offlinePingInterval) { clearInterval(offlinePingInterval); offlinePingInterval = null; }
   if (timerInterval) clearInterval(timerInterval);
   if (qTimerInterval) clearInterval(qTimerInterval);
-  attemptCache.clear();
-  alert(message);
   window.location.href = `/student/test/${ATTEMPT_ID}/finished`;
 }
 
-async function fallbackCheckStatus() {
-  if (testFinished || isOffline || checkingStatus) return;
+async function fallbackCheckStatus(force = false) {
+  if (testFinished || (isOffline && !force) || checkingStatus) return;
   checkingStatus = true;
   try {
     const res = await studentFetch(`/api/attempt/${ATTEMPT_ID}`);
@@ -1475,43 +1498,33 @@ function goOffline() {
   persistAttempt();
   const overlay = document.getElementById('offline-block');
   if (overlay) overlay.style.display = 'flex';
+  validateAnswer();
   startOfflinePing();
 }
 
-async function resumeConnection() {
+async function resumeConnection(manual = false) {
   if (recoveringConnection || testFinished) return;
   recoveringConnection = true;
+  if (manual === true) connectionFeedback = 'Перевіряємо зв’язок із сервером…';
+  updateSyncStatus();
   try {
     const response = await studentFetch(`/api/attempt/${ATTEMPT_ID}`);
     if (!response.ok) {
-      syncError = 'Сесію браузера не підтверджено. Зверніться до вчителя; відповіді залишаються на пристрої.';
-      persistAttempt();
+      if (response.status === 401 || response.status === 404) {
+        syncError = 'Сесію браузера не підтверджено. Увійдіть у тест знову або зверніться до вчителя; резервна копія залишається у браузері.';
+      }
+      if (manual === true) connectionFeedback = 'Не вдалося підтвердити зв’язок. Наступна спроба — автоматично через 3 с.';
+      goOffline();
       return;
     }
     const data = await response.json();
     if (['finished', 'timeout', 'stopped'].includes(data.status)) {
-      // A finish request may have succeeded even when its response was lost.
-      if (!await flushPendingAnswers()) {
-        syncError = 'Тест уже завершено. Непідтверджені відповіді збережено на пристрої; зверніться до вчителя.';
-        persistAttempt();
-        return;
-      }
-      if (hasUnconfirmedDraft()) {
-        handleStopEvent(data.stop_reason);
-        return;
-      }
-      if (!await flushBrowserEvents()) { goOffline(); return; }
-      testFinished = true;
-      attemptCache.clear();
-      location.href = `/student/test/${ATTEMPT_ID}/finished`;
+      handleStopEvent(data.stop_reason);
       return;
     }
     const reconnected = isOffline;
-    isOffline = false;
     if (reconnected) logBrowserEvent('reconnect');
     syncError = '';
-    const onlineOverlay = document.getElementById('offline-block');
-    if (onlineOverlay) onlineOverlay.style.display = 'none';
     if (data.status === 'paused') handlePauseEvent();
     else if (isPaused) handleResumeEvent();
     const currentId = questions[currentIndex]?.id;
@@ -1521,22 +1534,41 @@ async function resumeConnection() {
       return;
     }
     if (isPaused) {
-      if (!await flushBrowserEvents()) goOffline();
+      if (!await flushBrowserEvents()) { goOffline(); return; }
+      completeConnectionRecovery();
       return;
     }
     if (!await flushPendingAnswers()) return;
     if (!await flushBrowserEvents()) { goOffline(); return; }
-    const overlay = document.getElementById('offline-block');
-    if (overlay) overlay.style.display = 'none';
-    if (offlinePingInterval) { clearInterval(offlinePingInterval); offlinePingInterval = null; }
-    connectStudentWebSocket();
-    persistAttempt();
-    validateAnswer();
+    completeConnectionRecovery();
     if (isViolationShowing && !fsTimerInterval) startFullscreenReturnTimer();
     if (finishIntent) await confirmFinish();
     else if (hadPending && lockedQuestions.has(currentId) && questionQueue.includes(currentIndex)) advanceToNext();
-  } catch { goOffline(); }
-  finally { recoveringConnection = false; }
+  } catch {
+    if (manual === true) connectionFeedback = 'Сервер недоступний. Повторюємо автоматично кожні 3 с.';
+    goOffline();
+  }
+  finally {
+    recoveringConnection = false;
+    if (manual === true && !isOffline && !testFinished) {
+      connectionFeedback = syncError ? 'Сервер доступний, але синхронізація не завершена. ' + syncError
+        : 'Зв’язок із сервером є. Перевірено о ' + new Date().toLocaleTimeString('uk-UA') + '.';
+    } else if (!isOffline && !syncError && connectionFeedback) {
+      connectionFeedback = 'Зв’язок із сервером відновлено.';
+    }
+    updateSyncStatus();
+  }
+}
+
+function completeConnectionRecovery() {
+  if (testFinished) return;
+  isOffline = false;
+  const overlay = document.getElementById('offline-block');
+  if (overlay) overlay.style.display = 'none';
+  if (offlinePingInterval) { clearInterval(offlinePingInterval); offlinePingInterval = null; }
+  connectStudentWebSocket();
+  persistAttempt();
+  validateAnswer();
 }
 
 function goOnline() { return resumeConnection(); }
@@ -1554,7 +1586,7 @@ function startOfflinePing() {
 let seqDragState = null;
 
 function startSequenceDrag(e, qId) {
-  if (lockedQuestions.has(qId) || pendingAnswers[qId]) return;
+  if (!canEditQuestion(qId)) return;
   if (e.target.closest('button')) return;
   if (e.button !== 0 && e.pointerType !== 'touch') return;
 
@@ -1673,7 +1705,7 @@ let matchingDragState = null;
 let selectedMatchingCardInfo = null; // { qId, value }
 
 function startMatchingDrag(e, qId, fromOptionId) {
-  if (lockedQuestions.has(qId) || pendingAnswers[qId]) return;
+  if (!canEditQuestion(qId)) return;
   if (e.target.closest('button')) return;
   if (e.button !== 0 && e.pointerType !== 'touch') return;
 
@@ -1800,7 +1832,7 @@ function onMatchingPointerUp(e) {
 }
 
 function handleMatchingCardClick(e, qId, element) {
-  if (lockedQuestions.has(qId) || pendingAnswers[qId]) return;
+  if (!canEditQuestion(qId)) return;
   if (matchingDragState && matchingDragState.isDragging) return;
   e.stopPropagation();
 
@@ -1815,7 +1847,7 @@ function handleMatchingCardClick(e, qId, element) {
 }
 
 function handleMatchingZoneClick(e, qId, optionId) {
-  if (lockedQuestions.has(qId) || pendingAnswers[qId]) return;
+  if (!canEditQuestion(qId)) return;
   if (matchingDragState && matchingDragState.isDragging) return;
 
   if (!selectedMatchingCardInfo || selectedMatchingCardInfo.qId !== qId) return;

@@ -36,7 +36,7 @@ function environment(fetcher = async () => ({ok: true, json: async () => ({statu
   return {context, elements, listeners, intervals, dispatch, dispatchWindow, run: code => vm.runInContext(code, context)};
 }
 async function runTests() {
-  for (const file of ['student-cache.js', 'student.js', 'student-recovery.js', 'teacher-lists.js', 'test-import.js', 'teacher.js', 'monitor.js']) {
+  for (const file of ['student-cache.js', 'student.js', 'student-recovery.js', 'teacher-lists.js', 'test-import.js', 'teacher.js', 'monitor.js', 'display.js']) {
     new vm.Script(fs.readFileSync(path.join(root, 'app/static/js', file), 'utf8'), {filename: file});
   }
   const env = environment();
@@ -148,7 +148,7 @@ async function runTests() {
   assert.equal(JSON.parse(storage.getItem('schooltest:attempt:42:v1')).finish.timeout, false);
   await lostFinish.run('resumeConnection()');
   assert.equal(lostFinish.run('testFinished'), true);
-  assert.equal(storage.getItem('schooltest:attempt:42:v1'), null);
+  assert.equal(lostFinish.context.location.href, '/student/test/42/finished');
 
   storage.removeItem('schooltest:attempt:42:v1');
   const stopped = environment(async url => url.includes('/api/')
@@ -156,8 +156,42 @@ async function runTests() {
     : {ok: false, status: 409, json: async () => ({detail: 'Stopped'})});
   stopped.run('pendingAnswers[1] = {question_id: 1, answer_text: null, selected_options: [2]}; persistAttempt();');
   await stopped.run('resumeConnection()');
-  assert.equal(stopped.run('testFinished'), false);
+  assert.equal(stopped.run('testFinished'), true);
+  assert.equal(stopped.context.location.href, '/student/test/42/finished');
   assert.notEqual(storage.getItem('schooltest:attempt:42:v1'), null, 'Teacher stop must preserve an unconfirmed answer');
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const stopDraft = environment();
+  stopDraft.run('answers[1] = [2]; finishIntent = {reason: "violations"}; handleStopEvent("violations");');
+  assert.equal(stopDraft.run('testFinished'), true, 'A local draft must never block terminal navigation');
+  assert.equal(stopDraft.context.location.href, '/student/test/42/finished');
+  assert.deepEqual(JSON.parse(storage.getItem('schooltest:attempt:42:v1')).answers[1], [2]);
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const connection = environment();
+  await connection.run('resumeConnection(true)');
+  assert.match(connection.elements.get('connection-check-feedback').textContent, /Зв’язок із сервером є/);
+  const validationFailure = environment(async url => url.startsWith('/api/')
+    ? {ok:true,json:async()=>({status:'in_progress'})}
+    : {ok:false,status:422,json:async()=>({detail:'Synthetic invalid answer'})});
+  validationFailure.run('pendingAnswers[1] = {question_id: 1, selected_options: [999]};');
+  await validationFailure.run('resumeConnection(true)');
+  assert.match(validationFailure.elements.get('connection-check-feedback').textContent, /Сервер доступний, але синхронізація не завершена/);
+  storage.removeItem('schooltest:attempt:42:v1');
+  let networkAvailable = false;
+  const retry = environment(async () => {
+    if (!networkAvailable) throw Error('Connection unavailable');
+    return {ok: true, json: async () => ({status: 'paused'})};
+  });
+  await retry.run('resumeConnection(true)');
+  assert.equal(retry.run('isOffline'), true);
+  assert.match(retry.elements.get('connection-check-feedback').textContent, /Сервер недоступний/);
+  assert.notEqual(retry.run('offlinePingInterval'), null);
+  networkAvailable = true;
+  await retry.run('resumeConnection()');
+  assert.equal(retry.run('isOffline'), false);
+  assert.equal(retry.run('isPaused'), true);
+  assert.equal(retry.run('offlinePingInterval'), null, 'A recovered paused attempt must stop retry polling');
 
   storage.removeItem('schooltest:attempt:42:v1');
   const timers = environment();
@@ -371,7 +405,7 @@ async function runTests() {
   assert.equal(capturePause.run('hasStarted'), false, 'Return to fullscreen before continuing after a pause');
   assert.equal(capturePause.elements.get('start-overlay').style.display, 'flex');
 
-  console.log('PASS: 22 student scenarios and 7 scripts parsed.');
-  return {passed: true, scenarios: 22, scriptsParsed: 7};
+  console.log('PASS: 26 student scenarios and 8 scripts parsed.');
+  return {passed: true, scenarios: 26, scriptsParsed: 8};
 }
 module.exports = runTests();
