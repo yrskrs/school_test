@@ -5,13 +5,14 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const cacheCode = fs.readFileSync(path.join(root, 'app/static/js/student-cache.js'), 'utf8');
-const studentCode = fs.readFileSync(path.join(root, 'app/static/js/student.js'), 'utf8');
+const studentCode = fs.readFileSync(process.env.STUDENT_SCRIPT || path.join(root, 'app/static/js/student.js'), 'utf8');
 const values = new Map();
 const storage = {getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key)};
 function environment(fetcher = async () => ({ok: true, json: async () => ({status: 'in_progress'})}), customStorage = storage, overrides = {}) {
   const elements = new Map();
   const listeners = {};
   const intervals = new Map();
+  const timeouts = new Map();
   const windowListeners = {};
   const dispatch = (name, event = {}) => (listeners[name] || []).forEach(fn => fn(event));
   const dispatchWindow = (name, event = {}) => (windowListeners[name] || []).forEach(fn => fn(event));
@@ -26,14 +27,18 @@ function environment(fetcher = async () => ({ok: true, json: async () => ({statu
     ATTEMPT_ID: 42, SESSION_ID: 1, TIME_REMAINING: 120, ATTEMPT_STATUS: 'in_progress',
     TEST_DATA: {questions: [{id: 1, question_type: 'single_choice', question_text: 'Q', options: [{id: 2, option_text: 'A'}]}], time_limit_per_question: 10},
     SAVED_ANSWERS: {}, LOCKED_QUESTIONS: [], SKIPPED_QUESTIONS: [], VIOLATION_COUNT: 0,
-    location: {href: '', protocol: 'http:', host: 'local'}, AbortController, fetch: fetcher,
+    location: {href: '', protocol: 'http:', host: 'local'}, AbortController, fetch: async (...args) => {
+      const response = await fetcher(...args);
+      if (!response.text) response.text = async () => JSON.stringify(response.json ? await response.json() : {});
+      return response;
+    },
     WebSocket: Object.assign(class {constructor() {this.readyState = 1;}}, {OPEN: 1, CONNECTING: 0}),
-    setTimeout: () => ++timerId, clearTimeout() {}, setInterval: fn => {intervals.set(++timerId, fn); return timerId;},
+    setTimeout: fn => {timeouts.set(++timerId, fn); return timerId;}, clearTimeout: id => timeouts.delete(id), setInterval: fn => {intervals.set(++timerId, fn); return timerId;},
     clearInterval: id => intervals.delete(id), alert() {}, console, ...overrides});
   context.window = context;
   vm.runInContext(cacheCode, context);
   vm.runInContext(studentCode, context);
-  return {context, elements, listeners, intervals, dispatch, dispatchWindow, run: code => vm.runInContext(code, context)};
+  return {context, elements, listeners, intervals, timeouts, dispatch, dispatchWindow, run: code => vm.runInContext(code, context)};
 }
 async function runTests() {
   for (const file of ['student-cache.js', 'student.js', 'student-recovery.js', 'teacher-lists.js', 'test-import.js', 'teacher.js', 'monitor.js', 'display.js']) {
@@ -108,11 +113,65 @@ async function runTests() {
   const rejected = environment(async () => ({ok: false, status: 422, json: async () => ({detail: 'Invalid answer'})}));
   assert.equal(await rejected.run('saveAnswer(1, null, [999])'), false);
   assert.equal(rejected.run('lockedQuestions.has(1)'), false);
-  assert.equal(rejected.run('pendingAnswers[1].selected_options[0]'), 999);
+  assert.equal(rejected.run('Object.keys(pendingAnswers).length'), 0, 'An explicit rejection must release the frozen request');
+  assert.equal(rejected.run('rejectedAnswers[1].body.selected_options[0]'), 999);
+  assert.equal(rejected.run('canEditQuestion(1)'), true);
+  assert.match(rejected.elements.get('save-indicator-1').textContent, /Сервер не прийняв/);
   rejected.run('hasStarted = true; resetQTimer(); qTimeLeft = 1; questionQueue = [0];');
   const questionTimer = rejected.intervals.get(rejected.run('qTimerInterval'));
   await questionTimer();
   assert.equal(rejected.run('questionQueue.length'), 1, 'Rejected timer answer must not advance');
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const invalidFinish = environment(async url => url.endsWith('save-answer')
+    ? {ok:false,status:422,json:async()=>({detail:'Invalid coordinates'})}
+    : {ok:true,json:async()=>({status:'in_progress'})});
+  invalidFinish.run('answers[1] = [999]; questionQueue = [0];');
+  await invalidFinish.run('confirmFinish()');
+  assert.equal(invalidFinish.run('finishIntent'), null, 'A rejected draft must not leave a permanent finish intent');
+  assert.equal(invalidFinish.elements.get('question-card').inert, false);
+  assert.equal(invalidFinish.run('canEditQuestion(1)'), true);
+  assert.equal(invalidFinish.elements.get('finish-modal').style.display, 'none');
+  invalidFinish.run('isPaused = true; discardRejectedAnswer()');
+  assert.equal(invalidFinish.run('hasAnswer(1)'), true, 'Teacher pause must block discarding');
+  invalidFinish.run('isPaused = false; isOffline = true; discardRejectedAnswer()');
+  assert.equal(invalidFinish.run('hasAnswer(1)'), true, 'Network pause must block discarding');
+  invalidFinish.run('isOffline = false;');
+  invalidFinish.run('discardRejectedAnswer()');
+  assert.equal(invalidFinish.run('hasAnswer(1)'), false);
+  await invalidFinish.run('confirmFinish()');
+  assert.equal(invalidFinish.run('testFinished'), true, 'Discarding the rejected draft must allow completion');
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const invalidTimeout = environment(async url => url.endsWith('save-answer')
+    ? {ok:false,status:422,json:async()=>({detail:'Invalid coordinates'})}
+    : {ok:true,json:async()=>({status:'ok'})});
+  invalidTimeout.run('answers[1] = [999];');
+  await invalidTimeout.run('confirmFinish(true)');
+  assert.equal(invalidTimeout.run('testFinished'), true, 'Timeout must complete even with a rejected draft');
+  assert.deepEqual(JSON.parse(storage.getItem('schooltest:attempt:42:v1')).answers[1], [999], 'Timeout preserves the rejected local draft');
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  const failedRecovery = environment(async url => url.startsWith('/api/')
+    ? {ok:true,json:async()=>({status:'in_progress'})}
+    : {ok:false,status:422,json:async()=>({detail:'Invalid coordinates'})});
+  failedRecovery.run('answers[1] = [999]; pendingAnswers[1] = {question_id:1,selected_options:[999]}; goOffline();');
+  await failedRecovery.run('resumeConnection()');
+  assert.equal(failedRecovery.run('isOffline'), false);
+  assert.equal(failedRecovery.run('canEditQuestion(1)'), true);
+  assert.equal(failedRecovery.elements.get('offline-block').style.display, 'none');
+
+  storage.removeItem('schooltest:attempt:42:v1');
+  let bodyStarted;
+  const bodyReady = new Promise(resolve => { bodyStarted = resolve; });
+  const delayedBody = environment(async (url, options) => ({ok:true,status:200,
+    text: () => new Promise((resolve,reject) => { bodyStarted(); options.signal.addEventListener('abort',()=>reject(Error('body aborted'))); })}));
+  const delayedRequest = delayedBody.run('saveAnswer(1, null, [2])');
+  await bodyReady;
+  assert.equal(delayedBody.timeouts.size, 1, 'Headers must not cancel the response body deadline');
+  [...delayedBody.timeouts.values()][0]();
+  assert.equal(await delayedRequest, false);
+  assert.equal(delayedBody.run('isOffline'), true);
 
   storage.removeItem('schooltest:attempt:42:v1');
   const violations = environment();
@@ -411,7 +470,8 @@ async function runTests() {
   assert.equal(capturePause.run('hasStarted'), false, 'Return to fullscreen before continuing after a pause');
   assert.equal(capturePause.elements.get('start-overlay').style.display, 'flex');
 
-  console.log('PASS: 27 student scenarios and 8 scripts parsed.');
-  return {passed: true, scenarios: 27, scriptsParsed: 8};
+  console.log('PASS: 31 student scenarios and 8 scripts parsed.');
+  return {passed: true, scenarios: 31, scriptsParsed: 8};
 }
-module.exports = runTests();
+const watchdog = setTimeout(() => { console.error('FAIL: student checks did not complete'); process.exitCode = 1; }, 30000);
+module.exports = runTests().finally(() => clearTimeout(watchdog));

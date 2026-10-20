@@ -1,0 +1,32 @@
+{
+  "Вісім типів": {
+    "status": "finished",
+    "confirmed": 8,
+    "score": 8.0
+  },
+  "Виправлена область": {
+    "status": "finished",
+    "confirmed": 1,
+    "score": 1.0
+  },
+  "Скинута область": {
+    "status": "finished",
+    "confirmed": 0,
+    "score": 0.0
+  },
+  "Відновлення відхилення": {
+    "status": "finished",
+    "confirmed": 1,
+    "score": 1.0
+  },
+  "Втрачений відгук області": {
+    "status": "finished",
+    "confirmed": 1,
+    "score": 1.0
+  },
+  "Повільне тіло відповіді": {
+    "status": "finished",
+    "confirmed": 1,
+    "score": 1.0
+  }
+}

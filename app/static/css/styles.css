@@ -1127,6 +1127,8 @@ input[type="checkbox"] {
 .save-indicator.saving { color: var(--warning); }
 .save-indicator.saved  { color: var(--success); }
 .save-indicator.error  { color: var(--danger); }
+.answer-error:not([hidden]) { margin: .5rem 0 1rem; padding: .75rem; border: 1px solid var(--danger); border-radius: var(--radius-sm); color: var(--danger); }
+.answer-error p { margin-bottom: .5rem; font-size: .85rem; }
 
 .test-nav-buttons {
   position: fixed !important;

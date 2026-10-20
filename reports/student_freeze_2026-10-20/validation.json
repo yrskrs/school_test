@@ -1,0 +1,18 @@
+{
+  "version": "1.6.11",
+  "baseline_1_6_10": "reproduced",
+  "baseline_js_check": "fails_as_expected",
+  "python_app": 142,
+  "python_school_sync": 22,
+  "student_js": 31,
+  "scripts_parsed": 8,
+  "mixed_browser_groups": 6,
+  "question_types": 8,
+  "stability_groups": 8,
+  "layout_checks": 136,
+  "geometry_groups": 8,
+  "slow_response_body_seconds": 30,
+  "client_response_deadline_seconds": 8,
+  "javascript_errors": 0,
+  "backup_verified": true
+}

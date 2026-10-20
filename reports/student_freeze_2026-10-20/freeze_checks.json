@@ -1,0 +1,11 @@
+{
+  "checks": [
+    "All eight types save through real HTTP; 32-bit BMP at 80/100/120% and rounded edge coordinates stay finite and inside the image; normal completion works",
+    "Real server 422 releases editing; a new image click replaces the rejected payload, saves and completes",
+    "Rejected draft during finish cancels the stuck finish intent, opens the problem question and permits explicit discard and completion",
+    "Reconnect with an invalid old frozen payload does not leave an offline overlay; correcting and completing remains possible",
+    "Lost acknowledgement still freezes the unknown delivery and retries the identical hotspot payload exactly once with already_saved",
+    "Real HTTP headers arrive immediately but body is delayed 30s: both status and save requests abort at the body deadline, release flags, reconnect and complete"
+  ],
+  "javascript_errors": []
+}

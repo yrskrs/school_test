@@ -39,3 +39,9 @@ services:
     depends_on:
       app:
         condition: service_healthy
+  slow-body:
+    profiles: ['failure-checks']
+    image: ${RUNTIME_CHECK_IMAGE:-schooltest-runtime-check:local}
+    entrypoint: ['python', '/checks/slow_body_server.py']
+    volumes:
+      - ./slow_body_server.py:/checks/slow_body_server.py:ro

@@ -31,6 +31,9 @@ const serverProgress = window.PROGRESS_STATE || {};
 if (attemptCache.state.generation !== (serverProgress.generation || 0)
     && attemptCache.state.generation !== serverProgress.previous_generation) attemptCache.clear();
 const pendingAnswers = attemptCache.state.pending;
+// A definitive validation rejection is editable; only an unknown delivery stays frozen.
+const rejectedAnswers = attemptCache.state.rejected;
+let lastRejectedQuestionId = null;
 const pendingEvents = attemptCache.state.events;
 const questionTimes = {...(serverProgress.question_times || {}), ...attemptCache.state.questionTimes};
 let finishIntent = attemptCache.state.finish;
@@ -85,6 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   for (const id of Object.keys(pendingAnswers)) {
     if (!questionIds.has(Number(id)) || lockedQuestions.has(Number(id))) delete pendingAnswers[id];
+  }
+  for (const id of Object.keys(rejectedAnswers)) {
+    if (!questionIds.has(Number(id)) || lockedQuestions.has(Number(id))) delete rejectedAnswers[id];
   }
   for (const id of attemptCache.state.skipped || []) if (questionIds.has(Number(id))) skippedQuestions.add(Number(id));
   if (typeof attemptCache.state.timeLeft === 'number' && TIME_REMAINING !== null) timeLeft = attemptCache.state.timeLeft;
@@ -162,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function persistAttempt() {
   if (testFinished) return;
-  attemptCache.save({answers, pending: pendingAnswers, events: pendingEvents,
+  attemptCache.save({answers, pending: pendingAnswers, rejected: rejectedAnswers, events: pendingEvents,
     skipped: [...skippedQuestions], violations, timeLeft, questionTimes, finish: finishIntent,
     currentQuestionId: questions[currentIndex]?.id || null, generation: serverProgress.generation || 0,
     questionQueue: questionQueue.map(index => questions[index].id)});
@@ -172,7 +178,10 @@ function persistAttempt() {
 function progressBody() {
   const drafts = {};
   for (const [id, value] of Object.entries(answers)) {
-    if (!lockedQuestions.has(Number(id))) drafts[id] = value;
+    const question = questions.find(q => q.id === Number(id));
+    if (question?.question_type === 'hotspot' && value !== '' &&
+        (!value || !Number.isFinite(value.x) || !Number.isFinite(value.y) || value.x < 0 || value.y < 0)) continue;
+    if (!lockedQuestions.has(Number(id)) && !rejectedAnswers[id]) drafts[id] = value;
   }
   return {current_question_id: questions[currentIndex]?.id || null, time_left: timeLeft,
     question_times: questionTimes, skipped_questions: [...skippedQuestions], draft_answers: drafts,
@@ -251,6 +260,13 @@ function updateSyncStatus() {
     : `Підтверджено сервером: ${lockedQuestions.size} із ${totalQ}. Натискайте «Відповісти» для збереження відповіді.`);
   const label = status.querySelector('span');
   if (label.textContent !== statusText) label.textContent = statusText;
+  const error = document.getElementById('answer-error');
+  if (error) {
+    const rejected = rejectedAnswers[questions[currentIndex]?.id];
+    error.hidden = !rejected;
+    if (rejected) document.getElementById('answer-error-text').textContent =
+      'Сервер відхилив попередню відповідь: ' + rejected.message + ' Виправте її або скиньте, щоб залишити питання без відповіді.';
+  }
 }
 
 async function studentFetch(url, options = {}) {
@@ -258,8 +274,10 @@ async function studentFetch(url, options = {}) {
   const timeout = setTimeout(() => controller.abort(), 8000);
   try {
     const response = await fetch(url, {...options, signal: controller.signal, cache: 'no-store'});
+    // fetch() resolves on headers. Keep the deadline until the whole body arrives.
+    const body = await response.text();
     serverReachable = response.status < 500 || response.ok;
-    return response;
+    return {ok: response.ok, status: response.status, json: async () => JSON.parse(body)};
   } catch (error) {
     serverReachable = false;
     throw error;
@@ -635,18 +653,22 @@ function restoreAnswer(q) {
 // ---------------------------------------------------------------------------
 function handleHotspotClick(event, qId) {
   if (!canEditQuestion(qId)) return;
-  const img = event.target;
+  const img = document.getElementById(`hotspot-img-${qId}`);
+  if (!img) return;
   const rect = img.getBoundingClientRect();
+  if (!img.complete || !img.naturalWidth || !img.naturalHeight || !rect.width || !rect.height
+      || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) return;
   const scaleX = img.naturalWidth / rect.width;
   const scaleY = img.naturalHeight / rect.height;
   
-  const clickX = (event.clientX - rect.left) * scaleX;
-  const clickY = (event.clientY - rect.top) * scaleY;
+  // Browser rounding at a scaled image edge can put the click slightly outside.
+  const clickX = Math.max(0, Math.min(img.naturalWidth, (event.clientX - rect.left) * scaleX));
+  const clickY = Math.max(0, Math.min(img.naturalHeight, (event.clientY - rect.top) * scaleY));
   
   const marker = document.getElementById(`hotspot-marker-${qId}`);
   if (marker) {
-    marker.style.left = ((event.clientX - rect.left) / rect.width * 100) + '%';
-    marker.style.top = ((event.clientY - rect.top) / rect.height * 100) + '%';
+    marker.style.left = (clickX / img.naturalWidth * 100) + '%';
+    marker.style.top = (clickY / img.naturalHeight * 100) + '%';
     marker.style.display = 'block';
   }
   
@@ -658,11 +680,11 @@ function handleHotspotClick(event, qId) {
 
 function restoreHotspotMarker(qId) {
   const saved = answers[qId];
-  if (!saved || typeof saved !== 'object' || !('x' in saved)) return;
+  if (!saved || typeof saved !== 'object' || !Number.isFinite(saved.x) || !Number.isFinite(saved.y)) return;
   
   const img = document.getElementById(`hotspot-img-${qId}`);
   const marker = document.getElementById(`hotspot-marker-${qId}`);
-  if (!img || !marker) return;
+  if (!img || !marker || !img.naturalWidth || !img.naturalHeight) return;
   
   marker.style.left = (saved.x / img.naturalWidth * 100) + '%';
   marker.style.top = (saved.y / img.naturalHeight * 100) + '%';
@@ -825,11 +847,24 @@ async function sendPendingAnswer(questionId) {
       if (response.status >= 500) throw new Error('Server unavailable');
       const data = await response.json().catch(() => ({}));
       syncError = data.detail || 'Сервер не прийняв відповідь. Зверніться до вчителя.';
+      if (typeof syncError !== 'string') syncError = 'Сервер відхилив формат відповіді.';
+      if (indicator) { indicator.textContent = 'Сервер не прийняв відповідь. Виправте вибір.'; indicator.className = 'save-indicator error'; }
+      if (response.status === 422 || response.status === 400) {
+        rejectedAnswers[questionId] = {body: pendingAnswers[questionId], message: syncError};
+        delete pendingAnswers[questionId];
+        lastRejectedQuestionId = questionId;
+        if (finishIntent && !finishIntent.timeout && finishIntent.reason !== 'violations') {
+          finishIntent = null;
+          document.getElementById('finish-modal').style.display = 'none';
+        }
+        validateAnswer();
+      }
       persistAttempt();
       if (response.status === 409 && !recoveringConnection) await fallbackCheckStatus();
       return false;
     }
     syncError = '';
+    delete rejectedAnswers[questionId];
     delete pendingAnswers[questionId];
     skippedQuestions.delete(questionId);
     lockedQuestions.add(questionId);
@@ -842,6 +877,15 @@ async function sendPendingAnswer(questionId) {
     goOffline();
     return false;
   }
+}
+
+function discardRejectedAnswer() {
+  const id = questions[currentIndex]?.id;
+  if (!rejectedAnswers[id] || !canEditQuestion(id) || isSaving || finishInProgress) return;
+  delete answers[id];
+  delete rejectedAnswers[id];
+  syncError = '';
+  renderQuestion(currentIndex);
 }
 
 async function flushPendingAnswers() {
@@ -913,14 +957,13 @@ async function nextQuestion(force = false) {
     nextBtn.textContent = 'Збереження...';
   }
 
-  const saved = await saveCurrentAnswer();
-
-  if (nextBtn) {
-    nextBtn.disabled = false;
-    nextBtn.textContent = 'Відповісти →';
+  let saved = false;
+  try { saved = await saveCurrentAnswer(); }
+  finally {
+    if (nextBtn) nextBtn.textContent = 'Відповісти →';
+    isSaving = false;
+    validateAnswer();
   }
-  isSaving = false;
-  validateAnswer();
 
   if (saved) {
     // Відповідь збережена — блокуємо і переходимо
@@ -1215,6 +1258,8 @@ async function confirmFinish(timeout = false) {
   if (finishInProgress || testFinished) return;
   if (finishIntent?.reason === 'violations') return stopAfterViolations();
   finishIntent = finishIntent || {timeout: timeout === true};
+  const finishingTimeout = finishIntent.timeout;
+  lastRejectedQuestionId = null;
   persistAttempt();
   finishInProgress = true;
   const button = document.getElementById('confirm-finish-btn');
@@ -1224,7 +1269,10 @@ async function confirmFinish(timeout = false) {
     for (const q of questions) {
       if (!lockedQuestions.has(q.id) && hasAnswer(q.id)) {
         if (!await saveAnswer(q.id, q.question_type === 'short_text' ? answers[q.id] : null,
-          q.question_type === 'short_text' ? null : answers[q.id])) return;
+          q.question_type === 'short_text' ? null : answers[q.id])) {
+          if (finishingTimeout && rejectedAnswers[q.id] && !isOffline) continue;
+          return;
+        }
       }
     }
     if (!await flushPendingAnswers()) return;
@@ -1239,14 +1287,24 @@ async function confirmFinish(timeout = false) {
       persistAttempt();
       return;
     }
+    if (hasUnconfirmedDraft()) persistAttempt();
+    else attemptCache.clear();
     testFinished = true;
-    attemptCache.clear();
     window.location.href = `/student/test/${ATTEMPT_ID}/finished`;
   } catch { goOffline(); }
   finally {
     finishInProgress = false;
     button.disabled = false;
     button.textContent = 'Завершити';
+    if (!testFinished && !isOffline && !finishingTimeout) {
+      finishIntent = null;
+      if (lastRejectedQuestionId !== null) {
+        document.getElementById('finish-modal').style.display = 'none';
+        const index = questionQueue.findIndex(i => questions[i].id === lastRejectedQuestionId);
+        if (index >= 0) renderFromQueue(index);
+      }
+      validateAnswer();
+    }
   }
 }
 
@@ -1539,6 +1597,9 @@ async function resumeConnection() {
     syncError = '';
     if (data.status === 'paused') handlePauseEvent();
     else if (isPaused) handleResumeEvent();
+    // A reachable server must release the network overlay even if a draft is
+    // rejected. Validation errors are recoverable editing errors, not outages.
+    completeConnectionRecovery();
     const currentId = questions[currentIndex]?.id;
     const hadPending = !!pendingAnswers[currentId];
     if (finishIntent?.reason === 'violations') {

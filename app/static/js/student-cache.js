@@ -1,7 +1,7 @@
 /* One durable cache per attempt; no correct answers or server credentials. */
 (function (global) {
   function emptyState() {
-    return {version: 1, answers: {}, pending: {}, events: [], skipped: [],
+    return {version: 1, answers: {}, pending: {}, rejected: {}, events: [], skipped: [],
       violations: 0, timeLeft: null, questionTimes: {}, finish: null, currentQuestionId: null, generation: 0, questionQueue: []};
   }
   function create(attemptId, storage) {
@@ -16,6 +16,7 @@
         state.answers = saved.answers;
         state.pending = Object.fromEntries(Object.entries(saved.pending).filter(([id, body]) =>
           object(body) && Number.isInteger(body.question_id) && body.question_id > 0 && Number(id) === body.question_id));
+        if (object(saved.rejected)) state.rejected = saved.rejected;
         state.events = saved.events.filter(event => object(event) && typeof event.event_type === 'string');
         state.skipped = saved.skipped.filter(id => Number.isInteger(id) && id > 0);
         state.violations = Number.isInteger(saved.violations) && saved.violations >= 0 ? saved.violations : 0;

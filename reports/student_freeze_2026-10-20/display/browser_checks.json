@@ -1,0 +1,1102 @@
+{
+  "checks": [
+    "200 total / 25 assigned; no duplicate initial request; scale persists, resets, and respects 80–120% bounds; 18 login layouts fit",
+    "Late cancelled roster response cannot replace the current code; network failure blocks submission and recovery restores it",
+    "Answer backgrounds and native radio controls follow explicit light/dark theme under both OS themes; selected answer survives switching",
+    "One request for six typed code characters; instruction and actual test both assign 25; SVG theme toggles; 15 test layouts fit in fullscreen and all sidebar labels stay on one line",
+    "Completed all 25 answers through the UI after scaling and switching theme",
+    "Eleven teacher pages reflow at desktop, compact and mobile sizes at 80/100/120%; roster tabs fit too",
+    "Scale and theme still work when localStorage is blocked"
+  ],
+  "layouts": [
+    {
+      "page": "student-login",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "student-login",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "student-login",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "student-login",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bodyRight": 1024,
+      "scale": 0.8
+    },
+    {
+      "page": "student-login",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bodyRight": 1024,
+      "scale": 1
+    },
+    {
+      "page": "student-login",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bodyRight": 1024,
+      "scale": 1.2
+    },
+    {
+      "page": "student-login",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bodyRight": 800,
+      "scale": 0.8
+    },
+    {
+      "page": "student-login",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bodyRight": 800,
+      "scale": 1
+    },
+    {
+      "page": "student-login",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bodyRight": 800,
+      "scale": 1.2
+    },
+    {
+      "page": "student-login",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "student-login",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "student-login",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "student-login",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "student-login",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "student-login",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "student-login",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bodyRight": 320,
+      "scale": 0.8
+    },
+    {
+      "page": "student-login",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bodyRight": 320,
+      "scale": 1
+    },
+    {
+      "page": "student-login",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bodyRight": 320,
+      "scale": 1.2
+    },
+    {
+      "page": "instruction",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "take-test",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "take-test",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "take-test",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "take-test",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bodyRight": 1024,
+      "scale": 0.8
+    },
+    {
+      "page": "take-test",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bodyRight": 1024,
+      "scale": 1
+    },
+    {
+      "page": "take-test",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bodyRight": 1024,
+      "scale": 1.2
+    },
+    {
+      "page": "take-test",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "take-test",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "take-test",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "take-test",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "take-test",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "take-test",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "take-test",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bodyRight": 320,
+      "scale": 0.8
+    },
+    {
+      "page": "take-test",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bodyRight": 320,
+      "scale": 1
+    },
+    {
+      "page": "take-test",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bodyRight": 320,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/dashboard",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/tests",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/sessions",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/results",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/results",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/results",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/results",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/results",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/results",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/results",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/results",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/results",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/roster-sync",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "roster-classes",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "roster-sync",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "roster-outside",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/tests/create",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/about",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/about",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/about",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/about",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/about",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/about",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/about",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/about",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/about",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/profile",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/integrations",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/updates",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bodyRight": 1366,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 640,
+      "client": 640,
+      "scroll": 640,
+      "bodyRight": 640,
+      "scale": 1.2
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 0.8
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1
+    },
+    {
+      "page": "/teacher/sessions/2/monitor",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bodyRight": 390,
+      "scale": 1.2
+    }
+  ],
+  "javascript_errors": []
+}

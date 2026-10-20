@@ -178,7 +178,7 @@ const artifacts = process.env.AUDIT_ARTIFACTS || '/artifacts';
     await page.locator('[name=password]').fill('synthetic-display-password');
     await page.locator('button[type=submit]').click();
     await page.waitForURL('**/teacher/dashboard');
-    const teacherPaths = ['/teacher/dashboard', '/teacher/tests', '/teacher/sessions', '/teacher/results', '/teacher/roster-sync', '/teacher/tests/create', '/teacher/about', '/teacher/profile', '/teacher/integrations', '/teacher/updates', '/teacher/sessions/1/monitor'];
+    const teacherPaths = ['/teacher/dashboard', '/teacher/tests', '/teacher/sessions', '/teacher/results', '/teacher/roster-sync', '/teacher/tests/create', '/teacher/about', '/teacher/profile', '/teacher/integrations', '/teacher/updates', `/teacher/sessions/${process.env.DISPLAY_SESSION_ID || 1}/monitor`];
     for (const path of teacherPaths) {
       await page.goto(base + path);
       for (const [width, height] of [[1366, 768], [640, 480], [390, 844]]) {
