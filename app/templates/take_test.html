@@ -334,7 +334,7 @@
       <span id="q-timer-display">--:--</span>
     </div>
     {% endif %}
-    <button onclick="toggleTheme()" class="test-theme-toggle" title="Змінити тему оформлення (Світла / Темна)" type="button">
+    <button onclick="toggleTheme()" class="test-theme-toggle" aria-label="Змінити тему оформлення" title="Змінити тему оформлення (Світла / Темна)" type="button">
       <svg class="theme-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
         <circle cx="12" cy="12" r="5"></circle>
         <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -349,7 +349,6 @@
       <svg class="theme-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
       </svg>
-      <span class="theme-label-text" style="font-size:0.78rem;">Тема</span>
     </button>
     <button class="btn btn-danger" id="btn-finish" onclick="finishTest()" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;">
       Завершити тест

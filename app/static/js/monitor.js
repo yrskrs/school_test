@@ -6,6 +6,8 @@
 let ws = null;
 let reconnectTimer = null;
 let reconnectDelay = 2000;
+let pingTimer = null;
+let statusRequest = null;
 
 // ---------------------------------------------------------------------------
 // Ініціалізація
@@ -49,6 +51,7 @@ function connectWebSocket() {
   };
 
   ws.onclose = () => {
+    clearInterval(pingTimer);
     setWsStatus('disconnected', 'З\'єднання перервано');
     scheduleReconnect();
   };
@@ -68,7 +71,8 @@ function scheduleReconnect() {
 }
 
 function startPing() {
-  setInterval(() => {
+  clearInterval(pingTimer);
+  pingTimer = setInterval(() => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send('ping');
     }
@@ -364,6 +368,14 @@ function addEventFeedItem(eventType, studentName, data) {
 // API fallback — отримати свіжий статус сесії
 // ---------------------------------------------------------------------------
 async function fetchSessionStatus() {
+  // Answer bursts and the fallback poll can overlap; share one current request.
+  if (statusRequest) return statusRequest;
+  statusRequest = loadSessionStatus();
+  try { await statusRequest; }
+  finally { statusRequest = null; }
+}
+
+async function loadSessionStatus() {
   try {
     const resp = await fetch(`/api/session-status/${SESSION_ID}`);
     if (!resp.ok) return;

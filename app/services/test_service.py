@@ -2,12 +2,35 @@ import json
 import random
 from typing import List, Optional
 
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app import crud, models
 
 
 from collections import defaultdict
+
+
+def excluded_topics(test: models.Test) -> list:
+    try:
+        topics = json.loads(test.excluded_topics or '[]')
+    except (ValueError, TypeError):
+        return []
+    return [topic for topic in topics if isinstance(topic, str)] if isinstance(topics, list) else []
+
+
+def question_counts(db: Session, test: models.Test) -> dict:
+    """Count the bank and the configured selection without loading question bodies/options."""
+    excluded = excluded_topics(test)
+    eligible = ~func.coalesce(models.Question.topic, '').in_(excluded)
+    total, available = db.query(
+        func.count(models.Question.id),
+        func.coalesce(func.sum(case((eligible, 1), else_=0)), 0),
+    ).filter(models.Question.test_id == test.id).one()
+    limit = test.random_questions_limit
+    assigned = min(available, limit) if limit and limit > 0 else available
+    return {'question_count': total, 'assigned_question_count': assigned}
+
 
 def get_attempt_questions(db: Session, attempt: models.StudentAttempt) -> List[models.Question]:
     existing_answers = crud.get_answers_by_attempt(db, attempt.id)
@@ -24,12 +47,7 @@ def get_attempt_questions(db: Session, attempt: models.StudentAttempt) -> List[m
     test = attempt.session.test
     
     # Filter out questions from excluded topics
-    excluded = []
-    if test.excluded_topics:
-        try:
-            excluded = json.loads(test.excluded_topics)
-        except Exception:
-            pass
+    excluded = excluded_topics(test)
             
     all_questions = [q for q in test.questions if (q.topic or "") not in excluded]
     limit = test.random_questions_limit

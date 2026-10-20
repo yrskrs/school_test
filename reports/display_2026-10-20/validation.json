@@ -1,0 +1,32 @@
+{
+  "version": "1.6.8",
+  "date": "2026-10-20",
+  "python_regressions": {
+    "passed": 139
+  },
+  "roster_protocol_tests": {
+    "passed": 22
+  },
+  "student_javascript_scenarios": {
+    "passed": 22
+  },
+  "monitor": {
+    "reconnects": 20,
+    "heartbeat_timers": 1,
+    "overlapping_refreshes": 50,
+    "http_requests": 1,
+    "sql_selects_1_pupil": 10,
+    "sql_selects_13_pupils": 10
+  },
+  "browser_layouts": 136,
+  "coordinate_check_groups": 8,
+  "javascript_errors": [],
+  "postgres_http_and_migration_check": "passed",
+  "student_result": {
+    "status": "finished",
+    "answers": 25,
+    "score": 25,
+    "max_score": 25
+  },
+  "application_files_hashed": 77
+}

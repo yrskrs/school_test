@@ -1210,12 +1210,17 @@ function initHotspotEditor(qid) {
   let startY = 0;
   let isDrawing = false;
   const dragRect = document.getElementById(`hotspot-drag-rect-${qid}`);
+  function localPoint(e) {
+    const rect = svg.getBoundingClientRect();
+    return {x: (e.clientX - rect.left) * svg.clientWidth / rect.width,
+            y: (e.clientY - rect.top) * svg.clientHeight / rect.height};
+  }
 
   svg.addEventListener('mousedown', (e) => {
     e.preventDefault();
-    const rect = svg.getBoundingClientRect();
-    startX = e.clientX - rect.left;
-    startY = e.clientY - rect.top;
+    const point = localPoint(e);
+    startX = point.x;
+    startY = point.y;
     isDrawing = true;
 
     if (dragRect) {
@@ -1229,9 +1234,9 @@ function initHotspotEditor(qid) {
 
   svg.addEventListener('mousemove', (e) => {
     if (!isDrawing) return;
-    const rect = svg.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
+    const point = localPoint(e);
+    const currentX = point.x;
+    const currentY = point.y;
 
     const x = Math.min(startX, currentX);
     const y = Math.min(startY, currentY);
@@ -1253,9 +1258,9 @@ function initHotspotEditor(qid) {
       dragRect.style.display = 'none';
     }
 
-    const rect = svg.getBoundingClientRect();
-    const endX = e.clientX - rect.left;
-    const endY = e.clientY - rect.top;
+    const point = localPoint(e);
+    const endX = point.x;
+    const endY = point.y;
 
     const x1 = Math.min(startX, endX);
     const y1 = Math.min(startY, endY);
@@ -1266,8 +1271,8 @@ function initHotspotEditor(qid) {
     const width = x2 - x1;
     const height = y2 - y1;
     if (width > 5 && height > 5) {
-      const scaleX = img.naturalWidth / rect.width;
-      const scaleY = img.naturalHeight / rect.height;
+      const scaleX = img.naturalWidth / svg.clientWidth;
+      const scaleY = img.naturalHeight / svg.clientHeight;
 
       const natX1 = Math.round(x1 * scaleX);
       const natY1 = Math.round(y1 * scaleY);
@@ -1328,8 +1333,8 @@ function drawSavedHotspot(qid) {
     return;
   }
 
-  const scaleX = rect.width / img.naturalWidth;
-  const scaleY = rect.height / img.naturalHeight;
+  const scaleX = svg.clientWidth / img.naturalWidth;
+  const scaleY = svg.clientHeight / img.naturalHeight;
 
   const svgPoints = points.map(p => {
     const x = p.x * scaleX;

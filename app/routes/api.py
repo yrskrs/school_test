@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import crud, models
 from app.database import get_db
@@ -24,7 +24,11 @@ async def session_status(session_id: int, response: Response, db: Session = Depe
         raise HTTPException(status_code=404, detail="Сесію не знайдено")
 
     response.headers["Cache-Control"] = "no-store"
-    attempts = crud.get_attempts_by_session(db, session_id)
+    attempts = db.query(models.StudentAttempt).filter_by(session_id=session_id).options(
+        selectinload(models.StudentAttempt.answers).load_only(
+            models.StudentAnswer.question_id, models.StudentAnswer.is_correct,
+        ).joinedload(models.StudentAnswer.question).load_only(models.Question.order_index)
+    ).order_by(models.StudentAttempt.started_at).all()
     from sqlalchemy import func
     violation_counts = dict(db.query(models.EventLog.attempt_id, func.count(models.EventLog.id)).join(
         models.StudentAttempt

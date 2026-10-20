@@ -54,7 +54,7 @@
       </a>
     </div>
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:0.85rem;margin-bottom:0.75rem">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 280px), 1fr));gap:0.85rem;margin-bottom:0.75rem">
       <div style="background:var(--bg);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
         <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.25rem;color:var(--primary)">1. Створіть ключ API</div>
         <div style="font-size:0.86rem;color:var(--text-muted)">
@@ -136,7 +136,7 @@
     <form method="post" action="/teacher/integrations" style="display:flex;flex-direction:column;gap:0.75rem">
       <input type="hidden" name="csrf" value="{{ csrf }}">
       <input type="hidden" name="action" value="simple_key">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:0.75rem">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 260px), 1fr));gap:0.75rem">
         <div>
           <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:0.25rem;color:var(--text)">
             Назва підключення:
@@ -231,7 +231,7 @@
               <input type="hidden" name="action" value="edit_key">
               <input type="hidden" name="grant_id" value="{{ grant.id }}">
               
-              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:0.5rem">
+              <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr));gap:0.5rem">
                 <div>
                   <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:0.2rem">Назва ключа:</label>
                   <input type="text" name="name" value="{{ grant.name }}" maxlength="100" style="width:100%;padding:0.4rem 0.6rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:0.9rem">
@@ -336,7 +336,7 @@
           </div>
 
           <!-- Розбивка за операціями -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:0.6rem;margin-bottom:0.85rem">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(min(100%, 180px), 1fr));gap:0.6rem;margin-bottom:0.85rem">
             <div style="background:var(--bg);padding:0.6rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
               <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase">Усього запитів</div>
               <div style="font-size:1.4rem;font-weight:700;color:var(--text)">{{ grant.requests }}</div>

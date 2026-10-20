@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="color-scheme" content="dark light" />
+  <script src="/static/js/display.js?v={{ app_version }}"></script>
   <script>
     // Critical inline theme initialization before any external stylesheets load (eliminates white flash/FOUC)
     (function() {
@@ -50,8 +51,10 @@
       document.querySelectorAll('.theme-icon-moon').forEach(moon => {
         moon.style.display = isLight ? 'inline-block' : 'none';
       });
-      document.querySelectorAll('.theme-label-text').forEach(label => {
-        label.textContent = isLight ? 'Світла' : 'Темна';
+      document.querySelectorAll('button[onclick="toggleTheme()"]').forEach(button => {
+        const label = isLight ? 'Увімкнути темну тему' : 'Увімкнути світлу тему';
+        button.title = label;
+        button.setAttribute('aria-label', label);
       });
     }
 
@@ -61,7 +64,8 @@
       const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', nextTheme);
       document.documentElement.style.backgroundColor = nextTheme === 'light' ? '#f8fafc' : '#0f1117';
-      localStorage.setItem('theme', nextTheme);
+      document.documentElement.style.color = nextTheme === 'light' ? '#0f172a' : '#e8eaf6';
+      try { localStorage.setItem('theme', nextTheme); } catch (e) {}
       updateThemeIcons();
     }
 
@@ -82,6 +86,11 @@
   </script>
 </head>
 <body class="{% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>
+  <div class="page-scale-controls" id="page-scale-controls" role="group" aria-label="Масштаб сторінки">
+    <button type="button" data-scale-action="decrease" aria-label="Зменшити масштаб" title="Зменшити масштаб">−</button>
+    <button type="button" data-scale-action="reset" aria-label="Скинути масштаб до 100%" title="Скинути масштаб до 100%"><output id="page-scale-value" aria-live="polite">100%</output></button>
+    <button type="button" data-scale-action="increase" aria-label="Збільшити масштаб" title="Збільшити масштаб">+</button>
+  </div>
 
   <!-- Верхня смужка статусу завантаження сторінки (Top Loading Bar) -->
   <div id="top-loading-bar" class="top-loading-bar" aria-hidden="true">

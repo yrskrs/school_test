@@ -30,8 +30,9 @@
       {% if session and session.test.time_limit_minutes %}
       <span class="session-meta-chip" id="session-meta-time">⏱ {{ session.test.time_limit_minutes }} хв</span>
       {% endif %}
-      {% if session and session.test.questions %}
-      <span class="session-meta-chip" id="session-meta-questions">📝 {{ session.test.questions | length }} питань</span>
+      {% if session %}
+      <span class="session-meta-chip" id="session-meta-questions">Усього в тесті: {{ question_counts.question_count }}</span>
+      <span class="session-meta-chip" id="session-meta-assigned">Буде задано: {{ question_counts.assigned_question_count }}</span>
       {% endif %}
     </div>
   </div>
@@ -156,6 +157,8 @@
   let loading = false;
   let rosterError = {{ roster_error | default('') | tojson }};
   let lastSuccessfulCode = {{ (session.access_code if session else '') | tojson }};
+  let rosterTimer = null;
+  let activeController = null;
 
   function showStatus(message) {
     statusMessage.textContent = message;
@@ -210,6 +213,9 @@
   updateViewMode();
 
   async function loadRosterAndInfo() {
+    clearTimeout(rosterTimer);
+    rosterTimer = null;
+    if (activeController) activeController.abort();
     const current = ++revision;
     const code = codeInput ? codeInput.value.trim() : '';
     if (!code) {
@@ -227,6 +233,7 @@
     showStatus('Завантаження списку учнів…');
     updateViewMode();
     const controller = new AbortController();
+    activeController = controller;
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
       const response = await fetch('/api/session-roster?code=' + encodeURIComponent(code), {signal: controller.signal, cache: 'no-store'});
@@ -263,14 +270,19 @@
         }
 
         if (sessionMetaRow) {
-          let metaHtml = '';
+          sessionMetaRow.replaceChildren();
+          function addMeta(text, id) {
+            const chip = document.createElement('span');
+            chip.className = 'session-meta-chip';
+            if (id) chip.id = id;
+            chip.textContent = text;
+            sessionMetaRow.appendChild(chip);
+          }
           if (data.time_limit) {
-            metaHtml += '<span class="session-meta-chip">⏱ ' + data.time_limit + ' хв</span>';
+            addMeta('⏱ ' + data.time_limit + ' хв', 'session-meta-time');
           }
-          if (data.question_count) {
-            metaHtml += '<span class="session-meta-chip">📝 ' + data.question_count + ' питань</span>';
-          }
-          sessionMetaRow.innerHTML = metaHtml;
+          addMeta('Усього в тесті: ' + data.question_count, 'session-meta-questions');
+          addMeta('Буде задано: ' + data.assigned_question_count, 'session-meta-assigned');
         }
       }
 
@@ -330,12 +342,23 @@
 
   // Завантажуємо дані при вводі коду доступу (якщо поле активне)
   if (codeInput && !codeInput.readOnly && codeInput.type !== 'hidden') {
-    codeInput.addEventListener('input', loadRosterAndInfo);
-    codeInput.addEventListener('change', loadRosterAndInfo);
+    codeInput.addEventListener('input', () => {
+      clearTimeout(rosterTimer);
+      ++revision;
+      if (activeController) activeController.abort();
+      loading = true;
+      showStatus('Перевірка коду…');
+      updateViewMode();
+      rosterTimer = setTimeout(loadRosterAndInfo, 300);
+    });
+    codeInput.addEventListener('change', () => {
+      if (rosterTimer !== null) loadRosterAndInfo();
+    });
   }
 
   // Завантажуємо при завантаженні сторінки (якщо код уже є в URL)
-  loadRosterAndInfo();
+  // Prefilled pages already contain server-rendered metadata and the roster.
+  if (!lastSuccessfulCode) loadRosterAndInfo();
 })();
 </script>
 {% endblock %}

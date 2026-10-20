@@ -131,7 +131,7 @@
   });
 
   // Створення нового вчителя
-  document.getElementById('createTeacherForm').addEventListener('submit', async (e) => {
+  document.getElementById('createTeacherForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
     const btn = form.querySelector('button[type="submit"]');

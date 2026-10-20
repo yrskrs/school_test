@@ -75,6 +75,7 @@ async def student_login_page(request: Request, code: Optional[str] = None, manua
             "roster_error": (roster_data or {}).get('error', ''),
             "session": target_session,
             "auto_session": target_session,
+            "question_counts": roster_data or {},
             "student_name": previous.student_name if previous else "",
             "roster_available": has_roster,
             "roster_students": roster_data['students'] if roster_data else [],
@@ -116,6 +117,7 @@ async def student_login(
                 "prefilled_code": access_code,
                 "session": session,
                 "auto_session": session,
+                "question_counts": roster_data or {},
                 "roster_available": has_roster,
                 "roster_students": roster_data['students'] if roster_data else [],
                 "roster_required": bool(roster_data and roster_data.get('required')),
@@ -224,18 +226,7 @@ async def student_instruction(
     if existing_answers_count > 0:
         question_count = existing_answers_count
     else:
-        excluded = []
-        if test.excluded_topics:
-            try:
-                excluded = json.loads(test.excluded_topics)
-            except Exception:
-                pass
-        all_questions = [q for q in test.questions if (q.topic or "") not in excluded]
-        limit = test.random_questions_limit
-        if limit and 0 < limit < len(all_questions):
-            question_count = limit
-        else:
-            question_count = len(all_questions)
+        question_count = test_service.question_counts(db, test)['assigned_question_count']
 
     return templates.TemplateResponse(
         request,

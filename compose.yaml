@@ -1,7 +1,7 @@
 name: ${COMPOSE_PROJECT_NAME:-schooltest5}
 services:
   app:
-    image: ${SCHOOLTEST_IMAGE:-schooltest5-app:1.6.7}
+    image: ${SCHOOLTEST_IMAGE:-schooltest5-app:1.6.8}
     build:
       context: .
       args:

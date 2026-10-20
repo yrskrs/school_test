@@ -229,6 +229,7 @@ def grades(request: Request, db: Session = Depends(get_db)):
 
 def get_session_roster_data(db: Session, session: models.TestSession):
     from app.services.roster_service import resolve_roster_class
+    from app.services.test_service import question_counts
     group, error = resolve_roster_class(db, session.test, session.roster_class_id)
     group_id = group.id if group else None
     return {
@@ -241,7 +242,7 @@ def get_session_roster_data(db: Session, session: models.TestSession):
         'subject': session.display_subject_name or '',
         'class_name': session.display_class_name or '',
         'time_limit': session.test.time_limit_minutes if session.test else None,
-        'question_count': len(session.test.questions) if session.test and session.test.questions else 0,
+        **question_counts(db, session.test),
         'students': [
             {'id': s.id, 'name': s.full_name()}
             for s in db.query(models.RosterStudent).filter_by(class_id=group_id, active=True).order_by(models.RosterStudent.last_name, models.RosterStudent.first_name)

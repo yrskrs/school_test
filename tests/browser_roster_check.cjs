@@ -119,7 +119,8 @@ const artifacts = process.env.AUDIT_ARTIFACTS || '/artifacts';
     await login.waitForFunction(() => document.getElementById('roster-status').textContent.includes('Не вдалося'));
     assert(await login.locator('#btn-submit-login').isDisabled());
     await login.goto(base + '/student/login?code=BROWS1');
-    await login.waitForFunction(() => document.getElementById('roster-status').textContent.includes('останній отриманий'));
+    // A prefilled page already has its roster and needs no refresh request.
+    assert(await login.locator('#roster-status').isHidden());
     assert.equal(await login.locator('#roster_student_id option').count(), 18);
     assert(await login.locator('#btn-submit-login').isEnabled());
     checks.push('Network failure is explained; a server-rendered known roster remains usable if refresh fails');

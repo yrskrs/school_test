@@ -416,7 +416,7 @@ function buildQuestionHTML(q, index) {
         </label>`).join('') +
       `</div>`;
   } else if (type === 'image_choice') {
-    optionsHTML = `<div class="options-list-student" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">` +
+    optionsHTML = `<div class="options-list-student" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%, 200px), 1fr));gap:1rem;">` +
       q.options.map(o => `
         <label class="option-item" id="opt-label-${o.id}" style="flex-direction:column;align-items:center;text-align:center;padding:1rem">
           <input type="radio" name="q${q.id}" value="${o.id}" id="opt-${o.id}" onchange="selectSingle(${q.id},${o.id})" style="position:absolute;opacity:0"/>
@@ -609,8 +609,8 @@ function handleHotspotClick(event, qId) {
   
   const marker = document.getElementById(`hotspot-marker-${qId}`);
   if (marker) {
-    marker.style.left = (event.clientX - rect.left) + 'px';
-    marker.style.top = (event.clientY - rect.top) + 'px';
+    marker.style.left = ((event.clientX - rect.left) / rect.width * 100) + '%';
+    marker.style.top = ((event.clientY - rect.top) / rect.height * 100) + '%';
     marker.style.display = 'block';
   }
   
@@ -628,12 +628,8 @@ function restoreHotspotMarker(qId) {
   const marker = document.getElementById(`hotspot-marker-${qId}`);
   if (!img || !marker) return;
   
-  const rect = img.getBoundingClientRect();
-  const scaleX = rect.width / img.naturalWidth;
-  const scaleY = rect.height / img.naturalHeight;
-  
-  marker.style.left = (saved.x * scaleX) + 'px';
-  marker.style.top = (saved.y * scaleY) + 'px';
+  marker.style.left = (saved.x / img.naturalWidth * 100) + '%';
+  marker.style.top = (saved.y / img.naturalHeight * 100) + '%';
   marker.style.display = 'block';
 }
 
@@ -1574,11 +1570,12 @@ function startSequenceDrag(e, qId) {
 
   // Create floating ghost overlay
   const ghost = item.cloneNode(true);
+  const displayScale = Number(document.documentElement.style.zoom) || 1;
   ghost.className = 'draggable-sequence-item sequence-drag-ghost';
-  ghost.style.width = `${rect.width}px`;
-  ghost.style.height = `${rect.height}px`;
-  ghost.style.left = `${rect.left}px`;
-  ghost.style.top = `${rect.top}px`;
+  ghost.style.width = `${rect.width / displayScale}px`;
+  ghost.style.height = `${rect.height / displayScale}px`;
+  ghost.style.left = `${rect.left / displayScale}px`;
+  ghost.style.top = `${rect.top / displayScale}px`;
   document.body.appendChild(ghost);
 
   item.classList.add('dragging');
@@ -1608,8 +1605,9 @@ function onSequencePointerMove(e) {
   
   const currentX = e.clientX - offsetX;
   const currentY = e.clientY - offsetY;
-  ghost.style.left = `${currentX}px`;
-  ghost.style.top = `${currentY}px`;
+  const displayScale = Number(document.documentElement.style.zoom) || 1;
+  ghost.style.left = `${currentX / displayScale}px`;
+  ghost.style.top = `${currentY / displayScale}px`;
 
   // Find target position among items
   const siblings = Array.from(listContainer.querySelectorAll('.draggable-sequence-item:not(.sequence-drag-ghost)'));
@@ -1718,10 +1716,11 @@ function onMatchingPointerMove(e) {
     
     // Create ghost
     const ghost = matchingDragState.card.cloneNode(true);
+    const displayScale = Number(document.documentElement.style.zoom) || 1;
     ghost.className = 'matching-draggable-card matching-drag-ghost';
-    ghost.style.width = `${matchingDragState.rect.width}px`;
-    ghost.style.left = `${matchingDragState.rect.left}px`;
-    ghost.style.top = `${matchingDragState.rect.top}px`;
+    ghost.style.width = `${matchingDragState.rect.width / displayScale}px`;
+    ghost.style.left = `${matchingDragState.rect.left / displayScale}px`;
+    ghost.style.top = `${matchingDragState.rect.top / displayScale}px`;
     
     // Remove close button from ghost if present
     const removeBtn = ghost.querySelector('.matching-remove-btn');
@@ -1736,8 +1735,9 @@ function onMatchingPointerMove(e) {
     e.preventDefault();
     const currentX = e.clientX - matchingDragState.offsetX;
     const currentY = e.clientY - matchingDragState.offsetY;
-    matchingDragState.ghost.style.left = `${currentX}px`;
-    matchingDragState.ghost.style.top = `${currentY}px`;
+    const displayScale = Number(document.documentElement.style.zoom) || 1;
+    matchingDragState.ghost.style.left = `${currentX / displayScale}px`;
+    matchingDragState.ghost.style.top = `${currentY / displayScale}px`;
 
     // Drop zone hover detection
     const elementsUnder = document.elementsFromPoint(e.clientX, e.clientY);
