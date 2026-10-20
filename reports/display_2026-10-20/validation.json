@@ -28,5 +28,16 @@
     "score": 25,
     "max_score": 25
   },
-  "application_files_hashed": 77
+  "application_files_hashed": 77,
+  "deployment": {
+    "image": "schooltest5-app:1.6.8",
+    "image_id": "sha256:b0692cc2b8089b652f76d00206598d3b8291932b523c81872d9755b516c0a6a8",
+    "code_revision": "631e88d11a420976e3f0ad50aa39c16b2b18b73a",
+    "health": "healthy",
+    "http_health": 200,
+    "http_version": "1.6.8",
+    "matched_application_files": 77,
+    "database_counts_and_hashes_unchanged": true,
+    "backup_verified": true
+  }
 }
