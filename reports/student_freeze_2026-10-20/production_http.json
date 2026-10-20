@@ -1,0 +1,24 @@
+{
+  "/healthz": {
+    "status": 200,
+    "version": "1.6.11"
+  },
+  "/api/version": {
+    "status": 200,
+    "version": "1.6.11"
+  },
+  "/teacher/login": {
+    "status": 200,
+    "version": "1.6.11"
+  },
+  "/student/login": {
+    "status": 200,
+    "version": "1.6.11"
+  },
+  "/static/js/student.js?v=1.6.11": {
+    "status": 200,
+    "version": "1.6.11"
+  },
+  "production_records_unchanged": true,
+  "checked_tables": 8
+}
