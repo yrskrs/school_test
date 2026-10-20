@@ -1,0 +1,20 @@
+{
+  "/healthz": {
+    "status": 200,
+    "version_header": "1.6.10"
+  },
+  "/api/version": {
+    "status": 200,
+    "version_header": "1.6.10"
+  },
+  "/teacher/login": {
+    "status": 200,
+    "version_header": "1.6.10"
+  },
+  "/student/login": {
+    "status": 200,
+    "version_header": "1.6.10"
+  },
+  "production_records_unchanged": true,
+  "checked_tables": 8
+}
