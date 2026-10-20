@@ -3,6 +3,15 @@ import json
 import re
 import unittest
 from datetime import datetime, timedelta
+from pathlib import Path
+import sys
+
+_ROOT = Path(__file__).resolve().parents[1]
+_TESTS_DIR = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+if str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
 
 import test_flows as fixtures
 

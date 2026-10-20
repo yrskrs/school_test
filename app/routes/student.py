@@ -29,7 +29,7 @@ def _has_roster(roster_data):
 # Root — redirect to student login
 # ---------------------------------------------------------------------------
 
-@router.get("/", response_class=HTMLResponse)
+@router.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def root(request: Request, db: Session = Depends(get_db)):
     if crud.count_teachers(db) == 0:
         return RedirectResponse(url="/setup", status_code=303)

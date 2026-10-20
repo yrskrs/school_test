@@ -93,7 +93,7 @@ def grant(request, db):
     return teacher
 
 
-@router.get('/healthz')
+@router.api_route('/healthz', methods=['GET', 'HEAD'])
 def health(db: Session = Depends(get_db)):
     from sqlalchemy import text
     db.execute(text('SELECT 1'))

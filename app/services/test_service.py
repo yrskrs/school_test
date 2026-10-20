@@ -19,8 +19,10 @@ def excluded_topics(test: models.Test) -> list:
     return [topic for topic in topics if isinstance(topic, str)] if isinstance(topics, list) else []
 
 
-def question_counts(db: Session, test: models.Test) -> dict:
+def question_counts(db: Session, test: Optional[models.Test]) -> dict:
     """Count the bank and the configured selection without loading question bodies/options."""
+    if not test:
+        return {'question_count': 0, 'assigned_question_count': 0}
     excluded = excluded_topics(test)
     eligible = ~func.coalesce(models.Question.topic, '').in_(excluded)
     total, available = db.query(

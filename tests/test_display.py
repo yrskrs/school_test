@@ -4,6 +4,15 @@ import unittest
 
 from sqlalchemy import event
 from sqlalchemy.orm import raiseload
+from pathlib import Path
+import sys
+
+_ROOT = Path(__file__).resolve().parents[1]
+_TESTS_DIR = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+if str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
 
 import test_flows as fixtures
 from app import crud, models
@@ -100,6 +109,16 @@ class DisplayChecks(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn('question_options', '\n'.join(large))
         forbidden = await fixtures.http('GET', f'/api/session-status/{self.session.id}', cookie=self.other_cookie)
         self.assertEqual(forbidden[0], 404)
+
+    async def test_head_requests_and_empty_question_counts(self):
+        counts = test_service.question_counts(self.db, None)
+        self.assertEqual(counts, {'question_count': 0, 'assigned_question_count': 0})
+
+        head_root = await fixtures.http('HEAD', '/')
+        self.assertIn(head_root[0], (302, 303, 307))
+
+        head_health = await fixtures.http('HEAD', '/healthz')
+        self.assertEqual(head_health[0], 200)
 
 
 if __name__ == '__main__':

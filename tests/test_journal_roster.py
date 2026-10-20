@@ -3,8 +3,18 @@ import hashlib
 import html
 import json
 import re
+from pathlib import Path
+import sys
 import unittest
 import uuid
+
+_ROOT = Path(__file__).resolve().parents[1]
+_TESTS_DIR = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+if str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
+
 import test_flows as fixtures
 from app import models
 from app.routes.teacher import _test_to_dict

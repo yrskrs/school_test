@@ -4,7 +4,6 @@
 """
 import json
 
-from jinja2 import Environment, FileSystemLoader
 from starlette.templating import Jinja2Templates
 
 from app.config import settings

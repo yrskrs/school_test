@@ -5,13 +5,19 @@ import os
 import re
 from pathlib import Path
 import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+TESTS_DIR = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+if str(TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(TESTS_DIR))
+
 import tempfile
 import unittest
 from urllib.parse import urlencode
 from isolated_database import configure, validate_engine
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
 WORK = tempfile.TemporaryDirectory(prefix="schooltest-regression-")
 configure(WORK.name)
 os.environ["SECRET_KEY"] = "synthetic-regression-key"

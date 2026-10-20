@@ -1,8 +1,16 @@
 """File-access regressions with disposable files and the synthetic ASGI fixture."""
+from pathlib import Path
+import sys
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
+
+_ROOT = Path(__file__).resolve().parents[1]
+_TESTS_DIR = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+if str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
 
 import test_flows as fixtures
 
