@@ -9,25 +9,29 @@
     // Critical inline theme initialization before any external stylesheets load (eliminates white flash/FOUC)
     (function() {
       try {
-        var savedTheme = localStorage.getItem('theme');
+        var savedTheme = localStorage.getItem('theme') || localStorage.getItem('sn-theme');
         if (!savedTheme) {
           savedTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
         }
         document.documentElement.setAttribute('data-theme', savedTheme);
-        document.documentElement.style.backgroundColor = (savedTheme === 'light') ? '#f8fafc' : '#0f1117';
-        document.documentElement.style.color = (savedTheme === 'light') ? '#0f172a' : '#e8eaf6';
+        document.documentElement.style.backgroundColor = (savedTheme === 'light') ? '#f4f5f8' : '#0d1117';
+        document.documentElement.style.color = (savedTheme === 'light') ? '#0f172a' : '#e2e8f0';
       } catch (e) {}
     })();
   </script>
   <style>
     /* Critical base colors to ensure zero flash on page transition */
     html {
-      background-color: #0f1117;
-      color: #e8eaf6;
+      background-color: #0d1117;
+      color: #e2e8f0;
     }
     html[data-theme="light"] {
-      background-color: #f8fafc;
+      background-color: #f4f5f8;
       color: #0f172a;
+    }
+    html[data-theme="dark"] {
+      background-color: #0d1117;
+      color: #e2e8f0;
     }
     body {
       background-color: inherit;
@@ -63,9 +67,12 @@
         ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
       const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', nextTheme);
-      document.documentElement.style.backgroundColor = nextTheme === 'light' ? '#f8fafc' : '#0f1117';
-      document.documentElement.style.color = nextTheme === 'light' ? '#0f172a' : '#e8eaf6';
-      try { localStorage.setItem('theme', nextTheme); } catch (e) {}
+      document.documentElement.style.backgroundColor = nextTheme === 'light' ? '#f4f5f8' : '#0d1117';
+      document.documentElement.style.color = nextTheme === 'light' ? '#0f172a' : '#e2e8f0';
+      try {
+        localStorage.setItem('theme', nextTheme);
+        localStorage.setItem('sn-theme', nextTheme);
+      } catch (e) {}
       updateThemeIcons();
     }
 
