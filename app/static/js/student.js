@@ -21,7 +21,7 @@ let recoveringConnection = false;
 let hasStarted = false;
 let finishInProgress = false;
 let syncError = '';
-let connectionFeedback = '';
+let serverReachable = false;
 const inFlightAnswers = new Map();
 let attemptCache;
 try { attemptCache = StudentCache.create(ATTEMPT_ID, window.localStorage); }
@@ -151,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('total-count').textContent = totalQ;
   persistAttempt();
   if (Object.keys(pendingAnswers).length || pendingEvents.length || finishIntent) resumeConnection();
+  else fallbackCheckStatus();
   window.addEventListener('beforeunload', event => {
     if (hasStarted) logBrowserEvent('question_changed', 'action=page_leave');
     persistAttempt();
@@ -217,39 +218,52 @@ async function syncProgress(leaving = false) {
 }
 
 function updateSyncStatus() {
+  const network = document.getElementById('student-network-status');
+  const count = Object.keys(pendingAnswers).length;
+  const networkState = syncError ? 'error'
+    : recoveringConnection ? 'checking' : isOffline ? 'offline'
+    : count ? 'syncing' : serverReachable ? 'online' : 'checking';
+  const networkText = syncError ? 'Помилка збереження'
+    : recoveringConnection ? 'Відновлення…' : isOffline ? 'Немає зв’язку'
+    : count ? 'Надсилання…' : serverReachable ? 'Є зв’язок' : 'З’єднання…';
+  if (network) {
+    network.dataset.state = networkState;
+    network.title = syncError || (isOffline
+      ? 'Тест і таймери призупинені. Автоматична перевірка зв’язку кожні 3 секунди.'
+      : 'Зв’язок із сервером. Відповідь зараховується після серверного підтвердження.');
+  }
+  document.querySelectorAll('[data-network-text]').forEach(element => {
+    if (element.textContent !== networkText) element.textContent = networkText;
+  });
   const status = document.getElementById('student-sync-status');
   if (!status) return;
-  const count = Object.keys(pendingAnswers).length;
   const drafts = questions.filter(q => !lockedQuestions.has(q.id) && hasAnswer(q.id)).length;
   status.dataset.state = syncError || !attemptCache.available ? 'error' : isOffline ? 'offline' : count ? 'pending' : drafts ? 'draft' : 'saved';
   const offlineMessage = document.getElementById('offline-message');
   if (offlineMessage) offlineMessage.textContent = syncError || (attemptCache.available
     ? 'Локальна резервна копія збережена у браузері. Перевіряємо зв’язок кожні 3 секунди; після відновлення надішлемо непідтверджені відповіді. Залиште сторінку відкритою.'
     : 'Локальне збереження недоступне. Відповіді зберігаються лише у відкритій вкладці. Не оновлюйте й не закривайте сторінку.');
-  status.querySelector('span').textContent = syncError || (!attemptCache.available
+  const statusText = syncError || (!attemptCache.available
     ? 'Локальне збереження недоступне. Не оновлюйте сторінку, доки відповіді не надіслано.'
     : isOffline ? 'Зв’язок втрачено. Тест і таймери призупинено. Автоперевірка кожні 3 с.'
-    : count ? `Очікують підтвердження сервера: ${count}. Резервна копія є у браузері.`
-    : drafts ? 'Чернетка збережена у браузері. Натисніть «Відповісти», щоб надіслати її на сервер.'
-    : lockedQuestions.size ? `Сервер підтвердив відповідей: ${lockedQuestions.size}. Копія у браузері — резервна.`
-    : 'Відповіді надсилаються на сервер кнопкою «Відповісти».');
-  const feedback = document.getElementById('connection-check-feedback');
-  if (feedback) feedback.textContent = connectionFeedback;
-  document.querySelectorAll('[data-connection-feedback]').forEach(element => {
-    element.textContent = connectionFeedback;
-    element.dataset.state = recoveringConnection ? 'checking' : isOffline || syncError ? 'error' : 'ok';
-  });
-  document.querySelectorAll('[data-connection-check]').forEach(button => {
-    button.disabled = recoveringConnection;
-    button.textContent = recoveringConnection ? 'Перевіряємо…' : 'Перевірити зв’язок';
-  });
+    : count ? `Очікують підтвердження сервера: ${count}. Залиште вкладку відкритою.`
+    : drafts ? `Підтверджено сервером: ${lockedQuestions.size} із ${totalQ}. Є чернетка — натисніть «Відповісти».`
+    : `Підтверджено сервером: ${lockedQuestions.size} із ${totalQ}. Натискайте «Відповісти» для збереження відповіді.`);
+  const label = status.querySelector('span');
+  if (label.textContent !== statusText) label.textContent = statusText;
 }
 
 async function studentFetch(url, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
-  try { return await fetch(url, {...options, signal: controller.signal, cache: 'no-store'}); }
-  finally { clearTimeout(timeout); }
+  try {
+    const response = await fetch(url, {...options, signal: controller.signal, cache: 'no-store'});
+    serverReachable = response.status < 500 || response.ok;
+    return response;
+  } catch (error) {
+    serverReachable = false;
+    throw error;
+  } finally { clearTimeout(timeout); updateSyncStatus(); }
 }
 
 function initQueue() {
@@ -1471,7 +1485,7 @@ async function fallbackCheckStatus(force = false) {
       if (res.status === 401 || res.status === 404) {
         syncError = 'Сесію браузера не підтверджено. Увійдіть у тест знову.';
         goOffline();
-      }
+      } else if (res.status >= 500) goOffline();
       return;
     }
     const data = await res.json();
@@ -1484,7 +1498,7 @@ async function fallbackCheckStatus(force = false) {
     }
   } catch (e) {
     goOffline();
-  } finally { checkingStatus = false; }
+  } finally { checkingStatus = false; updateSyncStatus(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -1502,10 +1516,9 @@ function goOffline() {
   startOfflinePing();
 }
 
-async function resumeConnection(manual = false) {
+async function resumeConnection() {
   if (recoveringConnection || testFinished) return;
   recoveringConnection = true;
-  if (manual === true) connectionFeedback = 'Перевіряємо зв’язок із сервером…';
   updateSyncStatus();
   try {
     const response = await studentFetch(`/api/attempt/${ATTEMPT_ID}`);
@@ -1513,7 +1526,6 @@ async function resumeConnection(manual = false) {
       if (response.status === 401 || response.status === 404) {
         syncError = 'Сесію браузера не підтверджено. Увійдіть у тест знову або зверніться до вчителя; резервна копія залишається у браузері.';
       }
-      if (manual === true) connectionFeedback = 'Не вдалося підтвердити зв’язок. Наступна спроба — автоматично через 3 с.';
       goOffline();
       return;
     }
@@ -1545,17 +1557,10 @@ async function resumeConnection(manual = false) {
     if (finishIntent) await confirmFinish();
     else if (hadPending && lockedQuestions.has(currentId) && questionQueue.includes(currentIndex)) advanceToNext();
   } catch {
-    if (manual === true) connectionFeedback = 'Сервер недоступний. Повторюємо автоматично кожні 3 с.';
     goOffline();
   }
   finally {
     recoveringConnection = false;
-    if (manual === true && !isOffline && !testFinished) {
-      connectionFeedback = syncError ? 'Сервер доступний, але синхронізація не завершена. ' + syncError
-        : 'Зв’язок із сервером є. Перевірено о ' + new Date().toLocaleTimeString('uk-UA') + '.';
-    } else if (!isOffline && !syncError && connectionFeedback) {
-      connectionFeedback = 'Зв’язок із сервером відновлено.';
-    }
     updateSyncStatus();
   }
 }

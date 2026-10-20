@@ -315,6 +315,10 @@
     </span>
   </div>
   <div class="test-topbar-right">
+    <div class="student-network-status" id="student-network-status" data-state="checking" role="status" aria-live="polite" aria-atomic="true" title="Стан зв’язку із сервером">
+      <span class="network-status-dot" aria-hidden="true"></span>
+      <span data-network-text>З’єднання…</span>
+    </div>
     <div class="progress-info" id="progress-info">
       Питання <span id="current-q-num">1</span> з <span id="total-q-num">0</span>
     </div>
@@ -359,8 +363,6 @@
 <!-- Progress bar -->
 <div class="student-sync-status" id="student-sync-status" data-state="saved" role="status" aria-live="polite">
   <span>Перевіряємо збереження відповідей…</span>
-  <button type="button" class="btn btn-sm btn-secondary" data-connection-check onclick="resumeConnection(true)">Перевірити зв’язок</button>
-  <span class="connection-check-feedback" id="connection-check-feedback" data-connection-feedback></span>
 </div>
 <div class="progress-bar-wrap">
   <div class="progress-bar" id="progress-bar" style="width:0%"></div>
@@ -425,7 +427,7 @@
           <strong id="stat-skipped-count" class="sidebar-stat-val val--warning">0</strong>
         </div>
         <div class="sidebar-stat-item">
-          <span class="sidebar-stat-label">Залишилось</span>
+          <span class="sidebar-stat-label">Залишок</span>
           <strong id="stat-remaining-count" class="sidebar-stat-val val--muted">0</strong>
         </div>
       </div>
@@ -503,9 +505,8 @@
     <h2 style="color:var(--warning); margin-bottom: 1rem;">Зв'язок із сервером втрачено</h2>
     <p style="margin-bottom: 0.5rem; font-weight: 500;">Проходження тесту та таймери автоматично призупинено.</p>
     <p style="color: var(--text-muted); font-size: 0.9rem;" id="offline-message">Залиште сторінку відкритою. Після відновлення зв’язку система повторно надішле відповіді.</p>
-    <button type="button" class="btn btn-secondary" data-connection-check onclick="resumeConnection(true)">Перевірити зв’язок</button>
-    <button type="button" class="btn btn-secondary" onclick="attemptCache.download()">Зберегти копію відповідей</button>
-    <p class="connection-check-feedback" data-connection-feedback role="status" aria-live="polite"></p>
+    <p data-network-text role="status" aria-live="polite"></p>
+    <button type="button" class="btn btn-secondary" onclick="attemptCache.download()">Зберегти резерв непідтверджених відповідей</button>
   </div>
 </div>
 <!-- Anti-Cheat Violation Modal -->
@@ -525,10 +526,9 @@
     </div>
     <div id="violation-stop-actions" hidden>
       <p class="form-hint">Якщо відповідь сервера затримується, повторюємо перевірку кожні 3 секунди. Резервна копія залишається у браузері.</p>
-      <p class="connection-check-feedback" data-connection-feedback role="status" aria-live="polite"></p>
+      <p data-network-text role="status" aria-live="polite"></p>
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" data-connection-check onclick="resumeConnection(true)">Перевірити зв’язок</button>
-        <button type="button" class="btn btn-secondary" onclick="attemptCache.download()">Зберегти копію відповідей</button>
+        <button type="button" class="btn btn-secondary" onclick="attemptCache.download()">Зберегти резерв непідтверджених відповідей</button>
       </div>
     </div>
   </div>

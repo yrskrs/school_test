@@ -7,6 +7,7 @@
 
 /* ---------- CSS Variables ---------- */
 :root {
+  color-scheme: dark;
   --bg:          #0f1117;
   --bg-card:     #1a1d2e;
   --bg-card2:    #222538;
@@ -41,6 +42,7 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
+    color-scheme: light;
     --bg:          #f8fafc;
     --bg-card:     #ffffff;
     --bg-card2:    #f1f5f9;
@@ -70,6 +72,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg:          #f8fafc;
   --bg-card:     #ffffff;
   --bg-card2:    #f1f5f9;
@@ -104,7 +107,6 @@ html {
   font-size: 16px;
   scroll-behavior: smooth;
   background-color: var(--bg);
-  color-scheme: dark light;
 }
 
 body {
@@ -1050,6 +1052,8 @@ input[type="checkbox"] {
 .options-list-student { display: flex; flex-direction: column; gap: .65rem; }
 
 .option-item {
+  background: var(--bg-card2);
+  color: var(--text);
   display: flex;
   align-items: center;
   gap: .85rem;
@@ -3484,9 +3488,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--primary); outli
 .test-topbar-right { flex-wrap: wrap; gap: .5rem; min-width: 0; }
 .test-topbar-left { flex: 1 1 auto; max-width: 100%; }
 .test-theme-toggle { flex-shrink: 0; }
-.test-page .sidebar-stats { flex-wrap: wrap; gap: .5rem; }
-.test-page .sidebar-stat-item { flex: 1 1 5rem; min-width: 0; }
-.test-page .sidebar-stat-label { overflow-wrap: anywhere; }
+.test-page .sidebar-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(4.8rem, 1fr));
+  gap: .35rem;
+}
+.test-page .sidebar-stat-item { min-width: 0; }
+.test-page .sidebar-stat-label { white-space: nowrap; overflow-wrap: normal; }
 .test-page .test-sidebar-card .q-nav-legend-item { white-space: normal !important; min-width: 0; }
 .test-page #finish-modal { z-index: 10002; }
 .auth-page .main-content {
@@ -3570,13 +3578,31 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--primary); outli
   transform: none;
 }
 .navbar .navbar-theme-btn, .test-topbar .test-theme-toggle { height: 36px; width: 36px; min-width: 36px; margin: 0; }
-.connection-check-feedback { font-size: .8rem; color: var(--success); }
-.connection-check-feedback:empty { display: none; }
-.connection-check-feedback[data-state="checking"] { color: var(--text-muted); }
-.connection-check-feedback[data-state="error"] { color: var(--warning); }
-.student-sync-status[data-state="offline"] .connection-check-feedback,
-.student-sync-status[data-state="error"] .connection-check-feedback { color: inherit; }
 .student-sync-status { padding: .35rem 1rem; gap: .35rem .6rem; }
+.student-network-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem .55rem;
+  min-height: 36px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  font-size: .75rem;
+  color: var(--success);
+  white-space: nowrap;
+}
+.student-network-status[data-state="checking"] { color: var(--info); }
+.student-network-status[data-state="syncing"] { color: var(--warning); }
+.student-network-status[data-state="offline"],
+.student-network-status[data-state="error"] { color: var(--danger); }
+.network-status-dot { width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.student-network-status:is([data-state="checking"], [data-state="syncing"], [data-state="offline"]) .network-status-dot {
+  animation: network-pulse 1.5s ease-in-out infinite;
+}
+@keyframes network-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) {
+  .student-network-status .network-status-dot { animation: none; }
+}
 
 /* Compact instruction: the start button remains in the initial desktop viewport. */
 .instruction-page .main-content { max-width: 880px; padding: 3rem 1rem .5rem; }

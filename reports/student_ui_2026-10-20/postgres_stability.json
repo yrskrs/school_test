@@ -1,0 +1,38 @@
+{
+  "Три попередження": {
+    "status": "stopped",
+    "warnings": 3,
+    "confirmed_answers": 2,
+    "score": 2.0
+  },
+  "Чернетка перед зупинкою": {
+    "status": "stopped",
+    "warnings": 0,
+    "confirmed_answers": 0,
+    "score": 0.0
+  },
+  "Відхилена чернетка": {
+    "status": "stopped",
+    "warnings": 3,
+    "confirmed_answers": 0,
+    "score": 0.0
+  },
+  "Попередження офлайн": {
+    "status": "stopped",
+    "warnings": 3,
+    "confirmed_answers": 1,
+    "score": 1.0
+  },
+  "Відновлення мережі": {
+    "status": "finished",
+    "warnings": 0,
+    "confirmed_answers": 1,
+    "score": 1.0
+  },
+  "Пауза й мережа": {
+    "status": "finished",
+    "warnings": 0,
+    "confirmed_answers": 1,
+    "score": 1.0
+  }
+}

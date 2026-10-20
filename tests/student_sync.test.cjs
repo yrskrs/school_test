@@ -169,29 +169,35 @@ async function runTests() {
 
   storage.removeItem('schooltest:attempt:42:v1');
   const connection = environment();
-  await connection.run('resumeConnection(true)');
-  assert.match(connection.elements.get('connection-check-feedback').textContent, /Зв’язок із сервером є/);
+  await connection.run('resumeConnection()');
+  assert.equal(connection.elements.get('student-network-status').dataset.state, 'online');
   const validationFailure = environment(async url => url.startsWith('/api/')
     ? {ok:true,json:async()=>({status:'in_progress'})}
     : {ok:false,status:422,json:async()=>({detail:'Synthetic invalid answer'})});
   validationFailure.run('pendingAnswers[1] = {question_id: 1, selected_options: [999]};');
-  await validationFailure.run('resumeConnection(true)');
-  assert.match(validationFailure.elements.get('connection-check-feedback').textContent, /Сервер доступний, але синхронізація не завершена/);
+  await validationFailure.run('resumeConnection()');
+  assert.equal(validationFailure.elements.get('student-network-status').dataset.state, 'error');
   storage.removeItem('schooltest:attempt:42:v1');
   let networkAvailable = false;
   const retry = environment(async () => {
     if (!networkAvailable) throw Error('Connection unavailable');
     return {ok: true, json: async () => ({status: 'paused'})};
   });
-  await retry.run('resumeConnection(true)');
+  await retry.run('resumeConnection()');
   assert.equal(retry.run('isOffline'), true);
-  assert.match(retry.elements.get('connection-check-feedback').textContent, /Сервер недоступний/);
+  assert.equal(retry.elements.get('student-network-status').dataset.state, 'offline');
   assert.notEqual(retry.run('offlinePingInterval'), null);
   networkAvailable = true;
   await retry.run('resumeConnection()');
   assert.equal(retry.run('isOffline'), false);
   assert.equal(retry.run('isPaused'), true);
   assert.equal(retry.run('offlinePingInterval'), null, 'A recovered paused attempt must stop retry polling');
+  assert.equal(retry.elements.get('student-network-status').dataset.state, 'online');
+
+  const unavailable = environment(async () => ({ok: false, status: 503}));
+  await unavailable.run('fallbackCheckStatus()');
+  assert.equal(unavailable.run('isOffline'), true, 'An automatic 503 check must pause work');
+  assert.equal(unavailable.elements.get('student-network-status').dataset.state, 'offline');
 
   storage.removeItem('schooltest:attempt:42:v1');
   const timers = environment();
@@ -405,7 +411,7 @@ async function runTests() {
   assert.equal(capturePause.run('hasStarted'), false, 'Return to fullscreen before continuing after a pause');
   assert.equal(capturePause.elements.get('start-overlay').style.display, 'flex');
 
-  console.log('PASS: 26 student scenarios and 8 scripts parsed.');
-  return {passed: true, scenarios: 26, scriptsParsed: 8};
+  console.log('PASS: 27 student scenarios and 8 scripts parsed.');
+  return {passed: true, scenarios: 27, scriptsParsed: 8};
 }
 module.exports = runTests();

@@ -2,10 +2,13 @@
 (function () {
   'use strict';
   const key = 'schooltest:page-scale';
+  const minScale = 80;
+  const maxScale = 120;
+  const clamp = value => Math.max(minScale, Math.min(maxScale, value));
   let scale = 100;
   try {
     const saved = Number(localStorage.getItem(key));
-    if (Number.isFinite(saved) && saved >= 60 && saved <= 150) scale = Math.round(saved / 10) * 10;
+    if (Number.isFinite(saved) && saved > 0) scale = clamp(Math.round(saved / 10) * 10);
   } catch (e) {}
 
   function applyScale() {
@@ -15,8 +18,8 @@
     const value = document.getElementById('page-scale-value');
     if (!value) return;
     value.textContent = scale + '%';
-    document.querySelector('[data-scale-action="decrease"]').disabled = scale <= 60;
-    document.querySelector('[data-scale-action="increase"]').disabled = scale >= 150;
+    document.querySelector('[data-scale-action="decrease"]').disabled = scale <= minScale;
+    document.querySelector('[data-scale-action="increase"]').disabled = scale >= maxScale;
   }
 
   applyScale();
@@ -33,7 +36,7 @@
       const button = event.target.closest('[data-scale-action]');
       if (!button) return;
       const action = button.dataset.scaleAction;
-      scale = action === 'reset' ? 100 : Math.max(60, Math.min(150, scale + (action === 'increase' ? 10 : -10)));
+      scale = action === 'reset' ? 100 : clamp(scale + (action === 'increase' ? 10 : -10));
       applyScale();
       try { localStorage.setItem(key, String(scale)); } catch (e) {}
     });

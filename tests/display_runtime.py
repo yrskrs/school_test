@@ -43,7 +43,9 @@ def verify():
 
 def reset_attempts():
     with SessionLocal() as db:
-        for attempt in db.query(models.StudentAttempt).all():
+        attempts = db.query(models.StudentAttempt).join(models.TestSession).join(models.Test).join(models.Teacher).filter(
+            models.Teacher.username == 'display_check').all()
+        for attempt in attempts:
             db.delete(attempt)
         db.commit()
 

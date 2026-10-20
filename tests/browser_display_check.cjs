@@ -29,6 +29,15 @@ const artifacts = process.env.AUDIT_ARTIFACTS || '/artifacts';
         bodyRight: document.body.getBoundingClientRect().right, scale: Number(doc.style.zoom)};
     });
     layouts.push({page: label, ...dimensions});
+    for (const stat of await page.locator('.sidebar-stat-label').evaluateAll(labels => labels.map(label => {
+      const range = document.createRange();
+      range.selectNodeContents(label);
+      return {text: label.textContent.trim(), lines: range.getClientRects().length,
+        width: range.getBoundingClientRect().width, available: label.parentElement.getBoundingClientRect().width};
+    }))) {
+      assert.equal(stat.lines, 1, JSON.stringify(stat));
+      assert(stat.width <= stat.available + 1, JSON.stringify(stat));
+    }
     if (dimensions.scroll > dimensions.client + 1) {
       const overflow = await page.evaluate(() => Array.from(document.querySelectorAll('body *')).filter(el =>
         el.getBoundingClientRect().right > innerWidth + 1).slice(0, 15).map(el => ({
@@ -47,18 +56,23 @@ const artifacts = process.env.AUDIT_ARTIFACTS || '/artifacts';
     await scaleTo(80);
     await page.reload();
     assert.equal(await page.locator('#page-scale-value').innerText(), '80%');
-    await scaleTo(60);
+    await scaleTo(80);
     assert(await scaleButton('decrease').isDisabled());
-    await scaleTo(150);
+    await scaleTo(120);
     assert(await scaleButton('increase').isDisabled());
+    for (const [stored, expected] of [[60, 80], [150, 120]]) {
+      await page.evaluate(value => localStorage.setItem('schooltest:page-scale', String(value)), stored);
+      await page.reload();
+      assert.equal(await page.locator('#page-scale-value').innerText(), expected + '%');
+    }
     for (const [width, height] of [[1366, 768], [1024, 600], [800, 600], [640, 480], [390, 844], [320, 568]]) {
       await page.setViewportSize({width, height});
-      for (const scale of [80, 100, 150]) {await scaleTo(scale); await fit('student-login');}
+      for (const scale of [80, 100, 120]) {await scaleTo(scale); await fit('student-login');}
     }
     await page.setViewportSize({width: 640, height: 480});
     await scaleTo(80);
     await page.screenshot({path: artifacts + '/login_640x480_80.png'});
-    checks.push('200 total / 25 assigned; no duplicate initial request; scale persists, resets, and respects 60–150% bounds; 18 login layouts fit');
+    checks.push('200 total / 25 assigned; no duplicate initial request; scale persists, resets, and respects 80–120% bounds; 18 login layouts fit');
     console.log('PASS: question counts, scale persistence and 18 login layouts');
 
     await page.goto(base + '/student/login?manual=1');
@@ -104,19 +118,44 @@ const artifacts = process.env.AUDIT_ARTIFACTS || '/artifacts';
     const theme = page.locator('.test-theme-toggle');
     assert.equal((await theme.innerText()).trim(), '');
     assert.equal(await theme.locator('svg:visible').count(), 1);
+    const selected = page.locator('.option-item input').first();
+    await page.locator('.option-item').first().click();
+    const selectedValue = await selected.inputValue();
+    for (const osTheme of ['dark', 'light']) {
+      await page.emulateMedia({colorScheme: osTheme});
+      for (const desired of ['light', 'dark']) {
+        if (await page.locator('html').getAttribute('data-theme') !== desired) await theme.click();
+        await page.waitForFunction(desired => {
+          const color = getComputedStyle(document.querySelector('.option-item:last-child')).backgroundColor;
+          const channels = color.match(/\d+/g).slice(0, 3).map(Number);
+          return desired === 'light' ? channels.every(c => c > 230) : channels.every(c => c < 80);
+        }, desired);
+        const colors = await page.locator('.option-item').last().evaluate(label => ({
+          background: getComputedStyle(label).backgroundColor,
+          scheme: getComputedStyle(label.querySelector('input')).colorScheme,
+        }));
+        assert.equal(colors.scheme, desired);
+        const channels = colors.background.match(/\d+/g).slice(0, 3).map(Number);
+        assert(desired === 'light' ? channels.every(c => c > 230) : channels.every(c => c < 80), JSON.stringify(colors));
+        assert(await selected.isChecked());
+        assert.equal(await selected.inputValue(), selectedValue);
+        if (osTheme === 'dark') await page.screenshot({path: artifacts + '/answers_' + desired + '.png', animations: 'disabled'});
+      }
+    }
+    checks.push('Answer backgrounds and native radio controls follow explicit light/dark theme under both OS themes; selected answer survives switching');
     const oldTheme = await page.locator('html').getAttribute('data-theme');
     await theme.click();
     assert.notEqual(await page.locator('html').getAttribute('data-theme'), oldTheme);
     assert.equal(await theme.locator('svg:visible').count(), 1);
     for (const [width, height] of [[1366, 768], [1024, 600], [640, 480], [390, 844], [320, 568]]) {
       await page.setViewportSize({width, height});
-      for (const scale of [80, 100, 150]) {await scaleTo(scale); await fit('take-test');}
+      for (const scale of [80, 100, 120]) {await scaleTo(scale); await fit('take-test');}
     }
     await page.setViewportSize({width: 1024, height: 600});
     await scaleTo(80);
     await page.screenshot({path: artifacts + '/test_1024x600_80.png'});
     assert.equal(await page.locator('#total-q-num').innerText(), '25');
-    checks.push('One request for six typed code characters; instruction and actual test both assign 25; SVG theme toggles; 15 test layouts fit in fullscreen');
+    checks.push('One request for six typed code characters; instruction and actual test both assign 25; SVG theme toggles; 15 test layouts fit in fullscreen and all sidebar labels stay on one line');
     console.log('PASS: debounced code, instruction, SVG theme and 15 test layouts');
 
     // UI completion verifies that scale/theme controls preserve answers and anti-cheat state.
@@ -144,7 +183,7 @@ const artifacts = process.env.AUDIT_ARTIFACTS || '/artifacts';
       await page.goto(base + path);
       for (const [width, height] of [[1366, 768], [640, 480], [390, 844]]) {
         await page.setViewportSize({width, height});
-        for (const scale of [80, 100, 150]) {await scaleTo(scale); await fit(path);}
+        for (const scale of [80, 100, 120]) {await scaleTo(scale); await fit(path);}
       }
       if (path === '/teacher/roster-sync') {
         for (const tab of ['classes', 'sync', 'outside']) {
@@ -153,7 +192,7 @@ const artifacts = process.env.AUDIT_ARTIFACTS || '/artifacts';
         }
       }
     }
-    checks.push('Eleven teacher pages reflow at desktop, compact and mobile sizes at 80/100/150%; roster tabs fit too');
+    checks.push('Eleven teacher pages reflow at desktop, compact and mobile sizes at 80/100/120%; roster tabs fit too');
 
     const blocked = await browser.newPage();
     blocked.on('pageerror', error => errors.push(error.message));

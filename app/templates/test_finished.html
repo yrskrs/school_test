@@ -48,8 +48,8 @@
   </p>
 
   <div class="card" id="local-recovery" hidden>
-    <p>На цьому пристрої залишилися відповіді, які сервер не підтвердив. Збережіть копію та передайте вчителю для перевірки.</p>
-    <button type="button" class="btn btn-secondary" id="download-local-recovery">Зберегти копію відповідей</button>
+    <p>На цьому пристрої залишилися відповіді без підтвердження сервера. Файл містить локальний резерв для ручної перевірки вчителем, а не остаточний звіт. Імпорту в сесію немає; файл не змінює серверні відповіді чи оцінку.</p>
+    <button type="button" class="btn btn-secondary" id="download-local-recovery">Зберегти резерв непідтверджених відповідей</button>
   </div>
 
   {% if test.show_result_after_finish and attempt.score is not none %}
