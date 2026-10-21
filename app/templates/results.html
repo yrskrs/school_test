@@ -123,7 +123,7 @@
         {% endfor %}
       </select>
     </div>
-    <div class="form-group" style="margin:0; flex: 1; min-width:200px">
+    <div class="form-group" style="margin:0; min-width:200px">
       <label for="student_filter">Фільтр по учню</label>
       <div style="display: flex; gap: 0.5rem;">
         <input type="text" id="student_filter" name="student_name" 
@@ -245,6 +245,7 @@
               <span class="badge badge-status badge-status--{{ group.latest_attempt.status.value }}">
                 {% if group.latest_attempt.status.value == 'finished' %}Завершено
                 {% elif group.latest_attempt.status.value == 'timeout' %}Час вийшов
+                {% elif group.latest_attempt.status.value == 'stopped' %}Зупинено
                 {% elif group.latest_attempt.status.value == 'in_progress' %}В процесі
                 {% else %}Не розпочато{% endif %}
               </span>
@@ -254,11 +255,11 @@
             {{ group.latest_attempt.finished_at.strftime('%d.%m %H:%M') if group.latest_attempt.finished_at else '—' }}
           </td>
           <td style="text-align: right;">
-            <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+            <div class="result-row-actions">
               {% if group.has_multiple %}
                 <button type="button" class="btn btn-sm btn-primary toggle-btn" 
                         onclick="event.stopPropagation(); toggleGroupRow('{{ group.key }}');" 
-                        id="btn-{{ group.key }}" 
+                        id="btn-{{ group.key }}" aria-expanded="false" aria-controls="details-{{ group.key }}"
                         style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; padding: 0.35rem 0.65rem;">
                   <span id="txt-{{ group.key }}">Спроби ({{ group.attempts_count }})</span>
                   <svg id="svg-{{ group.key }}" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="transition: transform 0.25s ease;">
@@ -490,6 +491,7 @@
             <span class="badge badge-status badge-status--{{ attempt.status.value }}">
               {% if attempt.status.value == 'finished' %}Завершено
               {% elif attempt.status.value == 'timeout' %}Час вийшов
+              {% elif attempt.status.value == 'stopped' %}Зупинено
               {% elif attempt.status.value == 'in_progress' %}В процесі
               {% else %}Не розпочато{% endif %}
             </span>
@@ -579,13 +581,16 @@
   function toggleGroupRow(groupKey) {
     const detailsRow = document.getElementById('details-' + groupKey);
     const svgIcon = document.getElementById('svg-' + groupKey);
+    const button = document.getElementById('btn-' + groupKey);
     if (!detailsRow) return;
 
     if (detailsRow.style.display === 'none' || detailsRow.style.display === '') {
       detailsRow.style.display = 'table-row';
+      button?.setAttribute('aria-expanded', 'true');
       if (svgIcon) svgIcon.style.transform = 'rotate(180deg)';
     } else {
       detailsRow.style.display = 'none';
+      button?.setAttribute('aria-expanded', 'false');
       if (svgIcon) svgIcon.style.transform = 'rotate(0deg)';
     }
   }
@@ -595,6 +600,7 @@
     const detailRows = document.querySelectorAll('.group-details-row');
     detailRows.forEach(row => {
       row.style.display = 'table-row';
+      document.getElementById(row.id.replace('details-', 'btn-'))?.setAttribute('aria-expanded', 'true');
     });
     const icons = document.querySelectorAll('[id^="svg-grp_"]');
     icons.forEach(icon => {
@@ -607,6 +613,7 @@
     const detailRows = document.querySelectorAll('.group-details-row');
     detailRows.forEach(row => {
       row.style.display = 'none';
+      document.getElementById(row.id.replace('details-', 'btn-'))?.setAttribute('aria-expanded', 'false');
     });
     const icons = document.querySelectorAll('[id^="svg-grp_"]');
     icons.forEach(icon => {

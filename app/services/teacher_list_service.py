@@ -19,11 +19,12 @@ def test_class_choices(db, teacher, current_class=None):
     return list(dict.fromkeys(names))
 
 
-def build_list(db, teacher_id, kind, *, page, per_page, tab, search, class_filter, state):
+def build_list(db, teacher_id, kind, *, page, per_page, tab, search, class_filter, state, sort='newest'):
     tab = "archive" if tab == "archive" else "active"
     per_page = per_page if per_page in (10, 20, 50, 100) else 20
     search = search.strip()[:100]
     state = state if state in ("all", "running", "finished") else "all"
+    sort = sort if sort in ('newest', 'oldest', 'title', 'code') else 'newest'
     test = models.Test
     session = models.TestSession
     if kind == "tests":
@@ -67,8 +68,11 @@ def build_list(db, teacher_id, kind, *, page, per_page, tab, search, class_filte
         items = [{"test": item, "question_count": counts.get(item.id, 0),
                   "active_session_count": running.get(item.id, 0)} for item in rows]
     else:
+        title_column = func.unicode_casefold(test.title) if db.bind.dialect.name == 'sqlite' else func.lower(test.title)
+        orders = {'newest': (session.started_at.desc(),), 'oldest': (session.started_at.asc(),),
+                  'title': (title_column.asc(),), 'code': (session.access_code.asc(),)}
         rows = query.options(joinedload(session.test)).order_by(
-            session.is_active.desc(), session.started_at.desc(), session.id.desc()
+            session.is_active.desc(), *orders[sort], session.id.desc()
         ).offset((page - 1) * per_page).limit(per_page).all()
         ids = [item.id for item in rows]
         attempt = models.StudentAttempt
@@ -82,4 +86,4 @@ def build_list(db, teacher_id, kind, *, page, per_page, tab, search, class_filte
     return {"tests_with_count" if kind == "tests" else "sessions_data": items,
             "page": kind, "current_page": page, "total_pages": pages, "total_items": total,
             "per_page": per_page, "tab": tab, "search": search, "class_filter": class_filter,
-            "state": state, "classes": classes, "active_count": active_count, "archive_count": archive_count}
+            "state": state, "sort": sort, "classes": classes, "active_count": active_count, "archive_count": archive_count}

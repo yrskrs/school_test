@@ -1,0 +1,21 @@
+{
+  "badge_counts_after_refresh": [
+    2,
+    2,
+    2,
+    2,
+    2
+  ],
+  "buttons": [
+    {
+      "text": "Спроби (2)",
+      "width": 51.046875,
+      "lines": 10
+    },
+    {
+      "text": "Краща",
+      "width": 31.828125,
+      "lines": 5
+    }
+  ]
+}

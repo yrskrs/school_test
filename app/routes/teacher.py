@@ -45,6 +45,7 @@ from app.services.test_edit_service import validate_editor_questions
 from app.services.attempt_progress import set_paused
 from app.services import attempt_progress
 from app.services.testing_policy import lock_attempt
+from app.services.attempt_display import monitor_attempt_data, student_identity
 
 router = APIRouter(prefix="/teacher")
 
@@ -824,12 +825,13 @@ async def sessions_list(
     q: str = "",
     class_filter: str = "",
     state: str = "all",
+    sort: str = "newest",
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
     from app.services.teacher_list_service import build_list
     context = build_list(db, teacher.id, "sessions", page=page, per_page=per_page,
-                         tab=tab, search=q, class_filter=class_filter, state=state)
+                         tab=tab, search=q, class_filter=class_filter, state=state, sort=sort)
     context["teacher"] = teacher
     return templates.TemplateResponse(request, "test_sessions.html", context)
 
@@ -882,21 +884,12 @@ async def monitor_session(
         raise HTTPException(status_code=404, detail="Сесію не знайдено")
 
     attempts = crud.get_attempts_by_session(db, session_id)
-    from collections import Counter
     from sqlalchemy import func
     violation_counts = dict(db.query(models.EventLog.attempt_id, func.count(models.EventLog.id)).join(
         models.StudentAttempt
     ).filter(models.StudentAttempt.session_id == session_id,
              models.EventLog.event_type == models.EventType.tab_blur).group_by(models.EventLog.attempt_id).all())
-    name_counts = Counter(a.student_name.lower() for a in attempts)
-    name_seen = {}
-    for a in sorted(attempts, key=lambda x: x.id):
-        low_name = a.student_name.lower()
-        if name_counts[low_name] > 1:
-            name_seen[low_name] = name_seen.get(low_name, 0) + 1
-            a.session_attempt_number = name_seen[low_name]
-        else:
-            a.session_attempt_number = None
+    initial_attempts = monitor_attempt_data(attempts, violation_counts)
 
     from app.routes.integrations import get_session_roster_data
     roster_data = get_session_roster_data(db, session)
@@ -906,6 +899,7 @@ async def monitor_session(
         "teacher": teacher,
         "session": session,
         "attempts": attempts,
+        "initial_attempts": initial_attempts,
         "violation_counts": violation_counts,
         "test": session.test,
         "roster_data": roster_data,
@@ -1428,7 +1422,7 @@ async def results_list(
     for a in attempts:
         if not a.session or not a.session.test:
             continue
-        identity = ('roster', a.roster_student_id) if a.roster_student_id else ('outside', a.outside_student_id) if a.outside_student_id else ('legacy', a.id)
+        identity = student_identity(a)
         key = (identity, a.session.test_id)
         if key not in groups_dict:
             groups_dict[key] = {
@@ -1752,21 +1746,29 @@ async def result_detail(
     test = attempt.session.test
 
     # Всі спроби цього учня за цим тестом
-    sibling_attempts = (
+    sibling_query = (
         db.query(models.StudentAttempt)
         .join(models.TestSession)
         .filter(
             models.TestSession.test_id == test.id,
-            models.StudentAttempt.student_name == attempt.student_name,
             models.StudentAttempt.status.in_([
                 models.AttemptStatus.finished,
                 models.AttemptStatus.timeout,
                 models.AttemptStatus.stopped,
             ])
         )
-        .order_by(models.StudentAttempt.started_at.asc(), models.StudentAttempt.id.asc())
-        .all()
     )
+    if attempt.roster_student_id:
+        sibling_query = sibling_query.filter(models.StudentAttempt.roster_student_id == attempt.roster_student_id)
+    elif attempt.outside_student_id:
+        sibling_query = sibling_query.filter(models.StudentAttempt.roster_student_id.is_(None),
+                                             models.StudentAttempt.outside_student_id == attempt.outside_student_id)
+    else:
+        sibling_query = sibling_query.filter(models.StudentAttempt.session_id == attempt.session_id,
+                                             models.StudentAttempt.roster_student_id.is_(None),
+                                             models.StudentAttempt.outside_student_id.is_(None))
+    candidates = sibling_query.order_by(models.StudentAttempt.started_at.asc(), models.StudentAttempt.id.asc()).all()
+    sibling_attempts = [s for s in candidates if student_identity(s) == student_identity(attempt)]
     if sibling_attempts:
         best_sib = max(sibling_attempts, key=lambda x: (
             (x.score / x.max_score) if (x.score is not None and x.max_score and x.max_score > 0) else -1,

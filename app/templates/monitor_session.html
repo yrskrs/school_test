@@ -61,13 +61,13 @@
     </span>
   </div>
   <div class="info-card">
-    <span class="info-label">Учнів підключено</span>
+    <span class="info-label">Спроб у сесії</span>
     <span class="info-value" id="student-count">{{ attempts | length }}</span>
   </div>
   <div class="info-card">
-    <span class="info-label">Завершили тест</span>
+    <span class="info-label">Завершених спроб</span>
     <span class="info-value" id="finished-count">
-      {{ attempts | selectattr('status.value', 'in', ['finished', 'timeout']) | list | length }}
+      {{ attempts | selectattr('status.value', 'in', ['finished', 'timeout', 'stopped']) | list | length }}
     </span>
   </div>
 </div>
@@ -82,6 +82,15 @@
       <button class="btn btn-sm btn-danger" onclick="massAction('stop-all')" {% if not session.is_active %}disabled style="filter: grayscale(1); opacity: 0.6; cursor: not-allowed;"{% endif %}>⏹ Стоп всім</button>
       <button class="btn btn-sm btn-secondary" onclick="fetchSessionStatus()">⟳ Оновити</button>
     </div>
+  </div>
+
+  <div class="monitor-list-toolbar">
+    <p class="form-hint">Поточні спроби завжди зверху. Завершені повторні проходження згортаються в історію учня.</p>
+    <div class="form-group"><label for="monitor-sort">Сортування</label><select id="monitor-sort">
+      <option value="status">За статусом</option><option value="name">За ім’ям</option>
+      <option value="newest">Нові спочатку</option><option value="oldest">Старі спочатку</option>
+      <option value="progress">За прогресом</option>
+    </select></div>
   </div>
 
   <!-- Desktop table -->
@@ -105,12 +114,14 @@
           <td>
             <strong id="name-{{ attempt.id }}">{{ attempt.student_name }}</strong>
             <span id="warning-{{ attempt.id }}" title="Виходи з повноекранного режиму або перемикання вікон" {% if not violation_counts.get(attempt.id, 0) %}hidden{% endif %}> ⚠️ <span class="blur-count">{{ violation_counts.get(attempt.id, 0) }}</span></span>
-            {% if attempt.session_attempt_number %}
+            <span id="attempt-meta-{{ attempt.id }}" class="monitor-attempt-meta">
+            {% if attempt.session_attempt_count > 1 %}
               <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #{{ attempt.session_attempt_number }}</span>
             {% endif %}
             {% if attempt.progress_state and attempt.progress_state.get('allow_device_transfer') %}
               <span class="badge" id="transfer-badge-{{ attempt.id }}" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">🔓 Дозволено інший ПК</span>
             {% endif %}
+            </span>
           </td>
           <td>
             <span class="badge badge-status badge-status--{{ status_str }}" id="status-{{ attempt.id }}">
@@ -147,7 +158,7 @@
               </div>
             {% else %}—{% endif %}
           </td>
-          <td>{{ attempt.started_at.strftime('%H:%M:%S') if attempt.started_at else '—' }}</td>
+          <td id="started-{{ attempt.id }}">{{ attempt.started_at.strftime('%H:%M:%S') if attempt.started_at else '—' }}</td>
           <td id="finished-{{ attempt.id }}">
             {{ attempt.finished_at.strftime('%H:%M:%S') if attempt.finished_at else '—' }}
           </td>
@@ -186,7 +197,8 @@
     {% set status_str = attempt.status.value | default(attempt.status) %}
     <div class="monitor-student-card" id="mcard-{{ attempt.id }}">
       <div class="mcard-header">
-        <strong class="mcard-name">{{ attempt.student_name }} <span id="mwarning-{{ attempt.id }}" {% if not violation_counts.get(attempt.id, 0) %}hidden{% endif %}>⚠️ {{ violation_counts.get(attempt.id, 0) }}</span></strong>
+        <strong class="mcard-name" id="mname-{{ attempt.id }}">{{ attempt.student_name }}</strong>
+        <span id="mwarning-{{ attempt.id }}" {% if not violation_counts.get(attempt.id, 0) %}hidden{% endif %}>⚠️ {{ violation_counts.get(attempt.id, 0) }}</span>
         <span class="badge badge-status badge-status--{{ status_str }}" id="mstatus-{{ attempt.id }}">
           {% if status_str == 'not_started' %}Не розпочав
           {% elif status_str == 'in_progress' %}Проходить
@@ -197,6 +209,7 @@
           {% endif %}
         </span>
       </div>
+      <div id="mattempt-meta-{{ attempt.id }}" class="monitor-attempt-meta"></div>
       <div class="mcard-score" id="mscore-{{ attempt.id }}">
         {% if attempt.score is not none %}
           <span style="font-weight:700; color:var(--info);">{{ attempt | scale_grade }}/{{ test.max_grade or 12 }}</span>
@@ -243,7 +256,8 @@
 {
   "sessionId": {{ session.id }},
   "isActive": {{ 'true' if session.is_active else 'false' }},
-  "maxGrade": {{ test.max_grade or 12 }}
+  "maxGrade": {{ test.max_grade or 12 }},
+  "attempts": {{ initial_attempts | tojson }}
 }
 </script>
 <script>
@@ -251,6 +265,7 @@
   const SESSION_ID = _data.sessionId;
   const IS_ACTIVE = _data.isActive;
   const MAX_GRADE = _data.maxGrade;
+  const INITIAL_MONITOR_ATTEMPTS = _data.attempts;
 </script>
 <script>
   function copyJoinLink(code) {

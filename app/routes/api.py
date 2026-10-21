@@ -6,6 +6,7 @@ from app.database import get_db
 from app.services.testing_policy import violation_count, stop_reason
 from app.deps import get_current_teacher
 from app.security import get_student_attempt_id, get_teacher_session
+from app.services.attempt_display import monitor_attempt_data
 
 router = APIRouter(prefix="/api")
 
@@ -34,39 +35,7 @@ async def session_status(session_id: int, response: Response, db: Session = Depe
         models.StudentAttempt
     ).filter(models.StudentAttempt.session_id == session_id,
              models.EventLog.event_type == models.EventType.tab_blur).group_by(models.EventLog.attempt_id).all())
-    from collections import Counter
-    name_counts = Counter(a.student_name.lower() for a in attempts)
-    name_seen = {}
-    for a in sorted(attempts, key=lambda x: x.id):
-        low_name = a.student_name.lower()
-        if name_counts[low_name] > 1:
-            name_seen[low_name] = name_seen.get(low_name, 0) + 1
-            a.session_attempt_number = name_seen[low_name]
-        else:
-            a.session_attempt_number = None
-
-    attempts_data = []
-    for a in attempts:
-        sorted_answers = sorted(a.answers, key=lambda ans: ans.question.order_index if ans.question else 0)
-        attempts_data.append({
-            "id": a.id,
-            "student_name": a.student_name,
-            "session_attempt_number": getattr(a, "session_attempt_number", None),
-            "allow_device_transfer": bool((a.progress_state or {}).get("allow_device_transfer")),
-            "violation_count": violation_counts.get(a.id, 0),
-            "status": a.status.value,
-            "score": a.score,
-            "max_score": a.max_score,
-            "started_at": a.started_at.isoformat() if a.started_at else None,
-            "finished_at": a.finished_at.isoformat() if a.finished_at else None,
-            "assigned_questions": [
-                {
-                    "question_id": ans.question_id,
-                    "is_correct": ans.is_correct,
-                }
-                for ans in sorted_answers
-            ]
-        })
+    attempts_data = monitor_attempt_data(attempts, violation_counts)
 
     return {
         "session_id": session.id,

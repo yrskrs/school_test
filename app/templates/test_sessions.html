@@ -27,13 +27,14 @@
   <div class="form-group list-search"><label for="list-search">Пошук</label><input id="list-search" type="search" name="q" value="{{ search }}" maxlength="100" placeholder="{{ 'Назва тесту або предмет' if is_tests else 'Назва, предмет або код доступу' }}"></div>
   <div class="form-group"><label for="class-filter">Клас</label><select id="class-filter" name="class_filter"><option value="">Усі класи</option>{% for c in classes %}<option value="{{ c }}" {% if class_filter == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></div>
   {% if not is_tests %}<div class="form-group"><label for="state-filter">Статус</label><select id="state-filter" name="state"><option value="all" {% if state == 'all' %}selected{% endif %}>Усі статуси</option><option value="running" {% if state == 'running' %}selected{% endif %}>Активні</option><option value="finished" {% if state == 'finished' %}selected{% endif %}>Завершені</option></select></div>{% endif %}
+  {% if not is_tests %}<div class="form-group"><label for="session-sort">Сортування</label><select id="session-sort" name="sort">{% for value, label in [('newest','Нові спочатку'),('oldest','Старі спочатку'),('title','За назвою'),('code','За кодом')] %}<option value="{{ value }}" {% if sort == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>{% endif %}
   <div class="form-group list-page-size"><label for="page-size">На сторінці</label><select id="page-size" name="per_page">{% for size in [10, 20, 50, 100] %}<option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }}</option>{% endfor %}</select></div>
   <div class="list-filter-actions"><button class="btn btn-primary" type="submit">Знайти</button>{% if search or class_filter or state != 'all' %}<a href="{{ list_path }}?tab={{ tab }}" class="btn btn-secondary">Скинути</a>{% endif %}</div>
 </form>
 <div class="list-results-heading"><span>Знайдено: <strong>{{ total_items }}</strong></span><span>{{ 'Нові тести — першими' if is_tests else 'Активні сесії — першими' }}</span></div>
 {% if total_items %}
-<div class="teacher-list-table-wrap"><table class="data-table teacher-list-table">
-  <thead><tr><th>{{ 'Тест' if is_tests else 'Сесія' }}</th><th>{{ 'Питання / час' if is_tests else 'Код / статус' }}</th><th>{{ 'Створено' if is_tests else 'Учні / прогрес' }}</th><th>Дії</th></tr></thead>
+<div class="teacher-list-table-wrap"><table class="data-table teacher-list-table{% if not is_tests %} teacher-session-table{% endif %}">
+  <thead><tr><th>{{ 'Тест' if is_tests else 'Сесія' }}</th><th>{{ 'Питання / час' if is_tests else 'Код доступу' }}</th>{% if not is_tests %}<th>Статус</th>{% endif %}<th>{{ 'Створено' if is_tests else 'Учні / прогрес' }}</th><th>Дії</th></tr></thead>
   <tbody>
   {% if is_tests %}{% for item in tests_with_count %}
   <tr>
@@ -53,7 +54,8 @@
   {% endfor %}{% else %}{% for item in sessions_data %}{% set s = item.session %}
   <tr class="{{ 'list-running-row' if s.is_active }}">
     <td class="list-title-cell"><a class="list-item-title" href="/teacher/sessions/{{ s.id }}/monitor">{{ s.test.title }}</a><div class="list-item-meta"><span class="badge">{{ s.display_class_name or 'Клас не вказано' }}</span><span>{{ s.started_at.strftime('%d.%m.%Y · %H:%M') }}</span></div>{% if s.is_pinned %}<span class="list-active-note">Закріплена на сторінці входу учнів</span>{% endif %}</td>
-    <td data-label="Код / статус"><div class="session-code-row"><span class="badge badge-code">{{ s.access_code }}</span>{% if s.is_active %}<button class="btn btn-sm btn-secondary" type="button" data-copy-code="{{ s.access_code }}" title="Скопіювати посилання для учнів">Копіювати</button>{% endif %}</div><span class="badge badge-status badge-status--{{ 'in_progress' if s.is_active else 'finished' }}">{{ 'Активна' if s.is_active else 'Завершена' }}</span></td>
+    <td data-label="Код доступу"><div class="session-code-row"><span class="badge badge-code">{{ s.access_code }}</span>{% if s.is_active %}<button class="btn btn-sm btn-secondary" type="button" data-copy-code="{{ s.access_code }}" title="Скопіювати посилання для учнів">Копіювати</button>{% endif %}</div></td>
+    <td data-label="Статус"><span class="badge badge-status badge-status--{{ 'in_progress' if s.is_active else 'finished' }}">{{ 'Активна' if s.is_active else 'Завершена' }}</span></td>
     <td data-label="Учні / прогрес"><strong>{{ item.attempt_count }} спроб</strong><span class="list-secondary-line">Завершено {{ item.finished_count }} з {{ item.attempt_count }}</span><progress class="session-completion" max="{{ item.attempt_count or 1 }}" value="{{ item.finished_count }}" aria-label="Завершили тест"></progress></td>
     <td class="list-actions-cell"><div class="list-row-actions"><a href="/teacher/sessions/{{ s.id }}/monitor" class="btn btn-sm {{ 'btn-primary' if s.is_active else 'btn-secondary' }}">{{ 'Моніторинг' if s.is_active else 'Переглянути' }}</a>
       <details class="list-menu"><summary class="btn btn-sm btn-secondary" aria-label="Керування сесією {{ s.access_code }}">Керування ▾</summary><div class="list-menu-panel">

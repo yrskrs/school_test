@@ -13,6 +13,7 @@ let statusRequest = null;
 // Ініціалізація
 // ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
+  initializeMonitorAttempts();
   if (IS_ACTIVE) {
     connectWebSocket();
   } else {
@@ -111,7 +112,7 @@ function handleWsEvent(data) {
         status: data.status || (event === 'timeout_auto_submit' ? 'timeout' : 'finished'),
         score:  data.score,
         max_score: data.max_score,
-        finished_at: new Date().toLocaleTimeString('uk-UA'),
+        finished_at: new Date().toISOString(),
       });
       incrementFinishedCount();
       break;
@@ -121,7 +122,7 @@ function handleWsEvent(data) {
       break;
 
     case 'resume':
-      updateStudentRow(attemptId, { status: 'in_progress' });
+      updateStudentRow(attemptId, { status: data.status || 'in_progress' });
       break;
 
     case 'stop':
@@ -129,7 +130,7 @@ function handleWsEvent(data) {
         status: 'stopped',
         score: data.score,
         max_score: data.max_score,
-        finished_at: new Date().toLocaleTimeString('uk-UA'),
+        finished_at: new Date().toISOString(),
       });
       incrementFinishedCount();
       break;
@@ -165,138 +166,198 @@ function handleWsEvent(data) {
 // ---------------------------------------------------------------------------
 // Оновлення рядка учня
 // ---------------------------------------------------------------------------
-function updateStudentRow(attemptId, data) {
+const monitorAttempts = new Map();
+const expandedMonitorGroups = new Set();
+const completedMonitorStatuses = new Set(['finished', 'timeout', 'stopped']);
+let monitorSort = 'status';
+
+function monitorTime(value) {
+  const time = Date.parse(value || '');
+  return Number.isFinite(time) ? time : 0;
+}
+
+function monitorProgress(attempt) {
+  const questions = attempt.assigned_questions || [];
+  return questions.length ? questions.filter(q => q.is_correct !== null).length / questions.length : 0;
+}
+
+function compareMonitorAttempts(a, b) {
+  let order = 0;
+  if (monitorSort === 'newest') order = monitorTime(b.started_at) - monitorTime(a.started_at);
+  else if (monitorSort === 'oldest') order = monitorTime(a.started_at) - monitorTime(b.started_at);
+  else if (monitorSort === 'progress') order = monitorProgress(b) - monitorProgress(a);
+  else if (monitorSort === 'status') {
+    const ranks = {in_progress: 0, paused: 1, not_started: 2};
+    order = (ranks[a.status] ?? 3) - (ranks[b.status] ?? 3);
+  }
+  return order || (a.student_name || '').localeCompare(b.student_name || '', 'uk', {numeric: true}) || a.id - b.id;
+}
+
+function displayMonitorTime(value) {
+  if (!value) return '—';
+  return monitorTime(value) ? new Date(value).toLocaleTimeString('uk-UA') : value;
+}
+
+function monitorScoreHtml(attempt) {
+  if (attempt.score === null || attempt.score === undefined) return '<span class="text-muted">Ще не відповідав</span>';
+  const maxGrade = typeof MAX_GRADE === 'undefined' ? 12 : MAX_GRADE;
+  const grade = attempt.max_score > 0 ? Math.round(attempt.score / attempt.max_score * maxGrade) : '—';
+  return `<div class="grade-val">${grade} <span class="text-muted">/ ${maxGrade}</span></div><div class="score-val text-muted">Бали: ${Number(attempt.score).toFixed(1)} / ${Number(attempt.max_score || 0).toFixed(1)}</div>`;
+}
+
+function updateStudentRow(attemptId, data, arrange = true) {
+  attemptId = Number(attemptId);
+  const previous = monitorAttempts.get(attemptId);
+  if (!previous && !data.student_name) { fetchSessionStatus(); return; }
+  const attempt = {...previous, ...data, id: attemptId};
+  // A late HTTP snapshot must not undo an already received completion event.
+  if (previous && completedMonitorStatuses.has(previous.status) && !completedMonitorStatuses.has(attempt.status)) return;
+  monitorAttempts.set(attemptId, attempt);
+  const tbody = document.getElementById('students-tbody');
+  const cards = document.getElementById('monitor-mobile-cards');
+  if (!tbody || !cards) return;
+  document.getElementById('no-students-row')?.remove();
+  cards.querySelectorAll(':scope > p').forEach(p => p.remove());
   let row = document.getElementById(`row-${attemptId}`);
-
   if (!row) {
-    // Новий учень — додаємо рядок
-    const tbody = document.getElementById('students-tbody');
-    const noRow = document.getElementById('no-students-row');
-    if (noRow) noRow.remove();
-
     row = document.createElement('tr');
     row.id = `row-${attemptId}`;
-    let progressHtml = '<div class="progress-container">';
-    if (data.assigned_questions && data.assigned_questions.length > 0) {
-      data.assigned_questions.forEach((q, index) => {
-        let pclass = '';
-        if (q.is_correct === true) {
-          pclass = 'progress-box--correct';
-        } else if (q.is_correct === false) {
-          pclass = 'progress-box--incorrect';
-        }
-        progressHtml += `<div class="progress-box ${pclass}" id="box-${attemptId}-${q.question_id}" title="Питання ${index + 1}"></div>`;
-      });
-    }
-    progressHtml += '</div>';
-
-    row.innerHTML = `
-      <td><strong id="name-${attemptId}"></strong></td>
-      <td><span class="badge badge-status" id="status-${attemptId}"></span></td>
-      <td>${progressHtml}</td>
-      <td id="score-${attemptId}">—</td>
-      <td id="started-${attemptId}">—</td>
-      <td id="finished-${attemptId}">—</td>
-      <td id="actions-${attemptId}"></td>
-    `;
+    row.innerHTML = `<td><strong id="name-${attemptId}"></strong><span id="warning-${attemptId}"></span><span class="monitor-attempt-meta" id="attempt-meta-${attemptId}"></span></td><td><span id="status-${attemptId}"></span></td><td><div class="progress-container"></div></td><td id="score-${attemptId}"></td><td id="started-${attemptId}"></td><td id="finished-${attemptId}"></td><td id="actions-${attemptId}"></td>`;
     tbody.appendChild(row);
-
-    const count = parseInt(document.getElementById('student-count').textContent) || 0;
-    document.getElementById('student-count').textContent = count + 1;
-  } else {
-    // Якщо рядок існує, оновлюємо плашки
-    const progressContainer = row.querySelector('.progress-container');
-    if (progressContainer && data.assigned_questions) {
-      let progressHtml = '';
-      data.assigned_questions.forEach((q, index) => {
-        let pclass = '';
-        if (q.is_correct === true) {
-          pclass = 'progress-box--correct';
-        } else if (q.is_correct === false) {
-          pclass = 'progress-box--incorrect';
-        }
-        progressHtml += `<div class="progress-box ${pclass}" id="box-${attemptId}-${q.question_id}" title="Питання ${index + 1}"></div>`;
-      });
-      progressContainer.innerHTML = progressHtml;
-    }
   }
-
-  const nameEl = document.getElementById(`name-${attemptId}`);
-  if (nameEl && data.student_name) {
-    let nameHtml = escHtml(data.student_name);
-    if (data.session_attempt_number) {
-      nameHtml += ` <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #${data.session_attempt_number}</span>`;
-    }
-    if (data.allow_device_transfer) {
-      nameHtml += ` <span class="badge" id="transfer-badge-${attemptId}" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">🔓 Дозволено інший ПК</span>`;
-    }
-    nameEl.innerHTML = nameHtml;
+  row.classList.add('monitor-attempt-row');
+  let card = document.getElementById(`mcard-${attemptId}`);
+  if (!card) {
+    card = document.createElement('div');
+    card.id = `mcard-${attemptId}`;
+    card.className = 'monitor-student-card';
+    card.innerHTML = `<div class="mcard-header"><strong class="mcard-name" id="mname-${attemptId}"></strong><span id="mwarning-${attemptId}"></span><span id="mstatus-${attemptId}"></span></div><div class="monitor-attempt-meta" id="mattempt-meta-${attemptId}"></div><div class="mcard-score" id="mscore-${attemptId}"></div><div class="mcard-actions" id="mactions-${attemptId}"></div>`;
+    cards.appendChild(card);
   }
-  const mnameEl = document.querySelector(`#mcard-${attemptId} .mcard-name`);
-  if (mnameEl && data.student_name) {
-    let mnameHtml = escHtml(data.student_name);
-    if (data.session_attempt_number) {
-      mnameHtml += ` <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #${data.session_attempt_number}</span>`;
-    }
-    if (data.allow_device_transfer) {
-      mnameHtml += ` <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">🔓 Дозволено інший ПК</span>`;
-    }
-    mnameEl.innerHTML = mnameHtml;
+  for (const prefix of ['name', 'mname']) {
+    const element = document.getElementById(`${prefix}-${attemptId}`);
+    if (element) element.textContent = attempt.student_name;
   }
-  if (Number.isInteger(data.violation_count)) {
-    let badge = document.getElementById(`warning-${attemptId}`);
-    if (!badge && nameEl) {
-      badge = document.createElement('span');
-      badge.id = `warning-${attemptId}`;
-      badge.title = 'Виходи з повноекранного режиму або перемикання вікон';
-      nameEl.parentNode.appendChild(badge);
-    }
-    if (badge) { badge.hidden = !data.violation_count; badge.textContent = ` ⚠️ ${data.violation_count}`; }
-    const mobileBadge = document.getElementById(`mwarning-${attemptId}`);
-    if (mobileBadge) { mobileBadge.hidden = !data.violation_count; mobileBadge.textContent = `⚠️ ${data.violation_count}`; }
+  const meta = [];
+  if (attempt.session_attempt_count > 1) meta.push(`<span class="badge monitor-attempt-number">Спроба #${Number(attempt.session_attempt_number)}</span>`);
+  if (attempt.allow_device_transfer) meta.push('<span class="badge">🔓 Дозволено інший ПК</span>');
+  for (const prefix of ['attempt-meta', 'mattempt-meta']) document.getElementById(`${prefix}-${attemptId}`).innerHTML = meta.join(' ');
+  for (const prefix of ['warning', 'mwarning']) {
+    const badge = document.getElementById(`${prefix}-${attemptId}`);
+    badge.hidden = !attempt.violation_count;
+    badge.textContent = ` ⚠️ ${attempt.violation_count || 0}`;
+    badge.title = 'Виходи з повноекранного режиму або перемикання вікон';
   }
-
-
-  if (data.status) {
-    const statusEl = document.getElementById(`status-${attemptId}`);
-    if (statusEl) {
-      statusEl.className = `badge badge-status badge-status--${data.status}`;
-      statusEl.textContent = statusLabel(data.status);
-    }
-    const mstatusEl = document.getElementById(`mstatus-${attemptId}`);
-    if (mstatusEl) {
-      mstatusEl.className = `badge badge-status badge-status--${data.status}`;
-      mstatusEl.textContent = statusLabel(data.status);
-    }
-    const actEl = document.getElementById(`actions-${attemptId}`);
-    if (actEl) {
-      actEl.innerHTML = renderActionsHtml(attemptId, data.status, data.allow_device_transfer);
-    }
-    const mactEl = document.getElementById(`mactions-${attemptId}`);
-    if (mactEl) {
-      mactEl.innerHTML = renderActionsHtml(attemptId, data.status, data.allow_device_transfer);
-    }
+  for (const prefix of ['status', 'mstatus']) {
+    const element = document.getElementById(`${prefix}-${attemptId}`);
+    element.className = `badge badge-status badge-status--${attempt.status}`;
+    element.textContent = statusLabel(attempt.status);
   }
-
-  if (data.score !== undefined && data.score !== null) {
-    const scoreEl = document.getElementById(`score-${attemptId}`);
-    if (scoreEl) {
-      let grade = "—";
-      if (data.max_score > 0) {
-        grade = Math.round((data.score / data.max_score) * (typeof MAX_GRADE !== 'undefined' ? MAX_GRADE : 12));
-      }
-      const maxGradeVal = typeof MAX_GRADE !== 'undefined' ? MAX_GRADE : 12;
-      const gradeHtml = `<div class="grade-val" style="font-size: 1.15rem; font-weight: 700; color: var(--info);">${grade} <span style="font-size: 0.85rem; font-weight: normal; color: var(--text-muted);">/ ${maxGradeVal}</span></div>`;
-      const scoreSubHtml = `<div class="score-val" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">Бали: ${Number(data.score).toFixed(1)} / ${Number(data.max_score).toFixed(1)}</div>`;
-      scoreEl.innerHTML = gradeHtml + scoreSubHtml;
-    }
+  for (const prefix of ['actions', 'mactions']) {
+    const element = document.getElementById(`${prefix}-${attemptId}`);
+    const html = renderActionsHtml(attemptId, attempt.status, attempt.allow_device_transfer);
+    if (element.innerHTML !== html) element.innerHTML = html;
   }
+  for (const prefix of ['score', 'mscore']) document.getElementById(`${prefix}-${attemptId}`).innerHTML = monitorScoreHtml(attempt);
+  document.getElementById(`started-${attemptId}`).textContent = displayMonitorTime(attempt.started_at);
+  document.getElementById(`finished-${attemptId}`).textContent = displayMonitorTime(attempt.finished_at);
+  row.querySelector('.progress-container').innerHTML = (attempt.assigned_questions || []).map((q, index) => {
+    const state = q.is_correct === true ? 'progress-box--correct' : q.is_correct === false ? 'progress-box--incorrect' : '';
+    return `<div class="progress-box ${state}" id="box-${attemptId}-${Number(q.question_id)}" title="Питання ${index + 1}"></div>`;
+  }).join('');
+  if (arrange) arrangeMonitorAttempts();
+}
 
-  if (data.finished_at) {
-    const finEl = document.getElementById(`finished-${attemptId}`);
-    if (finEl) finEl.textContent = data.finished_at;
+function appendMonitorAttempt(attempt, hidden) {
+  for (const [prefix, parent] of [['row', 'students-tbody'], ['mcard', 'monitor-mobile-cards']]) {
+    const element = document.getElementById(`${prefix}-${attempt.id}`);
+    if (!element) continue;
+    element.hidden = hidden;
+    element.dataset.status = attempt.status;
+    document.getElementById(parent).appendChild(element);
   }
 }
+
+function monitorHistorySummary(key, attempts, mobile) {
+  const id = `${mobile ? 'mhistory' : 'history'}-${key}`;
+  let summary = document.getElementById(id);
+  if (!summary) {
+    summary = document.createElement(mobile ? 'div' : 'tr');
+    summary.id = id;
+    summary.className = 'monitor-history-summary' + (mobile ? ' monitor-student-card' : '');
+    summary.dataset.groupKey = key;
+    const heading = '<div class="monitor-history-heading"><div><strong class="monitor-history-name"></strong><span class="monitor-history-meta text-muted"></span></div><button type="button" class="btn btn-sm btn-secondary" data-monitor-group="'+key+'"></button></div>';
+    summary.innerHTML = mobile ? heading : '<td colspan="7">'+heading+'</td>';
+  }
+  summary.querySelector('.monitor-history-name').textContent = attempts[0].student_name;
+  const maxGrade = typeof MAX_GRADE === 'undefined' ? 12 : MAX_GRADE;
+  const best = Math.max(...attempts.map(a => a.max_score > 0 && a.score !== null ? Math.round(a.score / a.max_score * maxGrade) : 0));
+  summary.querySelector('.monitor-history-meta').textContent = `Завершених спроб: ${attempts.length} · Найкраща оцінка: ${best} / ${maxGrade}`;
+  const button = summary.querySelector('button');
+  const expanded = expandedMonitorGroups.has(key);
+  button.textContent = `${expanded ? 'Згорнути' : 'Спроби'} (${attempts.length}) ${expanded ? '▴' : '▾'}`;
+  button.setAttribute('aria-expanded', String(expanded));
+  button.setAttribute('aria-controls', attempts.map(a => `${mobile ? 'mcard' : 'row'}-${a.id}`).join(' '));
+  return summary;
+}
+
+function arrangeMonitorAttempts() {
+  const tbody = document.getElementById('students-tbody');
+  const cards = document.getElementById('monitor-mobile-cards');
+  if (!tbody || !cards) return;
+  const active = [], completed = new Map();
+  for (const attempt of monitorAttempts.values()) {
+    if (!completedMonitorStatuses.has(attempt.status)) active.push(attempt);
+    else {
+      const key = attempt.student_key || `attempt-${attempt.id}`;
+      if (!completed.has(key)) completed.set(key, []);
+      completed.get(key).push(attempt);
+    }
+  }
+  const groupedKeys = new Set([...completed].filter(([, rows]) => rows.length > 1).map(([key]) => key));
+  document.querySelectorAll('.monitor-history-summary').forEach(summary => {
+    if (!groupedKeys.has(summary.dataset.groupKey)) summary.remove();
+  });
+  active.sort(compareMonitorAttempts).forEach(a => appendMonitorAttempt(a, false));
+  const histories = [...completed.entries()].sort((a, b) => compareMonitorAttempts(a[1].at(-1), b[1].at(-1)));
+  for (const [key, attempts] of histories) {
+    attempts.sort((a,b) => (a.session_attempt_number || 1) - (b.session_attempt_number || 1) || a.id-b.id);
+    if (attempts.length > 1) {
+      tbody.appendChild(monitorHistorySummary(key, attempts, false));
+      cards.appendChild(monitorHistorySummary(key, attempts, true));
+    }
+    for (const attempt of attempts) appendMonitorAttempt(attempt, attempts.length > 1 && !expandedMonitorGroups.has(key));
+  }
+  document.getElementById('student-count').textContent = monitorAttempts.size;
+  document.getElementById('finished-count').textContent = [...completed.values()].reduce((total, rows) => total + rows.length, 0);
+  if (!monitorAttempts.size) {
+    tbody.innerHTML = '<tr id="no-students-row"><td colspan="7" class="text-center text-muted">Учні ще не підключились</td></tr>';
+    cards.innerHTML = '<p class="text-muted">Учні ще не підключились</p>';
+  }
+}
+
+function initializeMonitorAttempts() {
+  if (typeof INITIAL_MONITOR_ATTEMPTS === 'undefined') return;
+  const select = document.getElementById('monitor-sort');
+  const validSorts = ['status','name','newest','oldest','progress'];
+  try { const saved = localStorage.getItem('schooltest:monitor-sort'); if (validSorts.includes(saved)) monitorSort = saved; } catch {}
+  select.value = monitorSort;
+  for (const attempt of INITIAL_MONITOR_ATTEMPTS) updateStudentRow(attempt.id, attempt, false);
+  arrangeMonitorAttempts();
+  select.addEventListener('change', () => {
+    monitorSort = validSorts.includes(select.value) ? select.value : 'status';
+    try { localStorage.setItem('schooltest:monitor-sort', monitorSort); } catch {}
+    arrangeMonitorAttempts();
+  });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-monitor-group]');
+    if (!button) return;
+    const key = button.dataset.monitorGroup;
+    if (expandedMonitorGroups.has(key)) expandedMonitorGroups.delete(key); else expandedMonitorGroups.add(key);
+    arrangeMonitorAttempts();
+  });
+}
+
 
 function markConnectionLost(attemptId) {
   const statusEl = document.getElementById(`status-${attemptId}`);
@@ -305,10 +366,7 @@ function markConnectionLost(attemptId) {
   }
 }
 
-function incrementFinishedCount() {
-  const el = document.getElementById('finished-count');
-  if (el) el.textContent = (parseInt(el.textContent) || 0) + 1;
-}
+function incrementFinishedCount() { arrangeMonitorAttempts(); }
 
 // ---------------------------------------------------------------------------
 // Feed подій
@@ -420,23 +478,10 @@ async function loadSessionStatus() {
     if (!resp.ok) return;
     const data = await resp.json();
 
-    data.attempts.forEach(a => {
-      updateStudentRow(a.id, {
-        student_name: a.student_name,
-        session_attempt_number: a.session_attempt_number,
-        allow_device_transfer: a.allow_device_transfer,
-        violation_count: a.violation_count,
-        status: a.status,
-        score: a.score,
-        max_score: a.max_score,
-        finished_at: a.finished_at ? new Date(a.finished_at).toLocaleTimeString('uk-UA') : null,
-        assigned_questions: a.assigned_questions,
-      });
-    });
-
-    document.getElementById('student-count').textContent = data.attempts.length;
-    const finished = data.attempts.filter(a => ['finished', 'timeout', 'stopped'].includes(a.status)).length;
-    document.getElementById('finished-count').textContent = finished;
+    const ids = new Set(data.attempts.map(a => Number(a.id)));
+    for (const id of monitorAttempts.keys()) if (!ids.has(id)) removeStudentRow(id, false);
+    data.attempts.forEach(a => updateStudentRow(a.id, a, false));
+    arrangeMonitorAttempts();
   } catch { /* ігнорується */ }
 }
 
@@ -532,7 +577,7 @@ async function resumeAttempt(attemptId) {
   try {
     const res = await fetch(`/teacher/attempts/${attemptId}/resume`, { method: 'POST' });
     if (res.ok) {
-      updateStudentRow(attemptId, { status: 'in_progress' });
+      await fetchSessionStatus();
     } else {
       const err = await res.json().catch(() => ({}));
       alert('Помилка: ' + (err.detail || `HTTP ${res.status}`));
@@ -552,7 +597,7 @@ async function stopAttempt(attemptId) {
         status: 'stopped',
         score: data.score,
         max_score: data.max_score,
-        finished_at: new Date().toLocaleTimeString('uk-UA'),
+        finished_at: new Date().toISOString(),
       });
       incrementFinishedCount();
     } else {
@@ -602,18 +647,12 @@ async function deleteAttempt(attemptId) {
   }
 }
 
-function removeStudentRow(attemptId) {
-  const row = document.getElementById(`row-${attemptId}`);
-  if (row) row.remove();
-  const mcard = document.getElementById(`mcard-${attemptId}`);
-  if (mcard) mcard.remove();
-  const tbody = document.getElementById('students-tbody');
-  if (tbody && tbody.children.length === 0) {
-    tbody.innerHTML = '<tr id="no-students-row"><td colspan="7" class="text-center text-muted">Учні ще не підключились</td></tr>';
-  }
+function removeStudentRow(attemptId, arrange = true) {
+  attemptId = Number(attemptId);
+  monitorAttempts.delete(attemptId);
+  document.getElementById(`row-${attemptId}`)?.remove();
+  document.getElementById(`mcard-${attemptId}`)?.remove();
+  if (arrange) arrangeMonitorAttempts();
 }
 
-function decrementStudentCount() {
-  const el = document.getElementById('student-count');
-  if (el) el.textContent = Math.max(0, (parseInt(el.textContent) || 0) - 1);
-}
+function decrementStudentCount() { arrangeMonitorAttempts(); }

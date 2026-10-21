@@ -1,0 +1,899 @@
+{
+  "checks": [
+    "15 refreshes keep one badge and one row per attempt; ID-based history; active-first sorting persists; completion groups immediately; duplicate WS events do not inflate counts",
+    "Real student login creates desktop row and mobile card through WS; deletion from another tab removes both without reload",
+    "Results expand completed attempts inline; session code/status have separate columns; all row buttons stay on one line across 126 layouts"
+  ],
+  "layouts": [
+    {
+      "label": "monitor/light/1440/80",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1440/100",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1440/120",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1366/80",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1366/100",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1366/120",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1024/80",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1024/100",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/1024/120",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/800/80",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/800/100",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/800/120",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/768/80",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/768/100",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/768/120",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/390/80",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/390/100",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/390/120",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/320/80",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/320/100",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "monitor/light/320/120",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1440/80",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1440/100",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1440/120",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1366/80",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1366/100",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1366/120",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1024/80",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1024/100",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/1024/120",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/800/80",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/800/100",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/800/120",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/768/80",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/768/100",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/768/120",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/390/80",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/390/100",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/390/120",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/320/80",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/320/100",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "monitor/dark/320/120",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "results/light/1440/80",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "results/light/1440/100",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "results/light/1440/120",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "results/light/1366/80",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "results/light/1366/100",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "results/light/1366/120",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "results/light/1024/80",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "results/light/1024/100",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "results/light/1024/120",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "results/light/800/80",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "results/light/800/100",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "results/light/800/120",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "results/light/768/80",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "results/light/768/100",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "results/light/768/120",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "results/light/390/80",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "results/light/390/100",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "results/light/390/120",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "results/light/320/80",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "results/light/320/100",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "results/light/320/120",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1440/80",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1440/100",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1440/120",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1366/80",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1366/100",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1366/120",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1024/80",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1024/100",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "results/dark/1024/120",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "results/dark/800/80",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "results/dark/800/100",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "results/dark/800/120",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "results/dark/768/80",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "results/dark/768/100",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "results/dark/768/120",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "results/dark/390/80",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "results/dark/390/100",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "results/dark/390/120",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "results/dark/320/80",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "results/dark/320/100",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "results/dark/320/120",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1440/80",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1440/100",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1440/120",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1366/80",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1366/100",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1366/120",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1024/80",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1024/100",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/1024/120",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/800/80",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/800/100",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/800/120",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/768/80",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/768/100",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/768/120",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/390/80",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/390/100",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/390/120",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/320/80",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/320/100",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "sessions/light/320/120",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1440/80",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1440/100",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1440/120",
+      "width": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1366/80",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1366/100",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1366/120",
+      "width": 1366,
+      "client": 1366,
+      "scroll": 1366,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1024/80",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1024/100",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/1024/120",
+      "width": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/800/80",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/800/100",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/800/120",
+      "width": 800,
+      "client": 800,
+      "scroll": 800,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/768/80",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/768/100",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/768/120",
+      "width": 768,
+      "client": 768,
+      "scroll": 768,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/390/80",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/390/100",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/390/120",
+      "width": 390,
+      "client": 390,
+      "scroll": 390,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/320/80",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/320/100",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "sessions/dark/320/120",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    },
+    {
+      "label": "expanded-results",
+      "width": 320,
+      "client": 320,
+      "scroll": 320,
+      "bad": []
+    }
+  ],
+  "errors": []
+}
