@@ -34,12 +34,25 @@ async def session_status(session_id: int, response: Response, db: Session = Depe
         models.StudentAttempt
     ).filter(models.StudentAttempt.session_id == session_id,
              models.EventLog.event_type == models.EventType.tab_blur).group_by(models.EventLog.attempt_id).all())
+    from collections import Counter
+    name_counts = Counter(a.student_name.lower() for a in attempts)
+    name_seen = {}
+    for a in sorted(attempts, key=lambda x: x.id):
+        low_name = a.student_name.lower()
+        if name_counts[low_name] > 1:
+            name_seen[low_name] = name_seen.get(low_name, 0) + 1
+            a.session_attempt_number = name_seen[low_name]
+        else:
+            a.session_attempt_number = None
+
     attempts_data = []
     for a in attempts:
         sorted_answers = sorted(a.answers, key=lambda ans: ans.question.order_index if ans.question else 0)
         attempts_data.append({
             "id": a.id,
             "student_name": a.student_name,
+            "session_attempt_number": getattr(a, "session_attempt_number", None),
+            "allow_device_transfer": bool((a.progress_state or {}).get("allow_device_transfer")),
             "violation_count": violation_counts.get(a.id, 0),
             "status": a.status.value,
             "score": a.score,

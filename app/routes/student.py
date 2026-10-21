@@ -169,16 +169,34 @@ async def student_login(
     if existing:
         lock_attempt(db, existing)
         if get_student_attempt_id(request) != existing.id:
-            if existing.status != models.AttemptStatus.paused:
-                return render_login_error("Цей учень уже проходить тест. Продовжіть у тому самому браузері або попросіть учителя поставити спробу на паузу для входу з іншого пристрою.", 409)
+            state = dict(existing.progress_state or {})
+            allow_transfer = state.get('allow_device_transfer', False)
+            if existing.status not in (models.AttemptStatus.paused, models.AttemptStatus.not_started) and not allow_transfer:
+                return render_login_error(
+                    "Цей учень уже проходить тест на іншому пристрої або відкрив його в іншій вкладці. "
+                    "Продовжте у тому самому браузері або попросіть учителя натиснути «Пауза» чи «Дозволити інший ПК» у моніторингу для входу з цього комп’ютера.",
+                    409
+                )
             import secrets
-            state = attempt_progress.checkpoint(db, existing)
-            state['previous_generation'] = state.get('generation', 0)
-            state['generation'] = state.get('generation', 0) + 1
-            existing.progress_state = state
-            existing.auth_nonce = secrets.token_urlsafe(32)
-            db.add(models.EventLog(attempt_id=existing.id, event_type=models.EventType.reconnect,
-                details='Відновлення призупиненої спроби в іншому браузері'))
+            if existing.status == models.AttemptStatus.not_started:
+                existing.auth_nonce = secrets.token_urlsafe(32)
+                state.pop('allow_device_transfer', None)
+                existing.progress_state = state
+                event_log_service.log_event(
+                    db, existing.id, models.EventType.reconnect,
+                    "Вхід до нерозпочатої спроби з нового пристрою/браузера"
+                )
+            else:
+                checkpoint_state = attempt_progress.checkpoint(db, existing)
+                checkpoint_state['previous_generation'] = checkpoint_state.get('generation', 0)
+                checkpoint_state['generation'] = checkpoint_state.get('generation', 0) + 1
+                checkpoint_state.pop('allow_device_transfer', None)
+                existing.progress_state = checkpoint_state
+                existing.auth_nonce = secrets.token_urlsafe(32)
+                event_log_service.log_event(
+                    db, existing.id, models.EventType.reconnect,
+                    "Відновлення спроби в іншому браузері/пристрої"
+                )
         db.commit()
         attempt = existing
     else:

@@ -290,6 +290,11 @@ def get_attempt_by_id(db: Session, attempt_id: int) -> Optional[models.StudentAt
     return db.query(models.StudentAttempt).filter(models.StudentAttempt.id == attempt_id).first()
 
 
+def delete_attempt(db: Session, attempt: models.StudentAttempt) -> None:
+    db.delete(attempt)
+    db.commit()
+
+
 def get_attempts_by_session(db: Session, session_id: int) -> List[models.StudentAttempt]:
     return (
         db.query(models.StudentAttempt)

@@ -142,6 +142,16 @@ function handleWsEvent(data) {
       markConnectionLost(attemptId);
       break;
 
+    case 'attempt_deleted':
+      removeStudentRow(attemptId);
+      decrementStudentCount();
+      fetchSessionStatus();
+      break;
+
+    case 'reconnect':
+      fetchSessionStatus();
+      break;
+
     case 'login':
     case 'start_test':
     case 'mass_pause':
@@ -212,7 +222,27 @@ function updateStudentRow(attemptId, data) {
   }
 
   const nameEl = document.getElementById(`name-${attemptId}`);
-  if (nameEl && data.student_name) nameEl.textContent = data.student_name;
+  if (nameEl && data.student_name) {
+    let nameHtml = escHtml(data.student_name);
+    if (data.session_attempt_number) {
+      nameHtml += ` <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #${data.session_attempt_number}</span>`;
+    }
+    if (data.allow_device_transfer) {
+      nameHtml += ` <span class="badge" id="transfer-badge-${attemptId}" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">🔓 Дозволено інший ПК</span>`;
+    }
+    nameEl.innerHTML = nameHtml;
+  }
+  const mnameEl = document.querySelector(`#mcard-${attemptId} .mcard-name`);
+  if (mnameEl && data.student_name) {
+    let mnameHtml = escHtml(data.student_name);
+    if (data.session_attempt_number) {
+      mnameHtml += ` <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #${data.session_attempt_number}</span>`;
+    }
+    if (data.allow_device_transfer) {
+      mnameHtml += ` <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">🔓 Дозволено інший ПК</span>`;
+    }
+    mnameEl.innerHTML = mnameHtml;
+  }
   if (Number.isInteger(data.violation_count)) {
     let badge = document.getElementById(`warning-${attemptId}`);
     if (!badge && nameEl) {
@@ -233,9 +263,18 @@ function updateStudentRow(attemptId, data) {
       statusEl.className = `badge badge-status badge-status--${data.status}`;
       statusEl.textContent = statusLabel(data.status);
     }
+    const mstatusEl = document.getElementById(`mstatus-${attemptId}`);
+    if (mstatusEl) {
+      mstatusEl.className = `badge badge-status badge-status--${data.status}`;
+      mstatusEl.textContent = statusLabel(data.status);
+    }
     const actEl = document.getElementById(`actions-${attemptId}`);
     if (actEl) {
-      actEl.innerHTML = renderActionsHtml(attemptId, data.status);
+      actEl.innerHTML = renderActionsHtml(attemptId, data.status, data.allow_device_transfer);
+    }
+    const mactEl = document.getElementById(`mactions-${attemptId}`);
+    if (mactEl) {
+      mactEl.innerHTML = renderActionsHtml(attemptId, data.status, data.allow_device_transfer);
     }
   }
 
@@ -294,10 +333,10 @@ function addEventFeedItem(eventType, studentName, data) {
     'timeout_auto_submit': 'Автоматичне завершення',
     'pause_test': 'Тест на паузі',
     'resume_test': 'Тест відновлено',
-    'stop_test': 'Тест зупинено',
     'stop': 'Тест зупинено',
     'pause': 'Тест на паузі',
     'resume': 'Тест відновлено',
+    'attempt_deleted': 'Спробу анульовано',
     'question_skipped': 'Пропустив питання',
     'question_returned': 'Повернувся до пропущеного питання'
   };
@@ -384,6 +423,8 @@ async function loadSessionStatus() {
     data.attempts.forEach(a => {
       updateStudentRow(a.id, {
         student_name: a.student_name,
+        session_attempt_number: a.session_attempt_number,
+        allow_device_transfer: a.allow_device_transfer,
         violation_count: a.violation_count,
         status: a.status,
         score: a.score,
@@ -438,21 +479,35 @@ function escHtml(str) {
 // ---------------------------------------------------------------------------
 // Actions rendering and API requests
 // ---------------------------------------------------------------------------
-function renderActionsHtml(attemptId, status) {
+function renderActionsHtml(attemptId, status, allowDeviceTransfer) {
   if (['finished', 'timeout', 'stopped'].includes(status)) {
-    return `<a href="/teacher/results/${attemptId}" class="btn btn-sm btn-secondary">Деталі</a>`;
+    return `
+      <div class="action-group">
+        <a href="/teacher/results/${attemptId}" class="btn btn-sm btn-secondary">Деталі</a>
+        <button type="button" data-action="delete-attempt" data-attempt-id="${attemptId}" class="btn btn-sm btn-outline-danger" title="Видалити спробу" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">🗑️</button>
+      </div>
+    `;
   } else if (status === 'in_progress') {
     return `
       <div class="action-group">
-        <button type="button" data-action="pause" data-attempt-id="${attemptId}" class="btn btn-sm btn-warning">⏸ Пауза</button>
-        <button type="button" data-action="stop" data-attempt-id="${attemptId}" class="btn btn-sm btn-danger">⏹ Зупинити</button>
+        <button type="button" data-action="pause" data-attempt-id="${attemptId}" class="btn btn-sm btn-warning" title="Поставити на паузу">⏸ Пауза</button>
+        <button type="button" data-action="allow-transfer" data-attempt-id="${attemptId}" class="btn btn-sm btn-info" title="Дозволити вхід з іншого ПК">🔓 Інший ПК</button>
+        <button type="button" data-action="stop" data-attempt-id="${attemptId}" class="btn btn-sm btn-danger" title="Зупинити">⏹ Стоп</button>
       </div>
     `;
   } else if (status === 'paused') {
     return `
       <div class="action-group">
-        <button type="button" data-action="resume" data-attempt-id="${attemptId}" class="btn btn-sm btn-success">▶ Відновити</button>
-        <button type="button" data-action="stop" data-attempt-id="${attemptId}" class="btn btn-sm btn-danger">⏹ Зупинити</button>
+        <button type="button" data-action="resume" data-attempt-id="${attemptId}" class="btn btn-sm btn-success" title="Відновити">▶ Відновити</button>
+        <button type="button" data-action="allow-transfer" data-attempt-id="${attemptId}" class="btn btn-sm btn-info" title="Дозволити вхід з іншого ПК">🔓 Інший ПК</button>
+        <button type="button" data-action="stop" data-attempt-id="${attemptId}" class="btn btn-sm btn-danger" title="Зупинити">⏹ Стоп</button>
+      </div>
+    `;
+  } else if (status === 'not_started') {
+    return `
+      <div class="action-group">
+        <button type="button" data-action="allow-transfer" data-attempt-id="${attemptId}" class="btn btn-sm btn-info" title="Дозволити вхід з іншого ПК">🔓 Інший ПК</button>
+        <button type="button" data-action="delete-attempt" data-attempt-id="${attemptId}" class="btn btn-sm btn-danger" title="Анулювати реєстрацію">🗑️ Анулювати</button>
       </div>
     `;
   }
@@ -507,4 +562,58 @@ async function stopAttempt(attemptId) {
   } catch (e) {
     alert('Помилка мережі: ' + e.message);
   }
+}
+
+async function allowTransferAttempt(attemptId) {
+  const nameEl = document.getElementById(`name-${attemptId}`);
+  const sName = nameEl ? nameEl.textContent.trim() : 'учня';
+  if (!confirm(`Дозволити для ${sName} вхід з іншого комп'ютера або браузера?\nЯкщо тест триває, його буде безпечно призупинено для переходу.`)) return;
+  try {
+    const res = await fetch(`/teacher/attempts/${attemptId}/allow-device-transfer`, { method: 'POST' });
+    if (res.ok) {
+      const data = await res.json();
+      alert(data.message || 'Вхід з іншого пристрою дозволено! Тепер учень може увійти під своїм ім\'ям з іншого ПК.');
+      fetchSessionStatus();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('Помилка: ' + (err.detail || `HTTP ${res.status}`));
+    }
+  } catch (e) {
+    alert('Помилка мережі: ' + e.message);
+  }
+}
+
+async function deleteAttempt(attemptId) {
+  const nameEl = document.getElementById(`name-${attemptId}`);
+  const sName = nameEl ? nameEl.textContent.trim() : 'учня';
+  if (!confirm(`Ви дійсно бажаєте видалити спробу / реєстрацію для ${sName}?\nЦю дію неможливо скасувати.`)) return;
+  try {
+    const res = await fetch(`/teacher/attempts/${attemptId}/delete`, { method: 'POST' });
+    if (res.ok) {
+      removeStudentRow(attemptId);
+      decrementStudentCount();
+      fetchSessionStatus();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert('Помилка: ' + (err.detail || `HTTP ${res.status}`));
+    }
+  } catch (e) {
+    alert('Помилка мережі: ' + e.message);
+  }
+}
+
+function removeStudentRow(attemptId) {
+  const row = document.getElementById(`row-${attemptId}`);
+  if (row) row.remove();
+  const mcard = document.getElementById(`mcard-${attemptId}`);
+  if (mcard) mcard.remove();
+  const tbody = document.getElementById('students-tbody');
+  if (tbody && tbody.children.length === 0) {
+    tbody.innerHTML = '<tr id="no-students-row"><td colspan="7" class="text-center text-muted">Учні ще не підключились</td></tr>';
+  }
+}
+
+function decrementStudentCount() {
+  const el = document.getElementById('student-count');
+  if (el) el.textContent = Math.max(0, (parseInt(el.textContent) || 0) - 1);
 }

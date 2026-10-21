@@ -359,6 +359,18 @@
   // Завантажуємо при завантаженні сторінки (якщо код уже є в URL)
   // Prefilled pages already contain server-rendered metadata and the roster.
   if (!lastSuccessfulCode) loadRosterAndInfo();
+
+  // Захист від подвійного натискання при вході
+  const loginForm = document.getElementById('student-login-form');
+  if (loginForm && submitButton) {
+    loginForm.addEventListener('submit', function() {
+      setTimeout(() => {
+        submitButton.disabled = true;
+        submitButton.style.opacity = '0.7';
+        submitButton.textContent = 'Входимо на тест…';
+      }, 50);
+    });
+  }
 })();
 </script>
 {% endblock %}

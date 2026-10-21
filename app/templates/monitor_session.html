@@ -108,6 +108,9 @@
             {% if attempt.session_attempt_number %}
               <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: var(--primary); font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">Спроба #{{ attempt.session_attempt_number }}</span>
             {% endif %}
+            {% if attempt.progress_state and attempt.progress_state.get('allow_device_transfer') %}
+              <span class="badge" id="transfer-badge-{{ attempt.id }}" style="background: rgba(14, 165, 233, 0.15); color: #0284c7; font-size: 0.72rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.3rem;">🔓 Дозволено інший ПК</span>
+            {% endif %}
           </td>
           <td>
             <span class="badge badge-status badge-status--{{ status_str }}" id="status-{{ attempt.id }}">
@@ -152,12 +155,18 @@
             <div class="action-group">
               {% if status_str in ['finished', 'timeout', 'stopped'] %}
                 <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
+                <button type="button" data-action="delete-attempt" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-outline-danger" title="Видалити спробу" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">🗑️</button>
               {% elif status_str == 'in_progress' %}
-                <button type="button" data-action="pause" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-warning">⏸ Пауза</button>
-                <button type="button" data-action="stop"  data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
+                <button type="button" data-action="pause" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-warning" title="Поставити на паузу">⏸ Пауза</button>
+                <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info" title="Дозволити вхід з іншого ПК">🔓 Інший ПК</button>
+                <button type="button" data-action="stop"  data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger" title="Зупинити тест">⏹ Стоп</button>
               {% elif status_str == 'paused' %}
-                <button type="button" data-action="resume" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-success">▶ Відновити</button>
-                <button type="button" data-action="stop"   data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
+                <button type="button" data-action="resume" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-success" title="Відновити проходження">▶ Відновити</button>
+                <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info" title="Дозволити вхід з іншого ПК">🔓 Інший ПК</button>
+                <button type="button" data-action="stop"   data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger" title="Зупинити тест">⏹ Стоп</button>
+              {% elif status_str == 'not_started' %}
+                <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info" title="Дозволити вхід з іншого ПК">🔓 Інший ПК</button>
+                <button type="button" data-action="delete-attempt" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger" title="Анулювати нерозпочату реєстрацію">🗑️ Анулювати</button>
               {% endif %}
             </div>
           </td>
@@ -199,12 +208,18 @@
       <div class="mcard-actions" id="mactions-{{ attempt.id }}">
         {% if status_str in ['finished', 'timeout', 'stopped'] %}
           <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
+          <button type="button" data-action="delete-attempt" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-outline-danger" title="Видалити спробу" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">🗑️</button>
         {% elif status_str == 'in_progress' %}
           <button type="button" data-action="pause" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-warning">⏸ Пауза</button>
+          <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info">🔓 Інший ПК</button>
           <button type="button" data-action="stop"  data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
         {% elif status_str == 'paused' %}
           <button type="button" data-action="resume" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-success">▶ Продовжити</button>
+          <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info">🔓 Інший ПК</button>
           <button type="button" data-action="stop"   data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
+        {% elif status_str == 'not_started' %}
+          <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info">🔓 Інший ПК</button>
+          <button type="button" data-action="delete-attempt" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">🗑️ Анулювати</button>
         {% endif %}
       </div>
     </div>
@@ -286,9 +301,11 @@
     if (!btn) return;
     const action = btn.dataset.action;
     const id = btn.dataset.attemptId;
-    if (action === 'pause')  pauseAttempt(id);
-    if (action === 'resume') resumeAttempt(id);
-    if (action === 'stop')   stopAttempt(id);
+    if (action === 'pause')          pauseAttempt(id);
+    if (action === 'resume')         resumeAttempt(id);
+    if (action === 'stop')           stopAttempt(id);
+    if (action === 'allow-transfer') allowTransferAttempt(id);
+    if (action === 'delete-attempt') deleteAttempt(id);
   });
 </script>
 <script src="/static/js/monitor.js?v={{ app_version }}"></script>

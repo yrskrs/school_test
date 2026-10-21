@@ -1033,7 +1033,16 @@ async def pause_attempt(
     if not attempt or attempt.session.test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
-    if not set_paused(db, attempt, True, "Призупинено вчителем"):
+    from app.services import event_log_service
+    if attempt.status == models.AttemptStatus.not_started:
+        lock_attempt(db, attempt)
+        attempt.status = models.AttemptStatus.paused
+        state = dict(attempt.progress_state or {})
+        state['allow_device_transfer'] = True
+        attempt.progress_state = state
+        event_log_service.log_event(db, attempt.id, models.EventType.pause_test, "Призупинено вчителем до початку")
+        db.commit()
+    elif not set_paused(db, attempt, True, "Призупинено вчителем"):
         raise HTTPException(status_code=400, detail="Спроба не в процесі тестування")
 
     # Notify student
@@ -1061,8 +1070,17 @@ async def resume_attempt(
     if not attempt or attempt.session.test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
-    if not set_paused(db, attempt, False, "Відновлено вчителем"):
+    from app.services import event_log_service
+    if attempt.status == models.AttemptStatus.paused and not attempt.started_at:
+        lock_attempt(db, attempt)
+        attempt.status = models.AttemptStatus.not_started
+        event_log_service.log_event(db, attempt.id, models.EventType.resume_test, "Відновлено вчителем")
+        db.commit()
+        status_val = "not_started"
+    elif not set_paused(db, attempt, False, "Відновлено вчителем"):
         raise HTTPException(status_code=400, detail="Спроба не на паузі")
+    else:
+        status_val = "in_progress"
 
     # Notify student
     from app.websocket_manager import ws_manager
@@ -1073,7 +1091,7 @@ async def resume_attempt(
         "event": "resume",
         "student_name": attempt.student_name,
         "attempt_id": attempt_id,
-        "status": "in_progress",
+        "status": status_val,
     })
 
     return {"status": "ok"}
@@ -1089,7 +1107,7 @@ async def stop_attempt(
     if not attempt or attempt.session.test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
-    if attempt.status not in (models.AttemptStatus.in_progress, models.AttemptStatus.paused):
+    if attempt.status not in (models.AttemptStatus.in_progress, models.AttemptStatus.paused, models.AttemptStatus.not_started):
         raise HTTPException(status_code=400, detail="Спробу неможливо зупинити")
 
     from app.services import result_service
@@ -1120,6 +1138,98 @@ async def stop_attempt(
     })
 
     return {"status": "ok", "score": score, "max_score": max_score}
+
+
+@router.post("/attempts/{attempt_id}/allow-device-transfer")
+async def allow_device_transfer(
+    attempt_id: int,
+    teacher: models.Teacher = Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    attempt = crud.get_attempt_by_id(db, attempt_id)
+    if not attempt or attempt.session.test.teacher_id != teacher.id:
+        raise HTTPException(status_code=404, detail="Спробу не знайдено")
+
+    lock_attempt(db, attempt)
+    state = dict(attempt.progress_state or {})
+    state['allow_device_transfer'] = True
+
+    from app.services import event_log_service
+    was_in_progress = (attempt.status == models.AttemptStatus.in_progress)
+    if was_in_progress:
+        attempt.status = models.AttemptStatus.paused
+        checkpoint_state = attempt_progress.checkpoint(db, attempt)
+        checkpoint_state['allow_device_transfer'] = True
+        attempt.progress_state = checkpoint_state
+        event_log_service.log_event(db, attempt.id, models.EventType.pause_test, "Призупинено для зміни ПК вчителем")
+    else:
+        attempt.progress_state = state
+
+    # Reset nonce so any browser can claim this attempt
+    attempt.auth_nonce = None
+    db.commit()
+
+    event_log_service.log_event(
+        db, attempt.id, models.EventType.reconnect,
+        "Вчитель дозволив вхід з іншого ПК"
+    )
+
+    from app.websocket_manager import ws_manager
+    if was_in_progress:
+        await ws_manager.send_to_student(attempt_id, {"event": "pause"})
+        await ws_manager.broadcast(attempt.session_id, {
+            "event": "pause",
+            "student_name": attempt.student_name,
+            "attempt_id": attempt_id,
+            "status": "paused",
+            "allow_device_transfer": True,
+            "details": "Дозволено перевхід з іншого ПК",
+        })
+    else:
+        await ws_manager.broadcast(attempt.session_id, {
+            "event": "reconnect",
+            "student_name": attempt.student_name,
+            "attempt_id": attempt_id,
+            "status": attempt.status.value,
+            "allow_device_transfer": True,
+            "details": "Дозволено перевхід з іншого ПК",
+        })
+
+    return {"status": "ok", "message": f"Вхід з іншого комп'ютера дозволено для {attempt.student_name}"}
+
+
+@router.post("/attempts/{attempt_id}/delete")
+async def delete_attempt(
+    attempt_id: int,
+    teacher: models.Teacher = Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    attempt = crud.get_attempt_by_id(db, attempt_id)
+    if not attempt or attempt.session.test.teacher_id != teacher.id:
+        raise HTTPException(status_code=404, detail="Спробу не знайдено")
+
+    session_id = attempt.session_id
+    student_name = attempt.student_name
+
+    from app.websocket_manager import ws_manager
+    try:
+        await ws_manager.send_to_student(attempt_id, {"event": "stop", "details": "Спробу анульовано вчителем"})
+    except Exception:
+        pass
+
+    crud.delete_attempt(db, attempt)
+
+    try:
+        await ws_manager.broadcast(session_id, {
+            "event": "attempt_deleted",
+            "attempt_id": attempt_id,
+            "student_name": student_name,
+            "details": "Спробу анульовано вчителем",
+        })
+    except Exception:
+        pass
+
+    return {"status": "ok", "message": f"Спробу учня {student_name} успішно анульовано"}
 
 
 

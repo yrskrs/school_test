@@ -561,6 +561,33 @@ img { max-width: 100%; }
 .btn-warning { background: var(--warning); color: #fff; }
 .btn-warning:hover { background: #d97706; color: #fff; }
 
+.btn-info {
+  background: var(--info-bg, rgba(14, 165, 233, 0.15));
+  color: var(--info, #0284c7);
+  border: 1px solid var(--info, #0284c7);
+}
+.btn-info:hover {
+  background: var(--info, #0284c7);
+  color: #fff;
+}
+
+.btn-outline-danger {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+.btn-outline-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.action-group {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .btn-sm { padding: .35rem .8rem; font-size: .82rem; }
 .btn-full { width: 100%; justify-content: center; }
 .btn:disabled, .btn[disabled] {
