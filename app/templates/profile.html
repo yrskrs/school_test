@@ -9,39 +9,6 @@
   </div>
 </div>
 
-{% if teacher.username == 'admin' %}
-<div class="card mt-2">
-  <div class="card-title" style="color: var(--danger);">Управління вчителями (Адміністратор)</div>
-  <p class="form-hint" style="margin-top: -1rem; margin-bottom: 1rem;">Видалення вчителя також видалить усі його тести та сесії.</p>
-  
-  <div class="form-grid">
-    <div class="form-group form-group--full">
-      <label>Оберіть вчителя</label>
-      <div style="display: flex; gap: 0.5rem; align-items: center;">
-        <select id="deleteTeacherSelect" style="flex: 1;">
-          <option value="" disabled selected>-- Оберіть профілі --</option>
-          {% for t in all_teachers %}
-            {% if t.username != 'admin' %}
-              <option value="{{ t.username }}">{{ t.full_name }} (@{{ t.username }})</option>
-            {% endif %}
-          {% endfor %}
-        </select>
-        <button type="button" class="btn btn-primary" id="archiveTeacherBtn" disabled style="color: white; background-color: var(--primary); border-color: var(--primary);">Завантажити архів</button>
-        <button type="button" class="btn btn-danger" id="deleteTeacherBtn" disabled style="color: white; background-color: var(--danger); border-color: var(--danger);">Видалити</button>
-      </div>
-
-      <div style="display: flex; gap: 0.5rem; align-items: flex-end; margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;" id="adminPasswordResetGroup">
-        <div style="flex: 1; display: flex; flex-direction: column; gap: 0.4rem;">
-          <label for="adminTeacherNewPassword" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Новий пароль для вчителя</label>
-          <input type="password" id="adminTeacherNewPassword" placeholder="Мінімум 4 символи" disabled style="width: 100%;" />
-        </div>
-        <button type="button" class="btn btn-warning" id="adminResetPasswordBtn" disabled style="height: 42px;">Змінити пароль</button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endif %}
-
 <div class="card mt-2">
   <div class="card-title">Ваші налаштування</div>
   <form method="post" action="/teacher/profile">
@@ -66,6 +33,40 @@
     </div>
   </form>
 </div>
+
+{% if teacher.username == 'admin' %}
+<div class="card mt-2">
+  <div class="card-title" style="color: var(--danger);">Управління вчителями (Адміністратор)</div>
+  <p class="form-hint" style="margin-top: -1rem; margin-bottom: 1rem;">Видалення вчителя також видалить усі його тести та сесії.</p>
+  
+  <div class="form-grid">
+    <div class="form-group form-group--full">
+      <label>Оберіть вчителя</label>
+      <div class="teacher-actions">
+        <select id="deleteTeacherSelect" style="flex: 1;">
+          <option value="" disabled selected>-- Оберіть профілі --</option>
+          {% for t in all_teachers %}
+            {% if t.username != 'admin' %}
+              <option value="{{ t.username }}">{{ t.full_name }} (@{{ t.username }})</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <button type="button" class="btn btn-primary" id="archiveTeacherBtn" disabled style="color: white; background-color: var(--primary); border-color: var(--primary);">Завантажити архів</button>
+        <button type="button" class="btn btn-danger" id="deleteTeacherBtn" disabled style="color: white; background-color: var(--danger); border-color: var(--danger);">Видалити</button>
+      </div>
+
+      <div class="teacher-actions profile-password-reset" id="adminPasswordResetGroup">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 0.4rem;">
+          <label for="adminTeacherNewPassword" style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;">Новий пароль для вчителя</label>
+          <input type="password" id="adminTeacherNewPassword" placeholder="Мінімум 4 символи" disabled style="width: 100%;" />
+        </div>
+        <button type="button" class="btn btn-warning" id="adminResetPasswordBtn" disabled style="height: 42px;">Змінити пароль</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 
 {% if teacher.username == 'admin' %}
 <div class="card mt-2">

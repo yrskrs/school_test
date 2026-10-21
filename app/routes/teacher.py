@@ -43,8 +43,16 @@ from app.services.logger_service import log_teacher_action, check_and_create_arc
 from app.services.teacher_list_service import test_class_choices
 from app.services.test_edit_service import validate_editor_questions
 from app.services.attempt_progress import set_paused
+from app.services import attempt_progress
+from app.services.testing_policy import lock_attempt
 
 router = APIRouter(prefix="/teacher")
+
+
+@router.get("", include_in_schema=False)
+@router.get("/", include_in_schema=False)
+async def teacher_home():
+    return RedirectResponse(url="/teacher/dashboard", status_code=303)
 
 
 # ---------------------------------------------------------------------------
@@ -1039,6 +1047,7 @@ async def pause_attempt(
         attempt.status = models.AttemptStatus.paused
         state = dict(attempt.progress_state or {})
         state['allow_device_transfer'] = True
+        state['paused_before_start'] = True
         attempt.progress_state = state
         event_log_service.log_event(db, attempt.id, models.EventType.pause_test, "Призупинено вчителем до початку")
         db.commit()
@@ -1071,9 +1080,14 @@ async def resume_attempt(
         raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
     from app.services import event_log_service
-    if attempt.status == models.AttemptStatus.paused and not attempt.started_at:
+    if attempt.status == models.AttemptStatus.paused and (
+        not attempt.started_at or (attempt.progress_state or {}).get('paused_before_start')
+    ):
         lock_attempt(db, attempt)
         attempt.status = models.AttemptStatus.not_started
+        state = dict(attempt.progress_state or {})
+        state.pop('paused_before_start', None)
+        attempt.progress_state = state
         event_log_service.log_event(db, attempt.id, models.EventType.resume_test, "Відновлено вчителем")
         db.commit()
         status_val = "not_started"
@@ -1157,16 +1171,17 @@ async def allow_device_transfer(
     from app.services import event_log_service
     was_in_progress = (attempt.status == models.AttemptStatus.in_progress)
     if was_in_progress:
-        attempt.status = models.AttemptStatus.paused
         checkpoint_state = attempt_progress.checkpoint(db, attempt)
         checkpoint_state['allow_device_transfer'] = True
         attempt.progress_state = checkpoint_state
+        attempt.status = models.AttemptStatus.paused
         event_log_service.log_event(db, attempt.id, models.EventType.pause_test, "Призупинено для зміни ПК вчителем")
     else:
         attempt.progress_state = state
 
-    # Reset nonce so any browser can claim this attempt
-    attempt.auth_nonce = None
+    # Invalidate the previous device while keeping a fresh signed identity.
+    import secrets
+    attempt.auth_nonce = secrets.token_urlsafe(32)
     db.commit()
 
     event_log_service.log_event(

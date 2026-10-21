@@ -3,13 +3,14 @@
 
 {% block content %}
 <div class="page-header">
-  {% if import_mode is defined and import_mode %}
+  <div>{% if import_mode is defined and import_mode %}
     <h1>Імпорт тесту з JSON</h1>
     <p class="page-subtitle">Завантажте файл або вставте JSON</p>
   {% else %}
     <h1>Створити новий тест</h1>
     <p class="page-subtitle">Заповніть параметри тесту та додайте питання</p>
-  {% endif %}
+  {% endif %}</div>
+  <a href="/teacher/tests" class="btn btn-secondary">← До тестів</a>
 </div>
 
 {% if import_mode is defined and import_mode %}

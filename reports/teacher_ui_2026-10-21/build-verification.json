@@ -1,0 +1,18 @@
+{
+  "version": "1.6.13",
+  "image": "sha256:b6d23c6eceafba0b1cce95bb24b6397700691beabb5073568a748ea99cc920d4",
+  "source_files_compared": 92,
+  "source_mismatches": [],
+  "production_version": "1.6.13",
+  "deployment": "complete",
+  "backup": "backups/2026-10-21-before-teacher-ui-1.6.13",
+  "live_browser_checks": 96,
+  "live_browser_errors": 0,
+  "data_counts": {
+    "tests": 3,
+    "sessions": 7,
+    "attempts": 29
+  },
+  "running_source_mismatches": [],
+  "updater_image": "sha256:ea7503a1f465b6a1a52c9b1c065583d22256439626db91f0f790ba3d33854d15"
+}

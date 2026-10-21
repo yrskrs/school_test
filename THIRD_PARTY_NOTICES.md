@@ -27,3 +27,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## Chart.js
+
+`app/static/vendor/chart.umd.js` — Chart.js 4.4.8, MIT, © 2014–2024 Chart.js Contributors.
+Ліцензія: `app/static/vendor/chart.LICENSE.md`. Вихідний пакет: https://www.npmjs.com/package/chart.js/v/4.4.8.
+Локальна копія забезпечує роботу графіків без зовнішнього CDN.
+
+## Inter
+
+`app/static/vendor/inter-*.woff2` — змінний шрифт Inter, Google Fonts v20, © 2020 The Inter Project Authors.
+Сім локальних мовних підмножин охоплюють кирилицю, латиницю, грецьку та в’єтнамську. Ліцензія SIL Open Font License 1.1: `app/static/vendor/inter.OFL.txt`.
+Джерело: https://github.com/rsms/inter; файли отримано з Google Fonts без зміни шрифту.

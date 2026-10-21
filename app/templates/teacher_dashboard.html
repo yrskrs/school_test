@@ -3,17 +3,12 @@
 
 {% block content %}
 <div class="page-header">
-  <h1>Вітаємо, {{ teacher.full_name }}!</h1>
-  <p class="page-subtitle">Панель управління тестуванням</p>
+  <div><h1>Панель учителя</h1>
+  <p class="page-subtitle">Вітаємо, {{ teacher.full_name }}! Керуйте тестами, сесіями та результатами.</p></div>
+  <div class="teacher-actions"><a href="/teacher/tests/create" class="btn btn-primary">+ Створити тест</a><a href="/teacher/sessions" class="btn btn-secondary">До сесій</a></div>
 </div>
 
-<section class="card release-card" aria-labelledby="release-title">
-  <div>
-    <h2 id="release-title">ШколярТест · версія {{ app_version }}</h2>
-    <p>{{ release_summary }}</p>
-  </div>
-  <a href="/teacher/about" class="btn btn-secondary">Можливості та оновлення</a>
-</section>
+
 
 {% if admin_data %}
 <div class="dashboard-metrics" style="display: flex; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap;">
@@ -32,23 +27,7 @@
 </div>
 {% endif %}
 
-{% if chart_activity_data != '[]' or chart_tests_data != '[]' or chart_classes_data != '[]' %}
-<!-- Dashboard Charts -->
-<div class="dashboard-charts" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-  <div class="card" style="padding: 1.5rem;">
-    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Активність (останні 7 днів)</h3>
-    <canvas id="activityChart" style="max-height: 250px;"></canvas>
-  </div>
-  <div class="card" style="padding: 1.5rem;">
-    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Середній бал за тестами (з 12)</h3>
-    <canvas id="scoresChart" style="max-height: 250px;"></canvas>
-  </div>
-  <div class="card" style="padding: 1.5rem;">
-    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Середній бал по класах</h3>
-    <canvas id="classesChart" style="max-height: 250px;"></canvas>
-  </div>
-</div>
-{% endif %}
+
 
 {% if not admin_data %}
 <!-- Quick actions -->
@@ -282,7 +261,7 @@ function switchAdminTab(tab) {
 <script id="chart-classes-data" type="application/json">{{ chart_classes_data | safe }}</script>
 <script id="chart-classes-labels" type="application/json">{{ chart_classes_labels | safe }}</script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/static/vendor/chart.umd.js?v={{ app_version }}"></script>
 <script>
   // Activity Chart
   try {
@@ -393,4 +372,28 @@ function switchAdminTab(tab) {
   }
 </script>
 {% endif %}
+{% if chart_activity_data != '[]' or chart_tests_data != '[]' or chart_classes_data != '[]' %}
+<!-- Dashboard Charts -->
+<div class="dashboard-charts" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+  <div class="card" style="padding: 1.5rem;">
+    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Активність (останні 7 днів)</h3>
+    <canvas id="activityChart" style="max-height: 250px;"></canvas>
+  </div>
+  <div class="card" style="padding: 1.5rem;">
+    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Середній бал за тестами (з 12)</h3>
+    <canvas id="scoresChart" style="max-height: 250px;"></canvas>
+  </div>
+  <div class="card" style="padding: 1.5rem;">
+    <h3 class="card-title" style="font-size: 1rem; margin-bottom: 1rem; color: var(--text-muted);">Середній бал по класах</h3>
+    <canvas id="classesChart" style="max-height: 250px;"></canvas>
+  </div>
+</div>
+{% endif %}
+<section class="card release-card dashboard-release" aria-labelledby="release-title">
+  <div>
+    <h2 id="release-title">ШколярТест · версія {{ app_version }}</h2>
+    <p>{{ release_summary }}</p>
+  </div>
+  <a href="/teacher/about" class="btn btn-secondary">Можливості та оновлення</a>
+</section>
 {% endblock %}

@@ -38,6 +38,7 @@ app/static/uploads/
 compose.override.yaml
 .release-image.yaml
 .local-audits/
+reports/
 test_media*/
 
 # Runtime updater files

@@ -25,7 +25,7 @@
   applyScale();
   document.addEventListener('DOMContentLoaded', () => {
     const controls = document.getElementById('page-scale-controls');
-    const toolbar = document.querySelector('.test-topbar-right') || document.querySelector('header.navbar');
+    const toolbar = document.querySelector('.test-topbar-right') || document.querySelector('.teacher-toolbar') || document.querySelector('header.navbar');
     if (toolbar) toolbar.appendChild(controls);
     else {
       const theme = document.getElementById('floating-theme-btn');

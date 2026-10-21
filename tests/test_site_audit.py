@@ -27,6 +27,12 @@ class SiteAudit(unittest.IsolatedAsyncioTestCase):
     asyncSetUp = fixtures.Flows.asyncSetUp
     asyncTearDown = fixtures.Flows.asyncTearDown
 
+    async def test_teacher_entry_addresses_redirect_to_dashboard(self):
+        for path in ('/teacher', '/teacher/'):
+            response = await fixtures.http('GET', path, cookie=self.teacher_cookie)
+            self.assertEqual(response[0], 303)
+            self.assertEqual(response[2][b'location'], b'/teacher/dashboard')
+
     async def test_local_roster_from_teacher_ui_is_available_in_forms_and_login(self):
         page = await fixtures.http('GET', '/teacher/roster-sync', cookie=self.teacher_cookie)
         csrf = re.search(r'name="csrf" value="([^"]+)"', page[1]).group(1)

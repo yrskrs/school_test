@@ -1,0 +1,1943 @@
+{
+  "baseline": false,
+  "checks": [
+    "All teacher routes, both themes, 5 viewports × 3 scales",
+    "Mobile menu, navigation, secondary actions and Escape",
+    "Profile switcher, notifications, all roster tabs, add/edit forms and expanded class",
+    "Expanded result groups, CSV, filters, adding a question, profile save, scale/theme persistence",
+    "Administrator and empty teacher states",
+    "All scripts and charts load locally without external network requests"
+  ],
+  "layouts": [
+    {
+      "label": "login/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 880,
+      "problems": []
+    },
+    {
+      "label": "login/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1100,
+      "problems": []
+    },
+    {
+      "label": "login/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1320,
+      "problems": []
+    },
+    {
+      "label": "login/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 880,
+      "problems": []
+    },
+    {
+      "label": "login/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1100,
+      "problems": []
+    },
+    {
+      "label": "login/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1320,
+      "problems": []
+    },
+    {
+      "label": "login/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "login/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "login/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "login/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "login/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "login/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "login/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "login/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "login/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "login/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "login/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "login/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "login-error",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "results/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "results/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "results/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "results/light/1024/80",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "results/light/1024/100",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "results/light/1024/120",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "results/light/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "results/light/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "results/light/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "results/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "results/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "results/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "results/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "results/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "results/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "results/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "results/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "results/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "results/dark/1024/80",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "results/dark/1024/100",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "results/dark/1024/120",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "results/dark/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "results/dark/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "results/dark/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "results/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "results/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "results/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "results/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "results/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "results/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/1024/80",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/1024/100",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/1024/120",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "attempts/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/1024/80",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/1024/100",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/1024/120",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "attempts/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/1024/80",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/1024/100",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/1024/120",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "integrations/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/1024/80",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/1024/100",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/1024/120",
+      "viewport": 1024,
+      "client": 1024,
+      "scroll": 1024,
+      "main": 1024,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "integrations/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "test-actions-open",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "profile-switcher-open",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "notifications-open",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-classes/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-classes/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-classes/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-classes/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-classes/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-classes/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-sync/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-sync/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-sync/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-sync/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-sync/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-sync/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-outside/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-outside/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-outside/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-outside/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-outside/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-outside/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-students/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-students/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-students/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-students/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-students/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-tab-students/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-add-form",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-class-open",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "roster-student-edit",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "results-expanded",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "editor-added-question",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/dashboard/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/profile/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/logs/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/light/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/1440/80",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1261,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/1440/100",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/1440/120",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1171,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/768/80",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/768/100",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/768/120",
+      "viewport": 768,
+      "client": 768,
+      "scroll": 768,
+      "main": 768,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/390/80",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/390/100",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/390/120",
+      "viewport": 390,
+      "client": 390,
+      "scroll": 390,
+      "main": 390,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/320/80",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/320/100",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "admin/teacher/updates/dark/320/120",
+      "viewport": 320,
+      "client": 320,
+      "scroll": 320,
+      "main": 320,
+      "problems": []
+    },
+    {
+      "label": "empty/teacher/tests",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "empty/teacher/results",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "empty/teacher/sessions",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    },
+    {
+      "label": "empty/teacher/journal",
+      "viewport": 1440,
+      "client": 1440,
+      "scroll": 1440,
+      "main": 1216,
+      "problems": []
+    }
+  ],
+  "errors": [],
+  "externalRequests": []
+}

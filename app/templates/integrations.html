@@ -2,15 +2,15 @@
 {% block title %}Підключення до журналу{% endblock %}
 
 {% block content %}
-<div class="card" style="padding:1.5rem;max-width:1100px;margin:1.5rem auto">
-  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
+<div class="integrations-page">
+  <div class="page-header">
     <div>
-      <h1 style="margin:0 0 0.35rem 0">Підключення до журналу</h1>
-      <p style="margin:0;color:var(--text-muted);font-size:0.95rem">
+      <h1>Підключення до журналу</h1>
+      <p class="page-subtitle">
         Керування API-ключами, редагування описів, моніторинг статистики взаємодії та синхронізація оцінок з електронним журналом.
       </p>
     </div>
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+    <div class="teacher-actions">
       <span class="badge" style="padding:0.4rem 0.75rem;border-radius:999px;background:var(--bg-card2);border:1px solid var(--border);font-size:0.85rem">
         Усього API: <strong>{{ total_grants_count }}</strong>
       </span>
@@ -190,7 +190,7 @@
       {% for grant in api_grants %}
       <div class="card" style="padding:1.15rem 1.25rem;border-radius:var(--radius);border:1px solid {% if grant.active %}var(--border){% else %}var(--border-light){% endif %};background:{% if grant.active %}var(--bg-card){% else %}var(--bg-card2){% endif %};opacity:{% if grant.active %}1{% else %}0.88{% endif %};transition:box-shadow var(--transition)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:0.75rem">
-          <div style="flex:1;min-width:280px">
+          <div class="integration-key-summary">
             <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;margin-bottom:0.35rem">
               <span style="font-size:1.1rem;font-weight:700;color:var(--text)" id="key-title-{{ grant.id }}">
                 {{ grant.name }}

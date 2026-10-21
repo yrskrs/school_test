@@ -4,11 +4,12 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>Аналітика тесту: {{ test.title }}</h1>
+    <h1>Аналітика тесту</h1>
+    <p class="page-subtitle">{{ test.title }}</p>
     <p class="page-subtitle">Клас (за замовчуванням): {{ test.class_name }}</p>
   </div>
   <div class="action-group">
-    <form method="get" action="/teacher/tests/{{ test.id }}/analytics" style="display:flex; gap:0.5rem; align-items:center;">
+    <form method="get" action="/teacher/tests/{{ test.id }}/analytics" class="teacher-actions analytics-filter">
       <label for="session_id" style="font-size:0.9rem; color:var(--text-muted);">Фільтр:</label>
       <select name="session_id" id="session_id" class="form-input" style="padding:0.3rem; min-width:200px;" onchange="this.form.submit()">
         <option value="">Всі класи та уроки (загальна)</option>
@@ -59,7 +60,7 @@
     </div>
   {% else %}
     <div class="table-responsive">
-      <table class="table">
+      <table class="data-table">
         <thead>
           <tr>
             <th width="50">№</th>
@@ -78,14 +79,14 @@
                 {{ stat.question.question_text | truncate(100) }}
               </div>
               {% if stat.options_dist %}
-                <div style="font-size: 0.8rem; margin-top: 0.5rem; background: var(--bg-color); padding: 0.5rem; border-radius: 4px;">
+                <div style="font-size: 0.8rem; margin-top: 0.5rem; background: var(--bg-card2); padding: 0.5rem; border-radius: 4px;">
                   <strong style="display:block; margin-bottom:0.25rem; color: var(--text-muted);">Відповіді учнів:</strong>
                   {% for opt in stat.options_dist %}
                     <div style="display:flex; justify-content:space-between; margin-bottom:0.2rem;">
                       {% if opt.is_correct %}
-                        <span style="color: var(--success-color); font-weight:600;">
+                        <span style="color: var(--success); font-weight:600;">
                       {% else %}
-                        <span style="color: var(--text-color);">
+                        <span style="color: var(--text);">
                       {% endif %}
                         • {{ opt.text | truncate(60) }}
                       </span>

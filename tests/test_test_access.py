@@ -135,6 +135,13 @@ class TestAccess(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(crud.get_attempts_by_session(self.db, self.session.id)), 5)
         # Replaying an older retake form cannot create a parallel attempt.
         self.assertEqual((await fixtures.http('POST', f'/student/test/{self.attempt.id}/retake', cookie=self.student_cookie))[0], 409)
+        # 1.6.12 allows moving a not-yet-started attempt to another device.
+        response = await self.login()
+        self.assertEqual(response[0], 303)
+        self.assertEqual(response[2][b'location'].decode(), f'/student/instruction/{current.id}')
+        self.assertEqual(len(crud.get_attempts_by_session(self.db, self.session.id)), 5)
+        current.status = models.AttemptStatus.in_progress
+        self.db.commit()
         self.assertEqual((await self.login())[0], 409)
 
     async def test_competing_login_and_retake_cannot_exceed_limit(self):
