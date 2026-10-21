@@ -1,0 +1,41 @@
+{
+  "verified_at": "2026-10-21T14:11:05.364913+00:00",
+  "version": "1.6.14",
+  "code_commit": "71ef1966b3bbe5cdd56350a8142db93300ffd042",
+  "image": "schooltest5-app:1.6.14",
+  "image_id": "sha256:0c0f40e81407ef8d7cf97ded1cd61a555bb7cc95f914dd15b2096e400a850106",
+  "updater_image_id": "sha256:a7cfa37e12929a272f0be087acc4d78255bd736c6dcea55f38cc6c325748a610",
+  "source_files_verified": 93,
+  "source_differences": [],
+  "unit_tests": {
+    "application": 152,
+    "school_sync": 22,
+    "new_postgresql_scenarios": 5,
+    "student_js_scenarios": 31,
+    "scripts_parsed": 8
+  },
+  "browser_layouts": {
+    "workspace": 721,
+    "attempt_groups": 127,
+    "live_site": 102
+  },
+  "backup": "backups/2026-10-21-before-attempt-groups-1.6.14",
+  "backup_verified": true,
+  "rollback_image": "schooltest5-rollback:before-attempt-groups-1.6.14-20261021",
+  "database_before": {
+    "version": "1.6.13",
+    "tests": 4,
+    "sessions": 9,
+    "attempts": 32
+  },
+  "database_after": {
+    "version": "1.6.14",
+    "tests": 4,
+    "sessions": 9,
+    "attempts": 32
+  },
+  "health": {
+    "application": 200,
+    "updater": 200
+  }
+}

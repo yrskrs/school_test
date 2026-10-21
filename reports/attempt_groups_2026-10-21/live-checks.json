@@ -1,0 +1,719 @@
+{
+  "checks": [
+    {
+      "role": "teacher",
+      "path": "/teacher",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/dashboard",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/dashboard",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/dashboard",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/sessions",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/sessions",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/sessions",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results?view_mode=all",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results?view_mode=all",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results?view_mode=all",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/journal",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/journal",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/journal",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/roster-sync",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/roster-sync",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/roster-sync",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/integrations",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/integrations",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/integrations",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/profile",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/profile",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/profile",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/about",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/about",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/about",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/create",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/create",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/create",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/import",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/import",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/import",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/4/edit",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/4/edit",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/4/edit",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/4/analytics",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/4/analytics",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/tests/4/analytics",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/sessions/8/monitor",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/sessions/8/monitor",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/sessions/8/monitor",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results/8",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results/8",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "teacher",
+      "path": "/teacher/results/8",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/dashboard",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/dashboard",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/dashboard",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/sessions",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/sessions",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/sessions",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/results",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/results",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/results",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/results?view_mode=all",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/results?view_mode=all",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/results?view_mode=all",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/journal",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/journal",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/journal",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/roster-sync",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/roster-sync",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/roster-sync",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/integrations",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/integrations",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/integrations",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/profile",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/profile",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/profile",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/about",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/about",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/about",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests/create",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests/create",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests/create",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests/import",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests/import",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/tests/import",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/logs",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/logs",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/logs",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/updates",
+      "width": 1440,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/updates",
+      "width": 768,
+      "status": 200,
+      "fit": true
+    },
+    {
+      "role": "admin",
+      "path": "/teacher/updates",
+      "width": 390,
+      "status": 200,
+      "fit": true
+    }
+  ],
+  "errors": []
+}
