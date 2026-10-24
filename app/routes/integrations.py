@@ -337,13 +337,15 @@ async def roster_ui(request: Request, db: Session = Depends(get_db), teacher=Dep
                         engine.resolve(match['ref'], 'local', match['native_id'], expected=match['expected'])
                 elif action == 'class':
                     name = str(data.get('name', '')).strip()
-                    grade = int(data.get('grade', '1'))
+                    from app.services.class_labels import class_fields
+                    inferred = class_fields(name)
+                    grade = inferred['grade_level'] if inferred else int(data.get('grade', '1'))
                     if not name or len(name) > 50 or not 1 <= grade <= 12:
                         raise SyncError('Потрібні назва класу до 50 символів і номер 1–12.')
                     if data.get('id') and int(data['id']) not in allowed_ids:
                         raise SyncError('Клас недоступний цьому вчителю.')
                     row = db.get(models.RosterClass, int(data['id'])) if data.get('id') else models.RosterClass()
-                    row.name, row.grade_level, row.letter = name, grade, str(data.get('letter', '')).strip()[:10]
+                    row.name, row.grade_level, row.letter = name, grade, inferred['letter'] if inferred else str(data.get('letter', '')).strip()[:10]
                     row.active = data.get('active') == '1'
                     db.add(row)
                     db.flush()

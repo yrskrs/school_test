@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from app import models
 from school_sync.journal_roster import historical_class_names, imported_classes
+from app.services.class_labels import same_class_label
 
 
 def roster_metadata(db):
@@ -37,11 +38,13 @@ def resolve_roster_class(db, test, explicit_class_id=None):
         populated = {row[0] for row in db.query(models.RosterStudent.class_id).distinct()}
         groups = [group for group in teacher_roster_classes(db, test.teacher_id, active_only=False)
                   if group.id in own or group.id in populated]
-        # An exact current label takes priority over labels retained for history.
-        candidates = [group for group in groups if group.name == name]
+        # Formatting differences must not disconnect a selected class.
+        # Multiple matching IDs remain ambiguous, even for an exact label.
+        candidates = [group for group in groups if same_class_label(group.name, name)]
         if not candidates:
             candidates = [group for group in groups if group.id in own and
-                          name in historical_class_names(store, test.teacher_id, group.id, group.name)]
+                          any(same_class_label(name, previous) for previous in
+                              historical_class_names(store, test.teacher_id, group.id, group.name))]
         if len(candidates) > 1:
             return None, 'Назва тесту відповідає кільком спискам класів. Учитель має явно прив’язати сесію до класу.'
         group = candidates[0] if candidates else None

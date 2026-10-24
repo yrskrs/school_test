@@ -442,7 +442,7 @@
           <div style="display: flex; flex-direction: column; gap: 0.65rem;">
             <div style="display: flex; gap: 0.5rem;">
               <input name="name" placeholder="Назва (напр. 8-Б)" required style="flex: 2; padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text);">
-              <input name="grade" type="number" min="1" max="12" value="1" placeholder="Рік" title="Номер паралелі 1–12" style="flex: 1; padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+              <input name="grade" type="number" min="1" max="12" value="1" placeholder="Паралель" title="Номер паралелі 1–12; для назви 8-Б визначається автоматично" style="flex: 1; padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text);">
               <input name="letter" placeholder="Літера" maxlength="10" style="flex: 1; padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg); color: var(--text);">
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -899,6 +899,19 @@
 
   // Ініціалізація сторінки після завантаження DOM
   document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('form').forEach(form => {
+      if (form.querySelector('[name=action]')?.value !== 'class') return;
+      const name = form.querySelector('[name=name]');
+      const grade = form.querySelector('[name=grade]');
+      const letter = form.querySelector('[name=letter]');
+      if (!name || !grade || !letter) return;
+      name.addEventListener('input', () => {
+        const lookalikes = {'A':'А','B':'В','C':'С','E':'Е','H':'Н','I':'І','K':'К','M':'М','O':'О','P':'Р','T':'Т','X':'Х'};
+        const label = name.value.normalize('NFKC').trim().toUpperCase().replace(/[ABCEHIKMOPTX]/g, value => lookalikes[value]);
+        const match = label.match(/^(1[0-2]|[1-9])\s*[-–—._]?\s*[«"']?([А-ЯІЇЄҐ]?)\s*[»"']?$/u);
+        if (match) { grade.value = match[1]; letter.value = match[2]; }
+      });
+    });
     let initialTab = 'students';
 
     // 1. Пріоритет: остання дія від сервера після POST
