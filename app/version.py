@@ -1,5 +1,5 @@
 """Release version: also used to invalidate cached frontend assets."""
-__version__ = '1.6.16'
+__version__ = '1.7.0'
 RELEASE_SUMMARY = 'Надійне визначення класу та паралелі'
 RELEASE_HIGHLIGHTS = (
     'Позначення 9Г, 9-Г і 9 «Г» знаходять один і той самий доступний список. Кілька різних ID з еквівалентними назвами потребують явної прив’язки.',

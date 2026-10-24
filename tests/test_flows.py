@@ -558,6 +558,7 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result[0], 200)
         code = json.loads(html.unescape(re.search(r'id="journal-connection-code"[^>]*>(.*?)</textarea>', result[1], re.S).group(1)))
         self.assertEqual(code['source'], 'schooltest')
+        self.assertEqual(code['site_url'], 'http://checks.local')
         plain = html.unescape(re.search(r'id="journal-api-key"[^>]*>(.*?)</textarea>', result[1], re.S).group(1))
         self.assertEqual(plain, code['api_key'])
         self.assertFalse(plain.startswith('{'))
