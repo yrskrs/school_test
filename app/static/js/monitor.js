@@ -170,6 +170,7 @@ const monitorAttempts = new Map();
 const expandedMonitorGroups = new Set();
 const completedMonitorStatuses = new Set(['finished', 'timeout', 'stopped']);
 let monitorSort = 'status';
+let monitorGrouping = 'student';
 
 function monitorTime(value) {
   const time = Date.parse(value || '');
@@ -206,6 +207,7 @@ function monitorScoreHtml(attempt) {
 }
 
 function updateStudentRow(attemptId, data, arrange = true) {
+  const anchor = arrange ? captureMonitorAnchor() : null;
   attemptId = Number(attemptId);
   const previous = monitorAttempts.get(attemptId);
   if (!previous && !data.student_name) { fetchSessionStatus(); return; }
@@ -239,7 +241,10 @@ function updateStudentRow(attemptId, data, arrange = true) {
     if (element) element.textContent = attempt.student_name;
   }
   const meta = [];
-  if (attempt.session_attempt_count > 1) meta.push(`<span class="badge monitor-attempt-number">Спроба #${Number(attempt.session_attempt_number)}</span>`);
+  if (attempt.session_attempt_count > 1) {
+    const repeated = !completedMonitorStatuses.has(attempt.status) && attempt.session_attempt_number > 1;
+    meta.push(`<span class="badge monitor-attempt-number">${repeated ? 'Повторно · ' : ''}Спроба #${Number(attempt.session_attempt_number)} з ${Number(attempt.session_attempt_count)}</span>`);
+  }
   if (attempt.allow_device_transfer) meta.push('<span class="badge">🔓 Дозволено інший ПК</span>');
   for (const prefix of ['attempt-meta', 'mattempt-meta']) document.getElementById(`${prefix}-${attemptId}`).innerHTML = meta.join(' ');
   for (const prefix of ['warning', 'mwarning']) {
@@ -265,16 +270,16 @@ function updateStudentRow(attemptId, data, arrange = true) {
     const state = q.is_correct === true ? 'progress-box--correct' : q.is_correct === false ? 'progress-box--incorrect' : '';
     return `<div class="progress-box ${state}" id="box-${attemptId}-${Number(q.question_id)}" title="Питання ${index + 1}"></div>`;
   }).join('');
-  if (arrange) arrangeMonitorAttempts();
+  if (arrange) arrangeMonitorAttempts(anchor);
 }
 
-function appendMonitorAttempt(attempt, hidden) {
+function appendMonitorAttempt(attempt, hidden, layout) {
   for (const [prefix, parent] of [['row', 'students-tbody'], ['mcard', 'monitor-mobile-cards']]) {
     const element = document.getElementById(`${prefix}-${attempt.id}`);
     if (!element) continue;
     element.hidden = hidden;
     element.dataset.status = attempt.status;
-    document.getElementById(parent).appendChild(element);
+    layout.get(parent).push(element);
   }
 }
 
@@ -289,25 +294,65 @@ function monitorHistorySummary(key, attempts, mobile) {
     const heading = '<div class="monitor-history-heading"><div><strong class="monitor-history-name"></strong><span class="monitor-history-meta text-muted"></span></div><button type="button" class="btn btn-sm btn-secondary" data-monitor-group="'+key+'"></button></div>';
     summary.innerHTML = mobile ? heading : '<td colspan="7">'+heading+'</td>';
   }
-  summary.querySelector('.monitor-history-name').textContent = attempts[0].student_name;
   const maxGrade = typeof MAX_GRADE === 'undefined' ? 12 : MAX_GRADE;
-  const best = Math.max(...attempts.map(a => a.max_score > 0 && a.score !== null ? Math.round(a.score / a.max_score * maxGrade) : 0));
-  summary.querySelector('.monitor-history-meta').textContent = `Завершених спроб: ${attempts.length} · Найкраща оцінка: ${best} / ${maxGrade}`;
+  const completed = attempts.filter(a => completedMonitorStatuses.has(a.status));
+  const current = attempts.filter(a => !completedMonitorStatuses.has(a.status)).sort(compareMonitorAttempts);
+  summary.querySelector('.monitor-history-name').textContent = (current[0] || attempts.at(-1)).student_name;
+  const graded = completed.filter(a => a.max_score > 0 && a.score !== null && a.score !== undefined);
+  const grade = a => Math.round(a.score / a.max_score * maxGrade);
+  const best = graded.length ? Math.max(...graded.map(grade)) : '—';
+  const latest = completed.at(-1);
+  const previousGrade = latest && latest.max_score > 0 && latest.score !== null && latest.score !== undefined ? grade(latest) : '—';
+  const parts = [];
+  if (current.length) parts.push(`Зараз: Спроба #${current[0].session_attempt_number} · ${statusLabel(current[0].status)}`);
+  if (current.length > 1) parts.push(`Поточних спроб: ${current.length}`);
+  parts.push(`Завершених спроб: ${completed.length}`);
+  if (completed.length) parts.push(`Попередня оцінка: ${previousGrade} / ${maxGrade}`, `Найкраща оцінка: ${best} / ${maxGrade}`);
+  summary.querySelector('.monitor-history-meta').textContent = parts.join(' · ');
+  summary.dataset.status = (current[0] || attempts.at(-1)).status;
+  summary.classList.toggle('monitor-history-summary--active', current.length > 0);
   const button = summary.querySelector('button');
   const expanded = expandedMonitorGroups.has(key);
-  button.textContent = `${expanded ? 'Згорнути' : 'Спроби'} (${attempts.length}) ${expanded ? '▴' : '▾'}`;
+  button.hidden = !completed.length;
+  button.textContent = `${expanded ? 'Згорнути' : current.length ? 'Історія' : 'Спроби'} (${completed.length}) ${expanded ? '▴' : '▾'}`;
   button.setAttribute('aria-expanded', String(expanded));
-  button.setAttribute('aria-controls', attempts.map(a => `${mobile ? 'mcard' : 'row'}-${a.id}`).join(' '));
+  button.setAttribute('aria-controls', completed.map(a => `${mobile ? 'mcard' : 'row'}-${a.id}`).join(' '));
   return summary;
 }
 
-function arrangeMonitorAttempts() {
+function captureMonitorAnchor(preferred) {
+  const candidates = preferred ? [preferred] : document.querySelectorAll('.monitor-history-summary, .monitor-attempt-row, #monitor-mobile-cards > .monitor-student-card');
+  for (const element of candidates) {
+    const rect = element.getBoundingClientRect();
+    if (!element.hidden && rect.height > 0 && rect.top >= 0 && rect.top < window.innerHeight) return {element, top: rect.top};
+  }
+  return null;
+}
+
+function restoreMonitorAnchor(anchor) {
+  if (!anchor?.element.isConnected || anchor.element.hidden) return;
+  const delta = anchor.element.getBoundingClientRect().top - anchor.top;
+  if (Math.abs(delta) > 1) window.scrollBy({top: delta, behavior: 'instant'});
+}
+
+function syncMonitorChildren(parent, elements) {
+  // Re-appending every row temporarily collapses the table and resets scroll.
+  // Keep existing rows in place; move only a row whose position really changed.
+  let cursor = parent.firstElementChild;
+  for (const element of elements) {
+    if (element === cursor) cursor = cursor.nextElementSibling;
+    else parent.insertBefore(element, cursor);
+  }
+}
+
+function arrangeMonitorAttempts(anchor = captureMonitorAnchor()) {
   const tbody = document.getElementById('students-tbody');
   const cards = document.getElementById('monitor-mobile-cards');
   if (!tbody || !cards) return;
+  const layout = new Map([['students-tbody', []], ['monitor-mobile-cards', []]]);
   const active = [], completed = new Map();
   for (const attempt of monitorAttempts.values()) {
-    if (!completedMonitorStatuses.has(attempt.status)) active.push(attempt);
+    if (monitorGrouping === 'all' || (monitorGrouping === 'history' && !completedMonitorStatuses.has(attempt.status))) active.push(attempt);
     else {
       const key = attempt.student_key || `attempt-${attempt.id}`;
       if (!completed.has(key)) completed.set(key, []);
@@ -318,22 +363,28 @@ function arrangeMonitorAttempts() {
   document.querySelectorAll('.monitor-history-summary').forEach(summary => {
     if (!groupedKeys.has(summary.dataset.groupKey)) summary.remove();
   });
-  active.sort(compareMonitorAttempts).forEach(a => appendMonitorAttempt(a, false));
-  const histories = [...completed.entries()].sort((a, b) => compareMonitorAttempts(a[1].at(-1), b[1].at(-1)));
+  const compare = (a, b) => Number(completedMonitorStatuses.has(a.status)) - Number(completedMonitorStatuses.has(b.status)) || compareMonitorAttempts(a, b);
+  active.sort(compare).forEach(a => appendMonitorAttempt(a, false, layout));
+  const representative = rows => [...rows].sort(compare)[0];
+  const histories = [...completed.entries()].sort((a, b) => compare(representative(a[1]), representative(b[1])));
   for (const [key, attempts] of histories) {
     attempts.sort((a,b) => (a.session_attempt_number || 1) - (b.session_attempt_number || 1) || a.id-b.id);
     if (attempts.length > 1) {
-      tbody.appendChild(monitorHistorySummary(key, attempts, false));
-      cards.appendChild(monitorHistorySummary(key, attempts, true));
+      layout.get('students-tbody').push(monitorHistorySummary(key, attempts, false));
+      layout.get('monitor-mobile-cards').push(monitorHistorySummary(key, attempts, true));
     }
-    for (const attempt of attempts) appendMonitorAttempt(attempt, attempts.length > 1 && !expandedMonitorGroups.has(key));
+    for (const attempt of [...attempts].sort(compare)) appendMonitorAttempt(attempt,
+      attempts.length > 1 && completedMonitorStatuses.has(attempt.status) && !expandedMonitorGroups.has(key), layout);
   }
+  syncMonitorChildren(tbody, layout.get('students-tbody'));
+  syncMonitorChildren(cards, layout.get('monitor-mobile-cards'));
   document.getElementById('student-count').textContent = monitorAttempts.size;
-  document.getElementById('finished-count').textContent = [...completed.values()].reduce((total, rows) => total + rows.length, 0);
+  document.getElementById('finished-count').textContent = [...monitorAttempts.values()].filter(a => completedMonitorStatuses.has(a.status)).length;
   if (!monitorAttempts.size) {
     tbody.innerHTML = '<tr id="no-students-row"><td colspan="7" class="text-center text-muted">Учні ще не підключились</td></tr>';
     cards.innerHTML = '<p class="text-muted">Учні ще не підключились</p>';
   }
+  restoreMonitorAnchor(anchor);
 }
 
 function initializeMonitorAttempts() {
@@ -342,6 +393,15 @@ function initializeMonitorAttempts() {
   const validSorts = ['status','name','newest','oldest','progress'];
   try { const saved = localStorage.getItem('schooltest:monitor-sort'); if (validSorts.includes(saved)) monitorSort = saved; } catch {}
   select.value = monitorSort;
+  const grouping = document.getElementById('monitor-grouping');
+  const validGroups = ['student', 'history', 'all'];
+  try { const saved = localStorage.getItem('schooltest:monitor-grouping'); if (validGroups.includes(saved)) monitorGrouping = saved; } catch {}
+  grouping.value = monitorGrouping;
+  grouping.addEventListener('change', () => {
+    monitorGrouping = validGroups.includes(grouping.value) ? grouping.value : 'student';
+    try { localStorage.setItem('schooltest:monitor-grouping', monitorGrouping); } catch {}
+    arrangeMonitorAttempts();
+  });
   for (const attempt of INITIAL_MONITOR_ATTEMPTS) updateStudentRow(attempt.id, attempt, false);
   arrangeMonitorAttempts();
   select.addEventListener('change', () => {
@@ -352,9 +412,11 @@ function initializeMonitorAttempts() {
   document.addEventListener('click', event => {
     const button = event.target.closest('[data-monitor-group]');
     if (!button) return;
+    event.preventDefault();
+    const anchor = captureMonitorAnchor(button);
     const key = button.dataset.monitorGroup;
     if (expandedMonitorGroups.has(key)) expandedMonitorGroups.delete(key); else expandedMonitorGroups.add(key);
-    arrangeMonitorAttempts();
+    arrangeMonitorAttempts(anchor);
   });
 }
 
@@ -477,11 +539,11 @@ async function loadSessionStatus() {
     const resp = await fetch(`/api/session-status/${SESSION_ID}`);
     if (!resp.ok) return;
     const data = await resp.json();
-
+    const anchor = captureMonitorAnchor();
     const ids = new Set(data.attempts.map(a => Number(a.id)));
     for (const id of monitorAttempts.keys()) if (!ids.has(id)) removeStudentRow(id, false);
     data.attempts.forEach(a => updateStudentRow(a.id, a, false));
-    arrangeMonitorAttempts();
+    arrangeMonitorAttempts(anchor);
   } catch { /* ігнорується */ }
 }
 

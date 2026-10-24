@@ -192,6 +192,20 @@ class Scripts(unittest.TestCase):
     def commands(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
 
+    def test_backup_is_private_even_with_public_output_directory_and_umask(self):
+        output = self.root / 'explicit-output'
+        output.mkdir(mode=0o755)
+        output.chmod(0o755)
+        previous = os.umask(0o022)
+        try:
+            result = self.run_script('backup.sh', '--output', output)
+        finally:
+            os.umask(previous)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(output.stat().st_mode & 0o777, 0o700)
+        for name in ('database.dump', 'files.tar.gz', 'manifest.json'):
+            self.assertEqual((output / name).stat().st_mode & 0o777, 0o600, name)
+
     def test_update_success_and_upload_migration(self):
         result = self.run_script('update.sh')
         self.assertEqual(result.returncode, 0, result.stderr)

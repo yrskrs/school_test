@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # A consistent PostgreSQL + files snapshot; no shell evaluation of .env.
 set -Eeuo pipefail
+umask 077
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 OUTPUT=""
 KEEP_STOPPED=false
@@ -31,6 +32,7 @@ trap cleanup EXIT
 if [[ -z "$OUTPUT" ]]; then OUTPUT="$(new_backup_path)"; else mkdir -p "$OUTPUT"; fi
 [[ -z "$(ls -A "$OUTPUT")" ]] || fail "Backup directory must be empty."
 OUTPUT="$(cd "$OUTPUT" && pwd)"
+chmod 700 "$OUTPUT"
 if $WAS_RUNNING; then
   STOPPED=true
   docker compose stop app

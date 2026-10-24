@@ -85,7 +85,12 @@
   </div>
 
   <div class="monitor-list-toolbar">
-    <p class="form-hint">Поточні спроби завжди зверху. Завершені повторні проходження згортаються в історію учня.</p>
+    <p class="form-hint">Учні з поточними спробами завжди зверху. Номер повторної спроби та попередня оцінка — поруч з учнем. Розгортання історії залишає поточну спробу видимою.</p>
+    <div class="form-group"><label for="monitor-grouping">Відображення спроб</label><select id="monitor-grouping">
+      <option value="student">За учнем</option>
+      <option value="history">Поточні та історія окремо</option>
+      <option value="all">Усі спроби окремо</option>
+    </select></div>
     <div class="form-group"><label for="monitor-sort">Сортування</label><select id="monitor-sort">
       <option value="status">За статусом</option><option value="name">За ім’ям</option>
       <option value="newest">Нові спочатку</option><option value="oldest">Старі спочатку</option>

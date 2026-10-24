@@ -43,6 +43,7 @@ class AuditFileAccess(unittest.IsolatedAsyncioTestCase):
                 _, _, headers = await fixtures.http('GET', path)
                 self.assertEqual(headers[b'x-content-type-options'], b'nosniff')
                 self.assertEqual(headers[b'x-frame-options'], b'DENY')
+                self.assertEqual(headers[b'referrer-policy'], b'same-origin')
 
 
 if __name__ == '__main__':

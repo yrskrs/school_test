@@ -75,6 +75,7 @@ async def add_cache_control_header(request: Request, call_next):
     response.headers["X-App-Version"] = settings.APP_VERSION
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "same-origin"
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
     else:

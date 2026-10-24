@@ -145,6 +145,7 @@
 .teacher-workspace .monitor-history-name { overflow-wrap: anywhere; }
 .teacher-workspace .monitor-history-meta { display: block; font-size: .8rem; margin-top: .4rem; }
 .teacher-workspace .monitor-history-summary { background: var(--bg-card2); }
+.teacher-workspace .monitor-history-summary--active { background: var(--primary-glow); }
 .teacher-workspace .monitor-attempt-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .4rem; }
 .teacher-workspace .monitor-attempt-meta:empty { display: none; }
 .teacher-workspace .monitor-attempt-number { color: var(--primary); background: var(--primary-glow); white-space: nowrap; }
