@@ -5,6 +5,7 @@ import hmac
 import json
 import re
 import secrets
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import and_, or_, func
@@ -684,7 +685,8 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
         })
 
     sessions = db.query(models.TestSession).join(models.Test).filter(models.Test.teacher_id == teacher.id).order_by(models.TestSession.id.desc()).all()
-    site_url = settings.PUBLIC_BASE_URL or str(request.base_url).rstrip('/')
+    site_url = str(request.base_url).rstrip('/')
+    from school_sync.network_inventory import connection_addresses
     response = templates.TemplateResponse(request, 'integrations.html', {
         'teacher': teacher,
         'csrf': csrf(request, teacher),
@@ -692,6 +694,8 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
         'success_msg': success_msg,
         'token': token,
         'site_url': site_url,
+        'source_instance_id': local_instance_id(db),
+        'connection_addresses': connection_addresses(site_url, os.getenv('APP_PORT') or '8080'),
         'connection_code': json.dumps({'source': 'schooltest', 'site_url': site_url, 'api_key': token}, ensure_ascii=False) if token else '',
         'classes': db.query(models.RosterClass).all(),
         'subjects': db.query(models.RosterSubject).all(),

@@ -3,6 +3,7 @@
 
 {% block content %}
 <div class="integrations-page">
+  {% include 'connection_help.html' %}
   <div class="page-header">
     <div>
       <h1>Підключення до журналу</h1>
@@ -64,7 +65,7 @@
       <div style="background:var(--bg);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
         <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.25rem;color:var(--primary)">2. Вставте адресу й ключ у журнал</div>
         <div style="font-size:0.86rem;color:var(--text-muted)">
-          У журналі відкрийте «Підключити тести / завдання» та вставте скопійовану адресу цього сайту й секретний ключ.
+          У журналі відкрийте «Підключення → Підключити сервіс» та вставте скопійовану адресу цього сайту й секретний ключ.
         </div>
       </div>
       <div style="background:var(--bg);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border)">
@@ -97,7 +98,7 @@
       </label>
       <div style="display:flex;gap:0.5rem">
         <input id="journal-site-url" readonly value="{{ site_url }}" style="flex:1;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text)">
-        <button type="button" class="btn btn-secondary" onclick="copyConnectionField(this,'journal-site-url')">Скопіювати адресу</button>
+        <button type="button" class="btn btn-secondary" data-copy-target="journal-site-url">Скопіювати адресу</button>
       </div>
     </div>
 
@@ -107,7 +108,7 @@
       </label>
       <div style="display:flex;gap:0.5rem">
         <textarea id="journal-api-key" readonly rows="2" style="flex:1;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:monospace">{{ token }}</textarea>
-        <button type="button" class="btn btn-primary" onclick="copyConnectionField(this,'journal-api-key')">Скопіювати ключ</button>
+        <button type="button" class="btn btn-primary" data-copy-target="journal-api-key">Скопіювати ключ</button>
       </div>
     </div>
 
