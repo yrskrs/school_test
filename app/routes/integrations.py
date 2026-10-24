@@ -24,6 +24,31 @@ from school_sync.core import SyncError
 router = APIRouter()
 
 
+def local_instance_id(db):
+    state = db.get(models.RosterState, 1)
+    identity = state.data.get('origin') if state and isinstance(state.data, dict) else None
+    return identity or operate(lambda engine, store: engine.origin, db)
+
+
+@router.get('/api/v2/ping')
+@router.get('/api/v2/ping/', include_in_schema=False)
+def service_ping(db: Session = Depends(get_db)):
+    from fastapi.responses import JSONResponse
+    from school_sync.discovery import ping_payload
+    return JSONResponse(ping_payload('schooltest', local_instance_id(db), settings.APP_VERSION),
+        headers={'Cache-Control': 'no-store'})
+
+
+@router.get('/api/v2/journal/connection/')
+def journal_connection_info(request: Request, db: Session = Depends(get_db)):
+    from fastapi.responses import JSONResponse
+    from school_sync.discovery import ping_payload
+    grant(request, db)
+    data = ping_payload('schooltest', local_instance_id(db), settings.APP_VERSION)
+    data.update(schema_version=2, permissions={'export': True, 'roster_import': True})
+    return JSONResponse(data, headers={'Cache-Control': 'no-store'})
+
+
 def csrf(request, teacher):
     return _sign(f"integration:{teacher.id}:{get_teacher_session(request)['t']}")
 
