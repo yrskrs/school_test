@@ -227,6 +227,11 @@ def grades(request: Request, db: Session = Depends(get_db)):
             continue
         if attempt.score is None or attempt.max_score is None or not attempt.finished_at:
             continue
+        value = _scale_grade(attempt)
+        # Keep the original test result, including zero, on the source. A zero
+        # or another grading scale is not a final 1–12 journal mark.
+        if (attempt.session.test.max_grade or 12) != 12 or not str(value).isdigit() or not 1 <= int(value) <= 12:
+            continue
         date = dt.date.fromisoformat(attempt.session.lesson_date) if attempt.session.lesson_date else attempt.finished_at.date()
         if not start <= date <= end:
             continue
@@ -241,7 +246,7 @@ def grades(request: Request, db: Session = Depends(get_db)):
             'outside_student_id': attempt.outside_student_id if not attempt.roster_student_id else None,
             'class_id': class_id, 'subject_id': subject_id,
             'work_id': attempt.session.test_id, 'title': attempt.session.test.title, 'attempt_id': attempt.id,
-            'points': attempt.score, 'max_points': attempt.max_score, 'value': _scale_grade(attempt),
+            'points': attempt.score, 'max_points': attempt.max_score, 'value': value,
             'grading_scale': attempt.session.test.max_grade or 12, 'date': date.isoformat(),
             'status': 'final', 'updated_at': updated.isoformat(), 'is_ai': False, 'approved_by_teacher': True}
         if attempt.session.lesson_number:

@@ -507,6 +507,17 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await http('GET',path))[0],401)
         self.assertEqual(json.loads((await http('GET',path.replace(f'subject_id={subject.id}','subject_id=999'),authorization='Bearer synthetic-v2'))[1])['grades'],[])
 
+    async def test_v2_zero_or_other_scale_stays_on_source_without_invalid_journal_mark(self):
+        group,subject,pupils=self.bind_roster()
+        path=f'/api/v2/journal/grades/?class_id={group.id}&subject_id={subject.id}&date_from=2026-09-01&date_to=2026-09-30'
+        self.attempt.score=0;self.db.commit()
+        self.assertEqual(json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades'],[])
+        self.db.refresh(self.attempt);self.assertEqual(self.attempt.score,0)
+        self.attempt.score=8;self.test.max_grade=100;self.db.commit()
+        self.assertEqual(json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades'],[])
+        self.test.max_grade=12;self.db.commit()
+        self.assertEqual(json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades'][0]['value'],'8')
+
     async def test_v2_same_names_choose_distinct_ids(self):
         group,subject,pupils=self.bind_roster()
         response=await http('GET','/api/session-roster?code=CHECK1');self.assertEqual(response[0],200)
