@@ -1,3 +1,5 @@
+from app.time_utils import timestamp_iso
+from app.time_utils import stored_now, kyiv_time, stored_from_kyiv
 import json
 import re
 from urllib.parse import urlencode
@@ -142,13 +144,13 @@ async def teacher_dashboard(
     from datetime import datetime, timedelta
 
     # 1. Activity last 7 days
-    today = datetime.now().date()
+    today = kyiv_time(stored_now()).date()
     activity_dates = [(today - timedelta(days=i)).strftime("%d.%m") for i in range(6, -1, -1)]
     activity_counts = {d: 0 for d in activity_dates}
 
     for a in finished_attempts:
         if a.finished_at:
-            d_str = a.finished_at.strftime("%d.%m")
+            d_str = kyiv_time(a.finished_at).strftime("%d.%m")
             if d_str in activity_counts:
                 activity_counts[d_str] += 1
 
@@ -1123,7 +1125,7 @@ async def stop_attempt(
     score, max_score = result_service.grade_all_answers(db, attempt)
 
     attempt.status = models.AttemptStatus.stopped
-    attempt.finished_at = datetime.now()
+    attempt.finished_at = stored_now()
     attempt.score = score
     attempt.max_score = max_score
     db.commit()
@@ -1141,11 +1143,12 @@ async def stop_attempt(
         "student_name": attempt.student_name,
         "attempt_id": attempt_id,
         "status": "stopped",
+        "finished_at": timestamp_iso(attempt.finished_at),
         "score": score,
         "max_score": max_score,
     })
 
-    return {"status": "ok", "score": score, "max_score": max_score}
+    return {"status": "ok", "score": score, "max_score": max_score, "finished_at": timestamp_iso(attempt.finished_at)}
 
 
 @router.post("/attempts/{attempt_id}/allow-device-transfer")
@@ -1590,6 +1593,7 @@ async def archive_tests_bulk(
         sd = datetime.strptime(start_date, "%Y-%m-%d")
         ed = datetime.strptime(end_date, "%Y-%m-%d")
         ed = datetime.combine(ed, time.max)
+        sd, ed = stored_from_kyiv(sd), stored_from_kyiv(ed)
     except Exception:
         raise HTTPException(status_code=400, detail="Невірний формат дати")
 
@@ -1657,6 +1661,7 @@ async def archive_results_bulk(
         sd = datetime.strptime(start_date, "%Y-%m-%d")
         ed = datetime.strptime(end_date, "%Y-%m-%d")
         ed = datetime.combine(ed, time.max)
+        sd, ed = stored_from_kyiv(sd), stored_from_kyiv(ed)
     except Exception:
         raise HTTPException(status_code=400, detail="Невірний формат дати")
 
@@ -1841,13 +1846,13 @@ async def school_journal(
     if date_from:
         try:
             df = datetime.strptime(date_from, "%Y-%m-%d")
-            query = query.filter(models.TestSession.started_at >= df)
+            query = query.filter(models.TestSession.started_at >= stored_from_kyiv(df))
         except ValueError:
             pass
     if date_to:
         try:
             dt = datetime.strptime(date_to, "%Y-%m-%d")
-            query = query.filter(models.TestSession.started_at <= dt.replace(hour=23, minute=59, second=59))
+            query = query.filter(models.TestSession.started_at <= stored_from_kyiv(dt.replace(hour=23, minute=59, second=59, microsecond=999999)))
         except ValueError:
             pass
 
@@ -1930,13 +1935,13 @@ async def school_journal_export(
     if date_from:
         try:
             df = datetime.strptime(date_from, "%Y-%m-%d")
-            query = query.filter(models.TestSession.started_at >= df)
+            query = query.filter(models.TestSession.started_at >= stored_from_kyiv(df))
         except ValueError:
             pass
     if date_to:
         try:
             dt = datetime.strptime(date_to, "%Y-%m-%d")
-            query = query.filter(models.TestSession.started_at <= dt.replace(hour=23, minute=59, second=59))
+            query = query.filter(models.TestSession.started_at <= stored_from_kyiv(dt.replace(hour=23, minute=59, second=59, microsecond=999999)))
         except ValueError:
             pass
 
@@ -1977,7 +1982,7 @@ async def school_journal_export(
     output = io.StringIO()
     writer = csv.writer(output)
     
-    header = ["Учень"] + [f"{col['test_title']} ({col['date'].strftime('%d.%m.%Y') if col['date'] else ''})" for col in columns]
+    header = ["Учень"] + [f"{col['test_title']} ({kyiv_time(col['date']).strftime('%d.%m.%Y') if col['date'] else ''})" for col in columns]
     writer.writerow(header)
     
     for s in students:

@@ -117,7 +117,7 @@
             {% endif %}
           </td>
           <td class="mobile-hidden">{{ info.latest_action }}</td>
-          <td>{{ info.latest_time.strftime('%d.%m.%Y %H:%M') if info.latest_time else '—' }}</td>
+          <td>{{ info.latest_time|kyiv_datetime('%d.%m.%Y %H:%M') if info.latest_time else '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -143,7 +143,7 @@
           <td>{{ s.test.teacher.full_name }}</td>
           <td><strong>{{ s.test.title }}</strong></td>
           <td class="mobile-hidden"><span class="badge badge-code">{{ s.access_code }}</span></td>
-          <td class="mobile-hidden">{{ s.started_at.strftime('%d.%m.%Y %H:%M') }}</td>
+          <td class="mobile-hidden">{{ s.started_at|kyiv_datetime('%d.%m.%Y %H:%M') }}</td>
           <td>
              <a href="/teacher/sessions/{{ s.id }}/monitor" class="btn btn-sm btn-primary">Моніторинг</a>
           </td>
@@ -196,7 +196,7 @@ function switchAdminTab(tab) {
         <td class="mobile-hidden">
           <span class="badge badge-code">{{ s.access_code }}</span>
         </td>
-        <td class="mobile-hidden">{{ s.started_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td class="mobile-hidden">{{ s.started_at|kyiv_datetime('%d.%m.%Y %H:%M') }}</td>
         <td>
           <a href="/teacher/sessions/{{ s.id }}/monitor" class="btn btn-sm btn-primary">Моніторинг</a>
         </td>

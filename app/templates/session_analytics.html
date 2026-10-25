@@ -15,7 +15,7 @@
         <option value="">Всі класи та уроки (загальна)</option>
         {% for s in all_sessions %}
         <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
-          Урок: {{ s.started_at.strftime('%d.%m.%Y %H:%M') }} (Код: {{ s.access_code }})
+          Урок: {{ s.started_at|kyiv_datetime('%d.%m.%Y %H:%M') }} (Код: {{ s.access_code }})
         </option>
         {% endfor %}
       </select>

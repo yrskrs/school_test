@@ -4,7 +4,7 @@ services:
     volumes:
       - lan_inventory:/run/school-lan:ro
   network_info:
-    image: ${SCHOOLTEST_IMAGE:-schooltest5-app:1.7.1}
+    image: ${SCHOOLTEST_IMAGE:-schooltest5-app:1.7.2}
     entrypoint: ["python", "-m", "school_sync.network_inventory"]
     network_mode: host
     user: '65534:65534'

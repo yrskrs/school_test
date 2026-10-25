@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.config import settings
+from app.time_utils import kyiv_time
 from app.database import get_db
 from app.deps import get_current_teacher
 from app.security import _sign, _verify_sign, get_teacher_session
@@ -232,7 +233,7 @@ def grades(request: Request, db: Session = Depends(get_db)):
         # or another grading scale is not a final 1–12 journal mark.
         if (attempt.session.test.max_grade or 12) != 12 or not str(value).isdigit() or not 1 <= int(value) <= 12:
             continue
-        date = dt.date.fromisoformat(attempt.session.lesson_date) if attempt.session.lesson_date else attempt.finished_at.date()
+        date = dt.date.fromisoformat(attempt.session.lesson_date) if attempt.session.lesson_date else kyiv_time(attempt.finished_at).date()
         if not start <= date <= end:
             continue
         updated = attempt.updated_at or attempt.finished_at

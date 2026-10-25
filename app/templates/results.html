@@ -109,7 +109,7 @@
         <option value="">Всі сесії</option>
         {% for s in sessions %}
         <option value="{{ s.id }}" {% if selected_session_id == s.id %}selected{% endif %}>
-          {{ s.test.title }} — {{ s.access_code }} ({{ s.started_at.strftime('%d.%m.%Y') }})
+          {{ s.test.title }} — {{ s.access_code }} ({{ s.started_at|kyiv_datetime('%d.%m.%Y') }})
         </option>
         {% endfor %}
       </select>
@@ -231,7 +231,7 @@
               <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
                 {% for a in group.attempts %}
                   <a href="/teacher/results/{{ a.id }}" 
-                     title="Спроба #{{ a.attempt_number }}: {{ a.grade }} б. ({{ a.pct }}%) — {{ a.started_at.strftime('%d.%m %H:%M') if a.started_at else '' }}"
+                     title="Спроба #{{ a.attempt_number }}: {{ a.grade }} б. ({{ a.pct }}%) — {{ a.started_at|kyiv_datetime('%d.%m %H:%M') if a.started_at else '' }}"
                      onclick="event.stopPropagation();"
                      class="attempt-mini-chip"
                      style="text-decoration: none; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid {% if a.is_best %}#10b981{% else %}var(--border-light){% endif %}; background: {% if a.is_best %}rgba(16, 185, 129, 0.12){% else %}rgba(125, 125, 125, 0.06){% endif %}; color: var(--text); display: inline-flex; align-items: center; gap: 3px; transition: transform 0.15s ease;">
@@ -252,7 +252,7 @@
             {% endif %}
           </td>
           <td class="mobile-hidden">
-            {{ group.latest_attempt.finished_at.strftime('%d.%m %H:%M') if group.latest_attempt.finished_at else '—' }}
+            {{ group.latest_attempt.finished_at|kyiv_datetime('%d.%m %H:%M') if group.latest_attempt.finished_at else '—' }}
           </td>
           <td style="text-align: right;">
             <div class="result-row-actions">
@@ -335,8 +335,8 @@
                       <td>
                         <span class="badge badge-code" style="font-size: 0.75rem; padding: 0.15rem 0.4rem;">{{ att.session.access_code }}</span>
                       </td>
-                      <td>{{ att.started_at.strftime('%d.%m.%Y %H:%M') if att.started_at else '—' }}</td>
-                      <td>{{ att.finished_at.strftime('%d.%m.%Y %H:%M') if att.finished_at else '—' }}</td>
+                      <td>{{ att.started_at|kyiv_datetime('%d.%m.%Y %H:%M') if att.started_at else '—' }}</td>
+                      <td>{{ att.finished_at|kyiv_datetime('%d.%m.%Y %H:%M') if att.finished_at else '—' }}</td>
                       <td>{{ att.duration_str }}</td>
                       <td style="text-align: center;">
                         <span class="badge" style="background: {% if att.is_best %}#10b981{% else %}var(--primary){% endif %}; color: white; font-weight: bold; font-size: 0.95rem; padding: 0.2rem 0.55rem; border-radius: 5px;">
@@ -496,8 +496,8 @@
               {% else %}Не розпочато{% endif %}
             </span>
           </td>
-          <td class="mobile-hidden">{{ attempt.started_at.strftime('%d.%m %H:%M') if attempt.started_at else '—' }}</td>
-          <td class="mobile-hidden">{{ attempt.finished_at.strftime('%d.%m %H:%M') if attempt.finished_at else '—' }}</td>
+          <td class="mobile-hidden">{{ attempt.started_at|kyiv_datetime('%d.%m %H:%M') if attempt.started_at else '—' }}</td>
+          <td class="mobile-hidden">{{ attempt.finished_at|kyiv_datetime('%d.%m %H:%M') if attempt.finished_at else '—' }}</td>
           <td style="text-align: right;">
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
               <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>

@@ -1,3 +1,4 @@
+from app.time_utils import timestamp_iso
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session, selectinload
 
@@ -69,8 +70,8 @@ async def get_attempt(attempt_id: int, request: Request, response: Response, db:
         "status": attempt.status.value,
         "score": attempt.score if visible_score else None,
         "max_score": attempt.max_score if visible_score else None,
-        "started_at": attempt.started_at.isoformat() if attempt.started_at else None,
-        "finished_at": attempt.finished_at.isoformat() if attempt.finished_at else None,
+        "started_at": timestamp_iso(attempt.started_at),
+        "finished_at": timestamp_iso(attempt.finished_at),
         "session_id": attempt.session_id,
         "violation_count": violation_count(db, attempt_id),
         "stop_reason": stop_reason(db, attempt_id) if attempt.status == models.AttemptStatus.stopped else None,

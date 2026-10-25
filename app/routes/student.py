@@ -1,5 +1,7 @@
+from app.time_utils import timestamp_iso
 import json
 from datetime import datetime
+from app.time_utils import stored_now
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
@@ -408,7 +410,7 @@ async def save_answer(
     is_correct, awarded = result_service.grade_answer(existing_answer.question, answer_text, selected_json)
     existing_answer.answer_text = answer_text
     existing_answer.selected_options_json = selected_json
-    existing_answer.answered_at = datetime.now()
+    existing_answer.answered_at = stored_now()
     existing_answer.is_correct = is_correct
     existing_answer.awarded_points = awarded
     db.commit()
@@ -479,6 +481,7 @@ async def finish_test(
         "score": score,
         "max_score": max_score,
         "status": status.value,
+        "finished_at": timestamp_iso(attempt.finished_at),
     })
 
     return {"status": "ok", "redirect": f"/student/test/{attempt_id}/finished"}
@@ -590,7 +593,7 @@ async def log_browser_event(
     if stopped_now:
         score, max_score = result_service.grade_all_answers(db, attempt, commit=False)
         attempt.status = models.AttemptStatus.stopped
-        attempt.finished_at = datetime.now()
+        attempt.finished_at = stored_now()
         attempt.score, attempt.max_score = score, max_score
         db.add(models.EventLog(attempt_id=attempt_id, event_type=models.EventType.stop_test,
             details=f"{VIOLATION_STOP_PREFIX} Автоматична зупинка після {count} порушень; score={score}/{max_score}"))
@@ -619,7 +622,8 @@ async def log_browser_event(
         await ws_manager.send_to_student(attempt_id, {"event": "stop", "reason": "violations"})
         await ws_manager.broadcast(attempt.session_id, {
             "event": "stop", "student_name": attempt.student_name, "attempt_id": attempt_id,
-            "status": "stopped", "reason": "violations", "violation_count": count,
+            "status": "stopped",
+            "finished_at": timestamp_iso(attempt.finished_at), "reason": "violations", "violation_count": count,
             "details": "Автоматична зупинка після третього порушення",
             "score": attempt.score, "max_score": attempt.max_score,
         })

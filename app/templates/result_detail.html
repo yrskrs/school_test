@@ -36,7 +36,7 @@
             {% if s.is_best %}<span>🏆</span>{% endif %}
           </span>
         {% else %}
-          <a href="/teacher/results/{{ s.id }}" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 6px;" title="{{ s.started_at.strftime('%d.%m.%Y %H:%M') if s.started_at else '' }}">
+          <a href="/teacher/results/{{ s.id }}" class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 6px;" title="{{ s.started_at|kyiv_datetime('%d.%m.%Y %H:%M') if s.started_at else '' }}">
             <span>Спроба #{{ s.attempt_number }}</span>
             <span style="color: var(--text-muted); font-size: 0.8rem;">({{ s.grade }} б.)</span>
             {% if s.is_best %}<span>🏆</span>{% endif %}
@@ -95,7 +95,7 @@
     <div class="stat-icon">📅</div>
     <div class="stat-info">
       <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; line-height: 1.2; margin-bottom: 0.2rem;">
-        <span class="stat-value" style="margin: 0; line-height: 1;">{{ attempt.started_at.strftime('%d.%m.%Y') if attempt.started_at else '—' }}</span>
+        <span class="stat-value" style="margin: 0; line-height: 1;">{{ attempt.started_at|kyiv_datetime('%d.%m.%Y') if attempt.started_at else '—' }}</span>
         <span class="badge badge-status badge-status--{{ attempt.status.value }}" style="font-size: 0.65rem; padding: 0.2rem 0.5rem;">
           {% if attempt.status.value == 'finished' %}Завершено
           {% elif attempt.status.value == 'timeout' %}Час вийшов
@@ -266,7 +266,7 @@
       <tbody>
         {% for log in event_logs %}
         <tr>
-          <td>{{ log.event_time.strftime('%H:%M:%S') }}</td>
+          <td>{{ log.event_time|kyiv_datetime('%H:%M:%S') }}</td>
           <td>
             {% set event_names = {
               'login': 'Вхід',

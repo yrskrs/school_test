@@ -112,9 +112,10 @@ function handleWsEvent(data) {
         status: data.status || (event === 'timeout_auto_submit' ? 'timeout' : 'finished'),
         score:  data.score,
         max_score: data.max_score,
-        finished_at: new Date().toISOString(),
+        finished_at: data.finished_at || null,
       });
       incrementFinishedCount();
+      fetchSessionStatus();
       break;
 
     case 'pause':
@@ -130,9 +131,10 @@ function handleWsEvent(data) {
         status: 'stopped',
         score: data.score,
         max_score: data.max_score,
-        finished_at: new Date().toISOString(),
+        finished_at: data.finished_at || null,
       });
       incrementFinishedCount();
+      fetchSessionStatus();
       break;
 
     case 'tab_blur':
@@ -196,7 +198,7 @@ function compareMonitorAttempts(a, b) {
 
 function displayMonitorTime(value) {
   if (!value) return '—';
-  return monitorTime(value) ? new Date(value).toLocaleTimeString('uk-UA') : value;
+  return monitorTime(value) ? new Date(value).toLocaleTimeString('uk-UA', {timeZone: 'Europe/Kyiv'}) : value;
 }
 
 function monitorScoreHtml(attempt) {
@@ -438,7 +440,8 @@ function addEventFeedItem(eventType, studentName, data) {
   const noMsg = document.getElementById('no-events-msg');
   if (noMsg) noMsg.remove();
 
-  const now = new Date().toLocaleTimeString('uk-UA');
+  const now = data.finished_at ? displayMonitorTime(data.finished_at)
+    : new Date().toLocaleTimeString('uk-UA', {timeZone: 'Europe/Kyiv'});
 
   const eventNames = {
     'login': 'Вхід',
@@ -659,9 +662,10 @@ async function stopAttempt(attemptId) {
         status: 'stopped',
         score: data.score,
         max_score: data.max_score,
-        finished_at: new Date().toISOString(),
+        finished_at: data.finished_at || null,
       });
       incrementFinishedCount();
+      fetchSessionStatus();
     } else {
       const err = await res.json().catch(() => ({}));
       alert('Помилка: ' + (err.detail || `HTTP ${res.status}`));

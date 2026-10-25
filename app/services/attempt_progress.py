@@ -2,6 +2,7 @@
 import json
 import re
 from datetime import datetime
+from app.time_utils import stored_now
 
 from fastapi import HTTPException
 
@@ -13,7 +14,7 @@ def legacy_time_left(db, attempt, now=None):
     limit = attempt.session.test.time_limit_minutes
     if not limit or not attempt.started_at:
         return None
-    now = now or datetime.now()  # noqa: DTZ005 -- Existing event/start times are local naive timestamps.
+    now = now or stored_now()  # Keep the original storage zone for naive checkpoints.
     cursor, elapsed, paused = attempt.started_at, 0, False
     events = db.query(models.EventLog).filter(
         models.EventLog.attempt_id == attempt.id,

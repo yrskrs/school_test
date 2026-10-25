@@ -121,7 +121,7 @@
             {% for log in logs %}
               <tr>
                 <td style="font-size: 0.85rem; color: var(--text-muted);">
-                  {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '' }}
+                  {{ log.created_at|kyiv_datetime('%Y-%m-%d %H:%M:%S') if log.created_at else '' }}
                 </td>
                 <td>
                   <span style="font-weight: 600;">{{ log.teacher_name }}</span>

@@ -150,8 +150,8 @@
       <div><strong>Предмет:</strong> {{ test.subject or '—' }}</div>
     </div>
     <div class="meta" style="justify-content: center; gap: 2rem;">
-      <div><strong>Початок:</strong> {{ attempt.started_at.strftime('%d.%m.%Y %H:%M') if attempt.started_at else '—' }}</div>
-      <div><strong>Завершення:</strong> {{ attempt.finished_at.strftime('%d.%m.%Y %H:%M') if attempt.finished_at else '—' }}</div>
+      <div><strong>Початок:</strong> {{ attempt.started_at|kyiv_datetime('%d.%m.%Y %H:%M') if attempt.started_at else '—' }}</div>
+      <div><strong>Завершення:</strong> {{ attempt.finished_at|kyiv_datetime('%d.%m.%Y %H:%M') if attempt.finished_at else '—' }}</div>
       <div><strong>Статус:</strong> 
         {% if attempt.status.value == 'timeout' %}Час вийшов
         {% elif attempt.status.value == 'stopped' %}Зупинено

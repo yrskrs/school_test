@@ -163,9 +163,9 @@
               </div>
             {% else %}—{% endif %}
           </td>
-          <td id="started-{{ attempt.id }}">{{ attempt.started_at.strftime('%H:%M:%S') if attempt.started_at else '—' }}</td>
+          <td id="started-{{ attempt.id }}">{{ attempt.started_at|kyiv_datetime('%H:%M:%S') if attempt.started_at else '—' }}</td>
           <td id="finished-{{ attempt.id }}">
-            {{ attempt.finished_at.strftime('%H:%M:%S') if attempt.finished_at else '—' }}
+            {{ attempt.finished_at|kyiv_datetime('%H:%M:%S') if attempt.finished_at else '—' }}
           </td>
           <td id="actions-{{ attempt.id }}">
             <div class="action-group">

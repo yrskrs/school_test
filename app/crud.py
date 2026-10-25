@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from app.time_utils import stored_now
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -262,7 +263,7 @@ def get_active_sessions(db: Session, teacher_id: int) -> List[models.TestSession
 
 def close_session(db: Session, session: models.TestSession) -> models.TestSession:
     session.is_active = False
-    session.ended_at = datetime.now()
+    session.ended_at = stored_now()
     db.commit()
     db.refresh(session)
     return session
@@ -325,7 +326,7 @@ def get_all_finished_attempts(db: Session, teacher_id: int, is_archived: bool = 
 
 def start_attempt(db: Session, attempt: models.StudentAttempt) -> models.StudentAttempt:
     attempt.status = models.AttemptStatus.in_progress
-    attempt.started_at = datetime.now()
+    attempt.started_at = stored_now()
     db.commit()
     db.refresh(attempt)
     return attempt
@@ -339,7 +340,7 @@ def finish_attempt(
     status: models.AttemptStatus = models.AttemptStatus.finished,
 ) -> models.StudentAttempt:
     attempt.status = status
-    attempt.finished_at = datetime.now()
+    attempt.finished_at = stored_now()
     attempt.score = score
     attempt.max_score = max_score
     db.commit()
@@ -375,7 +376,7 @@ def upsert_answer(
     if answer:
         answer.answer_text = answer_text
         answer.selected_options_json = selected_options_json
-        answer.answered_at = datetime.now()
+        answer.answered_at = stored_now()
     else:
         answer = models.StudentAnswer(
             attempt_id=attempt_id,

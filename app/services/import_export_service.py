@@ -1,4 +1,5 @@
 from __future__ import annotations
+from app.time_utils import format_kyiv
 
 import base64
 import csv
@@ -221,8 +222,8 @@ def export_results_to_csv(attempts: list[models.StudentAttempt]) -> str:
             max_score,
             percent,
             grade,
-            attempt.started_at.strftime("%Y-%m-%d %H:%M") if attempt.started_at else "",
-            attempt.finished_at.strftime("%Y-%m-%d %H:%M") if attempt.finished_at else "",
+            format_kyiv(attempt.started_at, "%Y-%m-%d %H:%M") if attempt.started_at else "",
+            format_kyiv(attempt.finished_at, "%Y-%m-%d %H:%M") if attempt.finished_at else "",
             attempt.status.value,
         ])
     return output.getvalue()

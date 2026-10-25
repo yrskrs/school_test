@@ -1,3 +1,4 @@
+from app.time_utils import timestamp_iso
 """Stable display identities and numbering, without changing stored attempts."""
 import hashlib
 import json
@@ -36,8 +37,8 @@ def monitor_attempt_data(attempts, violation_counts):
         'allow_device_transfer': bool((a.progress_state or {}).get('allow_device_transfer')),
         'violation_count': violation_counts.get(a.id, 0), 'status': a.status.value,
         'score': a.score, 'max_score': a.max_score,
-        'started_at': a.started_at.isoformat() if a.started_at else None,
-        'finished_at': a.finished_at.isoformat() if a.finished_at else None,
+        'started_at': timestamp_iso(a.started_at),
+        'finished_at': timestamp_iso(a.finished_at),
         'assigned_questions': [{'question_id': answer.question_id, 'is_correct': answer.is_correct}
             for answer in sorted((ans for ans in a.answers if ans.question), key=lambda ans: ans.question.order_index)],
     } for a in attempts]

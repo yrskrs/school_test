@@ -1,6 +1,7 @@
 import enum
 import secrets
 from datetime import datetime, timezone
+from app.time_utils import stored_now
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Enum, Float, ForeignKey,
@@ -74,7 +75,7 @@ class Teacher(Base):
     is_active = Column(Boolean, default=True)
     subject = Column(String(100), nullable=True)
     classes = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=stored_now)
 
     tests = relationship("Test", back_populates="teacher")
 
@@ -107,7 +108,7 @@ class Test(Base):
     max_grade = Column(Integer, default=12)
     random_questions_limit = Column(Integer, nullable=True)
     excluded_topics = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=stored_now)
     folder_name = Column(String(255), nullable=True)
     is_archived = Column(Boolean, default=False)
 
@@ -176,7 +177,7 @@ class TestSession(Base):
     lesson_date = Column(String(10), nullable=True)
     lesson_number = Column(Integer, nullable=True)
     access_code = Column(String(20), unique=True, nullable=False, index=True)
-    started_at = Column(DateTime, default=datetime.now)
+    started_at = Column(DateTime, default=stored_now)
     ended_at = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True)
     is_archived = Column(Boolean, default=False)
@@ -211,7 +212,7 @@ class StudentAttempt(Base):
     auth_nonce = Column(String(64), nullable=True, default=lambda: secrets.token_urlsafe(32))
     roster_student_id = Column(Integer, ForeignKey('roster_students.id'), nullable=True)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    started_at = Column(DateTime, default=datetime.now)
+    started_at = Column(DateTime, default=stored_now)
     finished_at = Column(DateTime, nullable=True)
     status = Column(Enum(AttemptStatus), default=AttemptStatus.not_started)
     progress_state = Column(JSON, nullable=True)
@@ -238,7 +239,7 @@ class StudentAnswer(Base):
     selected_options_json = Column(Text, nullable=True)  # JSON list of option ids
     is_correct = Column(Boolean, nullable=True)
     awarded_points = Column(Float, nullable=True, default=0.0)
-    answered_at = Column(DateTime, default=datetime.now)
+    answered_at = Column(DateTime, default=stored_now)
 
     attempt = relationship("StudentAttempt", back_populates="answers")
     question = relationship("Question", back_populates="student_answers")
@@ -254,7 +255,7 @@ class EventLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     attempt_id = Column(Integer, ForeignKey("student_attempts.id"), nullable=False)
     event_type = Column(Enum(EventType), nullable=False)
-    event_time = Column(DateTime, default=datetime.now)
+    event_time = Column(DateTime, default=stored_now)
     details = Column(Text, nullable=True)
 
     attempt = relationship("StudentAttempt", back_populates="event_logs")
@@ -273,7 +274,7 @@ class TeacherLog(Base):
     teacher_name = Column(String(150), nullable=False)
     action = Column(String(100), nullable=False)
     details = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=stored_now)
 
     teacher = relationship("Teacher")
 
