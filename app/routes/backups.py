@@ -9,7 +9,7 @@ from app.config import settings
 from app.deps import get_current_teacher
 from app.templating import templates
 from app.services.cloud_backups import Adapter, state
-from cloud_backup.control import begin_oauth, finish_oauth, page_data, save_config, enqueue
+from cloud_backup.control import page_data, save_config, enqueue
 
 router = APIRouter(tags=['backups'])
 
@@ -52,9 +52,6 @@ async def action(request:Request, teacher=Depends(get_current_teacher)):
         elif operation == 'read':
             state().mark_seen(Adapter.owner(teacher))
             message = 'Сповіщення позначено прочитаними'
-        elif operation == 'oauth':
-            redirect = str(request.url_for('backup_google_callback'))+'?scope='+scope
-            return RedirectResponse(begin_oauth(state(),Adapter.owner(teacher),scope,redirect),status_code=303)
         else:
             enqueue(state(),Adapter.owner(teacher),scope,operation,form)
             message = 'Операцію додано до черги. Підсумок з’явиться у центрі сповіщень.'
@@ -62,19 +59,6 @@ async def action(request:Request, teacher=Depends(get_current_teacher)):
     except ValueError as error:
         query = {'scope':scope,'error':str(error)}
     return RedirectResponse('/teacher/backups?'+urlencode(query), status_code=303)
-
-
-@router.get('/teacher/backups/google/callback', name='backup_google_callback')
-def callback(request:Request, teacher=Depends(get_current_teacher)):
-    from urllib.parse import urlencode
-    scope = scope_of(request)
-    try:
-        Adapter().authorize(Adapter.owner(teacher),scope)
-        if request.query_params.get('error'): raise ValueError('Доступ Google не надано')
-        finish_oauth(state(),Adapter.owner(teacher),scope,request.query_params.get('state'),request.query_params.get('code'))
-        query = {'scope':scope,'message':'Google Drive підключено для резервування'}
-    except ValueError as error: query = {'scope':scope,'error':str(error)}
-    return RedirectResponse('/teacher/backups?'+urlencode(query),status_code=303)
 
 
 @router.get('/teacher/backups/status')

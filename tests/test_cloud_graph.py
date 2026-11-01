@@ -84,6 +84,10 @@ class GraphTests(unittest.TestCase):
         repo,snapshot=self.capture(1);self.clean_target();self.config['_snapshot']=snapshot
         with recovery(WORK.name,repo,snapshot,'server') as directory:
             self.adapter.restore(1,self.config,directory)
+        before = {name:value for name,value in repo.read(snapshot, scope='server') if name != 'index.json'}
+        restored_repo, restored_snapshot = self.capture(1)
+        after = {name:value for name,value in restored_repo.read(restored_snapshot, scope='server') if name != 'index.json'}
+        self.assertEqual(before, after)
         with SessionLocal() as db:
             self.assertEqual(db.query(models.Test).count(),2)
             self.assertEqual(db.get(models.Teacher,2).hashed_password,'secret2')
@@ -154,8 +158,34 @@ class GraphTests(unittest.TestCase):
         async def check():
             status,body=await http('GET','/teacher/backups')
             self.assertEqual(status,200,body[:300]);self.assertIn('Інкрементальне сховище',body)
+            for text in ('Google Drive','name="client_secret"','name="client_id"','backup-public-url'):
+                self.assertNotIn(text,body)
+            self.assertEqual((await http('GET','/teacher/backups/google/callback'))[0],404)
             self.assertEqual((await http('POST','/teacher/backups',{'action':'save'}))[0],403)
             token=re.search(r'name="csrfmiddlewaretoken" value="([a-f0-9]+)"',body)[1]
+            from app.services.cloud_backups import state
+            from cloud_backup.control import profile
+            with SessionLocal() as db:
+                owner = Adapter.owner(db.get(models.Teacher,2))
+            store = state()
+            original = store.config(profile(owner,'personal'))
+            for form in ({'action':'save','provider':'google'},{'action':'oauth'},{'action':'connect_google'}):
+                status,_ = await http('POST','/teacher/backups',{'csrfmiddlewaretoken':token,**form})
+                self.assertEqual(status,303)
+                self.assertEqual(store.config(profile(owner,'personal')),original)
+                self.assertEqual(store.history(owner),[])
+            legacy = {'provider':'google','scope':'personal','repository':'b'*32,'automatic':True,'hour':2,'frequency':'daily',
+                      'client_id':'private-client','client_secret':'private-google-secret','refresh_token':'private-token'}
+            store.save(profile(owner,'personal'),legacy)
+            status,body = await http('GET','/teacher/backups')
+            self.assertIn('Підключіть Nextcloud',body)
+            status,body = await http('GET','/teacher/backups/status')
+            public = json.loads(body)['backup']
+            self.assertEqual(public['provider'],'nextcloud')
+            for field in ('client_id','client_secret','refresh_token','google_connected'):
+                self.assertNotIn(field,public)
+            self.assertEqual((await http('POST','/teacher/backups',{'action':'backup','csrfmiddlewaretoken':token}))[0],303)
+            self.assertEqual(store.history(owner),[])
             status,_=await http('POST','/teacher/backups',{'action':'save','csrfmiddlewaretoken':token,'provider':'nextcloud','url':'https://cloud.example','username':'teacher','app_password':'private-cloud-pass','password':'private-archive-pass','materials':'on','students':'on','student_files':'on'})
             self.assertEqual(status,303)
             status,body=await http('GET','/teacher/backups/status')
