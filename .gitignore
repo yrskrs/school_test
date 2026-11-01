@@ -65,3 +65,6 @@ data/update_status.json
 # Runtime updater files
 .maintenance.lock
 .release-image.yaml
+
+# Private durable cloud-backup state and credentials
+data/cloud-backup/

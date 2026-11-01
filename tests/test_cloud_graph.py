@@ -7,7 +7,9 @@ from pathlib import Path
 from sqlalchemy import text
 
 WORK = tempfile.TemporaryDirectory(prefix='schooltest-cloud-graph-')
-os.environ.update(PYTHON_DOTENV_DISABLED='1', DATABASE_URL='sqlite:///'+WORK.name+'/db.sqlite3', SECRET_KEY='synthetic-cloud-tests', CLOUD_BACKUP_ROOT=WORK.name+'/control')
+AUDIT_URL='postgresql+psycopg://audit:audit-synthetic@cloud-backup-audit-postgres:5432/schooltest_cloud_audit'
+TEST_URL=AUDIT_URL if os.environ.get('CLOUD_BACKUP_TEST_POSTGRES')=='1' else 'sqlite:///'+WORK.name+'/db.sqlite3'
+os.environ.update(PYTHON_DOTENV_DISABLED='1', DATABASE_URL=TEST_URL, SECRET_KEY='synthetic-cloud-tests', CLOUD_BACKUP_ROOT=WORK.name+'/control')
 from app.config import settings
 settings.STATIC_DIR = WORK.name+'/static'
 from app import models
@@ -85,5 +87,36 @@ class GraphTests(unittest.TestCase):
         self.config.update(students=False,student_files=False)
         repo,snapshot=self.capture()
         self.assertFalse(any(name.startswith('db/student_') for name,value in repo.read(snapshot)))
+
+    def test_http_settings_csrf_and_secret_redaction(self):
+        import asyncio
+        import re
+        import httpx
+        Path(settings.STATIC_DIR).mkdir(parents=True,exist_ok=True)
+        from app.main import app
+        from app.security import create_teacher_session
+        from fastapi.responses import Response
+        response=Response();create_teacher_session(response,2,'teacher')
+        async def check():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://testserver') as client:
+                client.cookies.update(response.cookies if hasattr(response,'cookies') else {})
+                from http.cookies import SimpleCookie
+                cookie=SimpleCookie();cookie.load(response.headers['set-cookie'])
+                for key,morsel in cookie.items(): client.cookies.set(key,morsel.value)
+                page=await client.get('/teacher/backups')
+                self.assertEqual(page.status_code,200,page.text[:300])
+                self.assertIn('Інкрементальне сховище',page.text)
+                denied=await client.post('/teacher/backups',data={'action':'save'})
+                self.assertEqual(denied.status_code,403)
+                token=re.search(r'name="csrfmiddlewaretoken" value="([a-f0-9]+)"',page.text)[1]
+                saved=await client.post('/teacher/backups',data={'action':'save','csrfmiddlewaretoken':token,'provider':'nextcloud','url':'https://cloud.example','username':'teacher','app_password':'private-cloud-pass','password':'private-archive-pass','materials':'on','students':'on','student_files':'on'})
+                self.assertEqual(saved.status_code,303)
+                status=await client.get('/teacher/backups/status')
+                self.assertEqual(status.status_code,200)
+                self.assertNotIn('private-cloud-pass',status.text)
+                self.assertNotIn('private-archive-pass',status.text)
+                self.assertEqual((await client.get('/teacher/backups?scope=server')).status_code,403)
+                self.assertEqual((await client.get('/teacher/backups/download/'+'a'*32)).status_code,404)
+        asyncio.run(check())
 
 if __name__=='__main__': unittest.main()

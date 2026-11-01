@@ -716,7 +716,7 @@
               topBar.style.borderBottom = '1px solid var(--border-light)';
               topBar.style.marginBottom = '0.4rem';
               topBar.innerHTML = `<button type="button" onclick="openProblemsModal()" class="btn btn-sm btn-primary" style="width:100%; font-size:0.8rem; padding:0.35rem 0.5rem; display:flex; align-items:center; justify-content:center; gap:0.4rem;">
-                🔍 Вікно всіх помилок (${data.count})
+                🔔 Центр сповіщень (${data.count})
               </button>`;
               list.appendChild(topBar);
 
@@ -739,7 +739,7 @@
                 item.style.textDecoration = 'none';
                 item.style.transition = 'all 0.15s ease';
                 item.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;">
-                  <strong style="color:var(--warning); font-size:0.8rem;">⚠️ ${escHtml(n.test_title || 'Тест')}</strong>
+                  <strong style="color:var(--warning); font-size:0.8rem;">${n.type === 'backup' ? '☁' : '⚠️'} ${escHtml(n.test_title || 'Тест')}</strong>
                   <span style="font-size:0.75rem; color:var(--primary);">Перейти →</span>
                 </div>
                 <span style="color:var(--text); line-height:1.35; font-size:0.82rem;">${escHtml(n.message)}</span>`;

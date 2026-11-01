@@ -334,6 +334,13 @@ async def get_notifications(
             "link": f"/teacher/tests/{dup.test_id}/edit#question-{dup.question_id}"
         })
 
+    from app.services.cloud_backups import state as backup_state, Adapter as BackupAdapter
+    for notice in backup_state().notices(BackupAdapter.owner(teacher)):
+        if not notice['seen']:
+            notifications.append({'id': 'backup-'+notice['id'], 'title': notice['title'],
+                'message': notice['body'], 'text': notice['title']+': '+notice['body'],
+                'type': 'backup', 'test_title': notice['title'], 'problem_type': notice['title'],
+                'problem_detail': notice['body'], 'link': '/teacher/backups', 'time': notice['created']})
     return {"status": "ok", "count": len(notifications), "notifications": notifications}
 
 

@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 import asyncio
+import threading
 import posixpath
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from app.config import settings
 from app.database import create_tables, engine
 from app import crud
 from app.templating import templates
-from app.routes import api, setup, student, teacher, websocket, integrations, updates
+from app.routes import api, setup, student, teacher, websocket, integrations, updates, backups
 
 
 # ---------------------------------------------------------------------------
@@ -29,6 +30,10 @@ async def lifespan(app: FastAPI):
 
     from app.services.startup_schema import ensure_legacy_columns
     ensure_legacy_columns(engine)
+    from app.services.cloud_backups import Adapter as BackupAdapter, state as backup_state
+    from cloud_backup.state import start_worker
+    backup_stop = threading.Event()
+    backup_thread = start_worker(backup_state(), BackupAdapter(), backup_stop)
     task = None
     if settings.ROSTER_PEERS:
         from app.services.roster_backend import worker
@@ -36,6 +41,8 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        backup_stop.set()
+        backup_thread.join(timeout=2)
         if task:
             task.cancel()
             try:
@@ -97,6 +104,7 @@ app.include_router(student.router)
 app.include_router(api.router)
 app.include_router(websocket.router)
 app.include_router(updates.router)
+app.include_router(backups.router)
 
 
 # ---------------------------------------------------------------------------

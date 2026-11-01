@@ -94,7 +94,7 @@ class Adapter:
         if not config['students']:
             for name in ('test_sessions', 'student_attempts', 'student_answers', 'event_logs'):
                 rows[name] = []
-        index = {'app': self.app, 'protocol': 1, 'scope': config['scope'], 'owner': int(owner),
+        index = {'app': self.app, 'protocol': 1, 'application_version':settings.APP_VERSION, 'scope': config['scope'], 'owner': int(owner),
                  'schema': schema(), 'options': {k: config[k] for k in ('materials', 'students', 'student_files')},
                  'counts': {k: len(v) for k,v in rows.items()}}
         entries = [('index.json', bytes_source(json_bytes(index)))]
@@ -183,15 +183,18 @@ class Adapter:
                 if path.exists():
                     raise ValueError('Файли вже існують. Використайте чисте встановлення')
             personal = config['scope'] == 'personal'
-            if personal and any(conn.execute(select(Base.metadata.tables[name])).first() for name in ('roster_classes','roster_students','roster_subjects')):
-                raise ValueError('Особиста копія потребує порожніх списків на новому встановленні')
             if personal:
                 original = index['owner']
                 for records in rows.values():
                     for row in records:
                         if row.get('teacher_id') == original:
                             row['teacher_id'] = int(owner)
+                profile = rows['teachers'][0]
                 rows['teachers'] = []
+                for table in reversed(Base.metadata.sorted_tables):
+                    if table.name != 'teachers': conn.execute(table.delete())
+                conn.execute(models.Teacher.__table__.update().where(models.Teacher.id==int(owner)).values(
+                    full_name=profile['full_name'],subject=profile.get('subject'),classes=profile.get('classes')))
             else:
                 for table in reversed(Base.metadata.sorted_tables):
                     conn.execute(table.delete())
@@ -212,3 +215,8 @@ class Adapter:
     def notify(self, owner, title, body):
         # Persistent notices are merged into /teacher/notifications.
         pass
+
+    def notify_restored(self,title,body):
+        with SessionLocal() as db:
+            for teacher in db.query(models.Teacher).filter_by(is_active=True):
+                if can_manage_updates(db,teacher): state().notice(self.owner(teacher),title,body)
