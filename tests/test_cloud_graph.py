@@ -88,6 +88,18 @@ class GraphTests(unittest.TestCase):
         repo,snapshot=self.capture()
         self.assertFalse(any(name.startswith('db/student_') for name,value in repo.read(snapshot)))
 
+    def test_outside_class_student_keeps_required_roster_dependencies(self):
+        with SessionLocal() as db:
+            db.add(models.RosterClass(id=91,name='OtherClass'));db.flush()
+            db.add(models.RosterStudent(id=92,class_id=91,first_name='Іван',last_name='Учень'));db.flush()
+            db.get(models.StudentAttempt,14).roster_student_id=92;db.commit()
+        repo,snapshot=self.capture();contents=dict(repo.read(snapshot))
+        self.assertIn('db/roster_students/92.json',contents)
+        self.assertIn('db/roster_classes/91.json',contents)
+        self.clean_target();self.config['_snapshot']=snapshot
+        with recovery(WORK.name,repo,snapshot,'personal') as directory:self.adapter.restore(1,self.config,directory)
+        with SessionLocal() as db:self.assertEqual(db.get(models.StudentAttempt,14).roster_student_id,92)
+
     def test_http_settings_csrf_and_secret_redaction(self):
         import asyncio,re
         from urllib.parse import urlencode

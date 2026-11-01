@@ -81,9 +81,11 @@ class Adapter:
             class_names = {r['class_name'] for r in rows['tests']}
             class_ids = {r['roster_class_id'] for r in rows['test_sessions']}
             class_names.update(x.strip() for x in (rows['teachers'][0].get('classes') or '').split(','))
-            rows['roster_classes'] = [r for r in rows['roster_classes'] if r['id'] in class_ids or r['name'] in class_names]
-            classes = {r['id'] for r in rows['roster_classes']}
-            rows['roster_students'] = [r for r in rows['roster_students'] if r['class_id'] in classes]
+            normal_classes = {r['id'] for r in rows['roster_classes'] if r['id'] in class_ids or r['name'] in class_names}
+            referenced_students = {r['roster_student_id'] for r in rows['student_attempts']}
+            class_ids |= {r['class_id'] for r in rows['roster_students'] if r['id'] in referenced_students}
+            rows['roster_classes'] = [r for r in rows['roster_classes'] if r['id'] in class_ids or r['id'] in normal_classes]
+            rows['roster_students'] = [r for r in rows['roster_students'] if r['class_id'] in normal_classes or r['id'] in referenced_students]
             subject_names = {r['subject'] for r in rows['tests']} | {rows['teachers'][0].get('subject')}
             subject_ids = {r['roster_subject_id'] for r in rows['test_sessions']}
             rows['roster_subjects'] = [r for r in rows['roster_subjects'] if r['id'] in subject_ids or r['name'] in subject_names]
