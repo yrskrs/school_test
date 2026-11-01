@@ -100,6 +100,20 @@ class GraphTests(unittest.TestCase):
         with recovery(WORK.name,repo,snapshot,'personal') as directory:self.adapter.restore(1,self.config,directory)
         with SessionLocal() as db:self.assertEqual(db.get(models.StudentAttempt,14).roster_student_id,92)
 
+    def test_portable_password_zip_restores_without_cloud_access(self):
+        from cloud_backup.cli import extract_portable
+        from cloud_backup.archive import file_digest
+        repo=Repository(MemoryRemote(),'schooltest','a'*32,'zip-password')
+        with self.adapter.snapshot(2,self.config) as entries:
+            result=repo.backup(entries,archive_format='zip')
+        archive=Path(WORK.name)/'portable.zip'
+        archive.write_bytes(repo.remote.get('snapshots/'+result['snapshot']))
+        self.clean_target();self.config['_snapshot']='offline-'+file_digest(archive)
+        with tempfile.TemporaryDirectory(dir=WORK.name) as work:
+            extract_portable(archive,work,'zip-password')
+            self.adapter.restore(1,self.config,Path(work))
+        with SessionLocal() as db:self.assertEqual(db.get(models.StudentAnswer,15).selected_options_json,'[12]')
+
     def test_http_settings_csrf_and_secret_redaction(self):
         import asyncio,re
         from urllib.parse import urlencode
