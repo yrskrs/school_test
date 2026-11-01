@@ -1,0 +1,89 @@
+"""End-to-end logical recovery tests on disposable SQLite and synthetic files."""
+import json
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from sqlalchemy import text
+
+WORK = tempfile.TemporaryDirectory(prefix='schooltest-cloud-graph-')
+os.environ.update(PYTHON_DOTENV_DISABLED='1', DATABASE_URL='sqlite:///'+WORK.name+'/db.sqlite3', SECRET_KEY='synthetic-cloud-tests', CLOUD_BACKUP_ROOT=WORK.name+'/control')
+from app.config import settings
+settings.STATIC_DIR = WORK.name+'/static'
+from app import models
+from app.database import Base, SessionLocal, engine
+from app.services.cloud_backups import Adapter
+from cloud_backup.archive import Repository
+from cloud_backup.staging import recovery
+from test_cloud_archive import MemoryRemote
+
+
+class GraphTests(unittest.TestCase):
+    def setUp(self):
+        Base.metadata.drop_all(engine)
+        with engine.begin() as c: c.execute(text('DROP TABLE IF EXISTS cloud_restore_receipts'))
+        Base.metadata.create_all(engine)
+        self.config = {'repository':'a'*32,'scope':'personal','format':'incremental','materials':False,'students':True,'student_files':True}
+        with SessionLocal() as db:
+            db.add_all([models.Teacher(id=1,username='admin',full_name='Admin',hashed_password='secret1'),models.Teacher(id=2,username='teacher',full_name='Teacher',hashed_password='secret2')]);db.flush()
+            db.add_all([models.Test(id=10,teacher_id=2,title='Own'),models.Test(id=20,teacher_id=1,title='Other')]);db.flush()
+            db.add(models.Question(id=11,test_id=10,question_text='Q',question_type=models.QuestionType.single_choice));db.flush()
+            db.add(models.AnswerOption(id=12,question_id=11,option_text='Yes',is_correct=True));db.flush()
+            db.add(models.TestSession(id=13,test_id=10,access_code='CODE13'));db.flush()
+            db.add(models.StudentAttempt(id=14,session_id=13,student_name='Учень',score=1,max_score=1));db.flush()
+            db.add(models.StudentAnswer(id=15,attempt_id=14,question_id=11,selected_options_json='[12]',is_correct=True));db.commit()
+        self.adapter=Adapter()
+
+    def capture(self, owner=2):
+        remote=MemoryRemote();repo=Repository(remote,'schooltest','a'*32,'password')
+        with self.adapter.snapshot(owner,self.config) as entries:
+            job=repo.backup(entries,scope=self.config['scope'])
+        return repo,job['snapshot']
+
+    def clean_target(self):
+        Base.metadata.drop_all(engine);Base.metadata.create_all(engine)
+        with SessionLocal() as db:
+            db.add(models.Teacher(id=1,username='new',full_name='New',hashed_password='new-secret'));db.commit()
+
+    def test_personal_isolated_and_restore_remaps_owner_keeps_answers_and_is_idempotent(self):
+        repo,snapshot=self.capture()
+        rows=dict(repo.read(snapshot))
+        self.assertNotIn('db/tests/20.json',rows)
+        self.assertNotIn(b'secret2',b''.join(rows.values()))
+        self.clean_target()
+        self.config['_snapshot']=snapshot
+        with recovery(WORK.name,repo,snapshot,'personal') as directory:
+            self.assertEqual(self.adapter.validate(1,self.config,directory)['records'], 7)
+            self.adapter.restore(1,self.config,directory)
+            self.assertTrue(self.adapter.restore(1,self.config,directory)['already_restored'])
+        with SessionLocal() as db:
+            self.assertEqual(db.get(models.Test,10).teacher_id,1)
+            self.assertEqual(db.get(models.StudentAnswer,15).selected_options_json,'[12]')
+            self.assertEqual(db.get(models.Teacher,1).hashed_password,'new-secret')
+            self.assertEqual(db.get(models.StudentAttempt,14).student_name,'Учень')
+
+    def test_existing_work_blocks_restore_without_mutation(self):
+        repo,snapshot=self.capture();self.config['_snapshot']=snapshot
+        with recovery(WORK.name,repo,snapshot,'personal') as directory:
+            with self.assertRaises(ValueError): self.adapter.restore(2,self.config,directory)
+        with SessionLocal() as db: self.assertEqual(db.query(models.Test).count(),2)
+
+    def test_server_restores_both_teachers_and_accounts(self):
+        self.config['scope']='server'
+        repo,snapshot=self.capture(1);self.clean_target();self.config['_snapshot']=snapshot
+        with recovery(WORK.name,repo,snapshot,'server') as directory:
+            self.adapter.restore(1,self.config,directory)
+        with SessionLocal() as db:
+            self.assertEqual(db.query(models.Test).count(),2)
+            self.assertEqual(db.get(models.Teacher,2).hashed_password,'secret2')
+
+    def test_teacher_cannot_create_full_server_copy(self):
+        self.config['scope']='server'
+        with self.assertRaises(ValueError): self.capture(2)
+
+    def test_data_only_excludes_student_answers(self):
+        self.config.update(students=False,student_files=False)
+        repo,snapshot=self.capture()
+        self.assertFalse(any(name.startswith('db/student_') for name,value in repo.read(snapshot)))
+
+if __name__=='__main__': unittest.main()
