@@ -166,7 +166,7 @@
     
     <!-- Сповіщення (Notifications) -->
     <div class="nav-notifications" id="nav-notifications" style="position: relative; cursor: pointer; margin-left: 1rem; display: flex; align-items: center;">
-      <button type="button" class="teacher-notifications-toggle" aria-label="Сповіщення про проблеми у тестах" aria-expanded="false" aria-controls="notifications-dropdown" id="notifications-toggle">
+      <button type="button" class="teacher-notifications-toggle" aria-label="Центр сповіщень" aria-expanded="false" aria-controls="notifications-dropdown" id="notifications-toggle">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
         <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
@@ -176,9 +176,9 @@
       
       <div id="notifications-dropdown" class="card" style="display: none; position: absolute; top: 30px; right: 0; width: 340px; max-height: 420px; overflow-y: auto; box-shadow: var(--shadow); z-index: 1000; padding: 0.5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding: 0.3rem 0.5rem 0.5rem 0.5rem; margin-bottom: 0.4rem;">
-          <h4 style="margin: 0; font-size: 0.88rem; color: var(--text-muted);">⚠️ Проблеми у тестах</h4>
+          <h4 style="margin: 0; font-size: 0.88rem; color: var(--text-muted);">🔔 Центр сповіщень</h4>
           <button type="button" onclick="openProblemsModal()" class="btn btn-sm btn-secondary" style="font-size: 0.75rem; padding: 0.2rem 0.55rem;">
-            🔍 Вікно помилок
+            Переглянути всі
           </button>
         </div>
         <div id="notifications-list" style="display: flex; flex-direction: column; gap: 0.5rem; padding: 0.25rem;">
@@ -253,7 +253,7 @@
     <div class="problems-modal-container">
       <div class="problems-modal-header">
         <h3 class="problems-modal-title">
-          <span>⚠️ Аналіз та виправлення проблем у тестах</span>
+          <span>🔔 Центр сповіщень</span>
           <span id="modal-problems-count" class="badge badge-count" style="font-size:0.8rem;">0</span>
         </h3>
         <button type="button" class="problems-modal-close" onclick="closeProblemsModal()" title="Закрити">✕</button>
@@ -635,11 +635,11 @@
           <div class="problem-card-header">
             <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
               <span class="problem-card-test-badge">📘 ${escHtml(p.test_title || 'Тест')}</span>
-              <span class="problem-card-type-badge">⚠️ ${escHtml(p.problem_type || 'Помилка')}</span>
+              <span class="problem-card-type-badge">${p.type === 'backup' ? '☁' : '⚠️'} ${escHtml(p.problem_type || 'Повідомлення')}</span>
             </div>
             <span style="font-size:0.78rem; color:var(--text-dim);">${escHtml(p.question_idx || p.question_num || '')}</span>
           </div>
-          <div class="problem-card-location">
+          <div class="problem-card-location" style="${p.type === 'backup' ? 'display:none' : ''}">
             ${escHtml(p.question_num || 'Питання')}: «${escHtml((p.question_text || '').slice(0, 85))}${ (p.question_text || '').length > 85 ? '...' : ''}»
           </div>
           <div class="problem-card-detail">
@@ -652,7 +652,7 @@
               </button>
             ` : ''}
             <button type="button" class="btn btn-sm btn-primary" onclick="navigateToProblem('${p.link || ''}', '${p.target_id || p.question_id || ''}')" style="font-size:0.8rem;">
-              🎯 Перейти до питання →
+              ${p.type === 'backup' ? 'Відкрити резервні копії →' : '🎯 Перейти до питання →'}
             </button>
           </div>
         `;
