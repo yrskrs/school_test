@@ -15,6 +15,7 @@ from app.deps import can_manage_updates
 from cloud_backup.archive import json_bytes, safe_path
 from cloud_backup.files import bytes_source, destination, file_source, install_files
 from cloud_backup.state import State
+from cloud_backup.records import RecordEntries,add_records,read_records
 
 EXCLUDE = {'grade_export_grants'}  # reconnect API grants after recovery
 
@@ -100,12 +101,10 @@ class Adapter:
         index = {'app': self.app, 'protocol': 1, 'application_version':settings.APP_VERSION, 'scope': config['scope'], 'owner': int(owner),
                  'schema': schema(), 'options': {k: config[k] for k in ('materials', 'students', 'student_files')},
                  'counts': {k: len(v) for k,v in rows.items()}}
-        entries = [('index.json', bytes_source(json_bytes(index)))]
-        for table, records in sorted(rows.items()):
-            for row in records:
-                encoded = json.dumps(row, ensure_ascii=False, sort_keys=True, default=lambda x: x.isoformat() if isinstance(x, datetime) else x, separators=(',', ':')).encode()
-                key = row.get('id', row.get('ref'))
-                entries.append((f'db/{table}/{key}.json', bytes_source(encoded)))
+        entries = RecordEntries([('index.json', bytes_source(json_bytes(index)))])
+        for table,records in sorted(rows.items()):
+            primary_key='id' if 'id' in Base.metadata.tables[table].c else 'ref'
+            add_records(entries,table,records,primary_key)
         files = {}
         roots = {'tests': Path(settings.STATIC_DIR)/'tests', 'uploads': Path(settings.STATIC_DIR)/'uploads'}
         if config['materials']:
@@ -143,7 +142,7 @@ class Adapter:
             raise ValueError('Копія несумісна з цією схемою SchoolTest. Установіть сумісну версію сайту')
         rows = {}
         for name in schema():
-            rows[name] = [json.loads(p.read_text()) for p in sorted((directory/'db'/name).glob('*.json'))]
+            rows[name] = read_records(directory/'db'/name)
             if len(rows[name]) != index['counts'].get(name):
                 raise ValueError('Неповний склад БД')
         if config['scope'] == 'personal':

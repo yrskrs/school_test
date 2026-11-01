@@ -2,6 +2,7 @@
 import hashlib
 import hmac
 import re
+import time
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from app.config import settings
@@ -96,5 +97,5 @@ def download(job:str, teacher=Depends(get_current_teacher)):
     if not any(r['id']==job and r['kind']=='download' and r['status']=='completed' for r in store.history(Adapter.owner(teacher))):
         raise HTTPException(404)
     target = store.root/(job+'.zip')
-    if not target.is_file(): raise HTTPException(404,'Архів уже видалено. Підготуйте завантаження повторно')
+    if not target.is_file() or target.stat().st_mtime<time.time()-86400: raise HTTPException(404,'Архів уже видалено. Підготуйте завантаження повторно')
     return FileResponse(target,media_type='application/zip',filename='schooltest-backup.zip',headers={'Cache-Control':'no-store'})

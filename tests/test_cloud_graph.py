@@ -20,6 +20,15 @@ from cloud_backup.staging import recovery
 from test_cloud_archive import MemoryRemote
 
 
+def archive_rows(contents,label):
+    rows=[]
+    for name,value in contents.items():
+        if name.startswith('db/'+label+'/'):
+            value=json.loads(value)
+            rows.extend(value if isinstance(value,list) else [value])
+    return rows
+
+
 class GraphTests(unittest.TestCase):
     def setUp(self):
         Base.metadata.drop_all(engine)
@@ -50,7 +59,7 @@ class GraphTests(unittest.TestCase):
     def test_personal_isolated_and_restore_remaps_owner_keeps_answers_and_is_idempotent(self):
         repo,snapshot=self.capture()
         rows=dict(repo.read(snapshot))
-        self.assertNotIn('db/tests/20.json',rows)
+        self.assertEqual([row['id'] for row in archive_rows(rows,'tests')],[10])
         self.assertNotIn(b'secret2',b''.join(rows.values()))
         self.clean_target()
         self.config['_snapshot']=snapshot
@@ -94,8 +103,8 @@ class GraphTests(unittest.TestCase):
             db.add(models.RosterStudent(id=92,class_id=91,first_name='Іван',last_name='Учень'));db.flush()
             db.get(models.StudentAttempt,14).roster_student_id=92;db.commit()
         repo,snapshot=self.capture();contents=dict(repo.read(snapshot))
-        self.assertIn('db/roster_students/92.json',contents)
-        self.assertIn('db/roster_classes/91.json',contents)
+        self.assertIn(92,[row['id'] for row in archive_rows(contents,'roster_students')])
+        self.assertIn(91,[row['id'] for row in archive_rows(contents,'roster_classes')])
         self.clean_target();self.config['_snapshot']=snapshot
         with recovery(WORK.name,repo,snapshot,'personal') as directory:self.adapter.restore(1,self.config,directory)
         with SessionLocal() as db:self.assertEqual(db.get(models.StudentAttempt,14).roster_student_id,92)
