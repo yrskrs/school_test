@@ -89,34 +89,44 @@ class GraphTests(unittest.TestCase):
         self.assertFalse(any(name.startswith('db/student_') for name,value in repo.read(snapshot)))
 
     def test_http_settings_csrf_and_secret_redaction(self):
-        import asyncio
-        import re
-        import httpx
+        import asyncio,re
+        from urllib.parse import urlencode
         Path(settings.STATIC_DIR).mkdir(parents=True,exist_ok=True)
         from app.main import app
         from app.security import create_teacher_session
         from fastapi.responses import Response
         response=Response();create_teacher_session(response,2,'teacher')
+        cookie=response.headers['set-cookie'].split(';',1)[0]
+        async def http(method,path,data=None):
+            path,_,query=path.partition('?')
+            payload=urlencode(data).encode() if data is not None else b''
+            headers=[(b'host',b'checks.local'),(b'cookie',cookie.encode()),(b'accept',b'text/html')]
+            if data is not None:headers.append((b'content-type',b'application/x-www-form-urlencoded'))
+            scope={'type':'http','asgi':{'version':'3.0','spec_version':'2.4'},'http_version':'1.1','method':method,'scheme':'http','path':path,'raw_path':path.encode(),'query_string':query.encode(),'root_path':'','headers':headers,'client':('127.0.0.1',1),'server':('checks.local',80)}
+            messages=[];consumed=False;complete=asyncio.Event()
+            async def receive():
+                nonlocal consumed
+                if not consumed:
+                    consumed=True;return {'type':'http.request','body':payload,'more_body':False}
+                await complete.wait();return {'type':'http.disconnect'}
+            async def send(message):
+                messages.append(message)
+                if message['type']=='http.response.body' and not message.get('more_body',False):complete.set()
+            await asyncio.wait_for(app(scope,receive,send),timeout=10)
+            status=next(m['status'] for m in messages if m['type']=='http.response.start')
+            body=b''.join(m.get('body',b'') for m in messages if m['type']=='http.response.body').decode()
+            return status,body
         async def check():
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url='http://testserver') as client:
-                client.cookies.update(response.cookies if hasattr(response,'cookies') else {})
-                from http.cookies import SimpleCookie
-                cookie=SimpleCookie();cookie.load(response.headers['set-cookie'])
-                for key,morsel in cookie.items(): client.cookies.set(key,morsel.value)
-                page=await client.get('/teacher/backups')
-                self.assertEqual(page.status_code,200,page.text[:300])
-                self.assertIn('Інкрементальне сховище',page.text)
-                denied=await client.post('/teacher/backups',data={'action':'save'})
-                self.assertEqual(denied.status_code,403)
-                token=re.search(r'name="csrfmiddlewaretoken" value="([a-f0-9]+)"',page.text)[1]
-                saved=await client.post('/teacher/backups',data={'action':'save','csrfmiddlewaretoken':token,'provider':'nextcloud','url':'https://cloud.example','username':'teacher','app_password':'private-cloud-pass','password':'private-archive-pass','materials':'on','students':'on','student_files':'on'})
-                self.assertEqual(saved.status_code,303)
-                status=await client.get('/teacher/backups/status')
-                self.assertEqual(status.status_code,200)
-                self.assertNotIn('private-cloud-pass',status.text)
-                self.assertNotIn('private-archive-pass',status.text)
-                self.assertEqual((await client.get('/teacher/backups?scope=server')).status_code,403)
-                self.assertEqual((await client.get('/teacher/backups/download/'+'a'*32)).status_code,404)
+            status,body=await http('GET','/teacher/backups')
+            self.assertEqual(status,200,body[:300]);self.assertIn('Інкрементальне сховище',body)
+            self.assertEqual((await http('POST','/teacher/backups',{'action':'save'}))[0],403)
+            token=re.search(r'name="csrfmiddlewaretoken" value="([a-f0-9]+)"',body)[1]
+            status,_=await http('POST','/teacher/backups',{'action':'save','csrfmiddlewaretoken':token,'provider':'nextcloud','url':'https://cloud.example','username':'teacher','app_password':'private-cloud-pass','password':'private-archive-pass','materials':'on','students':'on','student_files':'on'})
+            self.assertEqual(status,303)
+            status,body=await http('GET','/teacher/backups/status')
+            self.assertEqual(status,200);self.assertNotIn('private-cloud-pass',body);self.assertNotIn('private-archive-pass',body)
+            self.assertEqual((await http('GET','/teacher/backups?scope=server'))[0],403)
+            self.assertEqual((await http('GET','/teacher/backups/download/'+'a'*32))[0],404)
         asyncio.run(check())
 
 if __name__=='__main__': unittest.main()

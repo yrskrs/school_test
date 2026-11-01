@@ -32,7 +32,8 @@ class Adapter:
 
     @staticmethod
     def owner(teacher):
-        fingerprint = hashlib.sha256(f'{teacher.username}:{teacher.created_at.isoformat()}'.encode()).hexdigest()[:32]
+        identity = teacher.created_at.isoformat() if teacher.created_at else (teacher.auth_nonce or teacher.hashed_password)
+        fingerprint = hashlib.sha256(f'{teacher.username}:{identity}'.encode()).hexdigest()[:32]
         return f'{teacher.id}~{fingerprint}'
 
     def resolve(self, owner):
@@ -83,7 +84,7 @@ class Adapter:
             rows['roster_classes'] = [r for r in rows['roster_classes'] if r['id'] in class_ids or r['name'] in class_names]
             classes = {r['id'] for r in rows['roster_classes']}
             rows['roster_students'] = [r for r in rows['roster_students'] if r['class_id'] in classes]
-            subject_names = {r['subject'] for r in rows['tests']}
+            subject_names = {r['subject'] for r in rows['tests']} | {rows['teachers'][0].get('subject')}
             subject_ids = {r['roster_subject_id'] for r in rows['test_sessions']}
             rows['roster_subjects'] = [r for r in rows['roster_subjects'] if r['id'] in subject_ids or r['name'] in subject_names]
             rows['roster_replicas'] = []
@@ -118,9 +119,12 @@ class Adapter:
             for table in ('questions', 'answer_options'):
                 for row in rows[table]:
                     url = row.get('image_url') or ''
-                    if url.startswith('/static/uploads/'):
-                        relative = url.removeprefix('/static/uploads/')
-                        files['uploads/'+relative] = destination(roots['uploads'], relative)
+                    for kind in ('uploads','tests'):
+                        prefix = '/static/'+kind+'/'
+                        if url.startswith(prefix):
+                            from urllib.parse import unquote
+                            relative = unquote(url.removeprefix(prefix))
+                            files[kind+'/'+relative] = destination(roots[kind],relative)
         if config['scope'] == 'server' and config['materials']:
             for name, root in roots.items():
                 if root.exists():
