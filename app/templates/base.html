@@ -260,9 +260,9 @@
       </div>
 
       <div class="problems-modal-controls">
-        <input type="text" id="problems-modal-search" class="problems-modal-search" placeholder="🔍 Швидкий пошук у тексті питання чи варіанта..." oninput="renderProblemsModalContent()" />
+        <input type="text" id="problems-modal-search" class="problems-modal-search" placeholder="🔍 Пошук у сповіщеннях і запитаннях..." oninput="renderProblemsModalContent()" />
         <select id="problems-modal-filter" class="problems-modal-search" style="flex:0 0 200px;" onchange="renderProblemsModalContent()">
-          <option value="all">Усі типи помилок</option>
+          <option value="all">Усі повідомлення</option>
           <option value="option_dup">Дублювання варіантів</option>
           <option value="matching_dup">Дублювання відповідностей</option>
         </select>
@@ -621,8 +621,8 @@
         listEl.innerHTML = `
           <div style="text-align:center; padding:3rem 1rem; color:var(--text-muted);">
             <div style="font-size:3rem; margin-bottom:0.5rem;">🎉</div>
-            <h4 style="margin:0 0 0.25rem 0; color:var(--text);">Проблем не виявлено!</h4>
-            <p style="font-size:0.85rem; margin:0;">Усі перевірені тести не мають відомих дублікатів чи помилок.</p>
+            <h4 style="margin:0 0 0.25rem 0; color:var(--text);">Повідомлень не знайдено</h4>
+            <p style="font-size:0.85rem; margin:0;">Змініть пошук або фільтр, щоб переглянути інші сповіщення.</p>
           </div>`;
         return;
       }
@@ -779,7 +779,7 @@
             } else {
               window.currentServerNotifications = [];
               badge.style.display = 'none';
-              list.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:0.75rem 0.5rem; display:block;">Проблем не виявлено 🎉</span>';
+              list.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding:0.75rem 0.5rem; display:block;">Нових сповіщень немає</span>';
             }
             if (window.renderProblemsModalContent) window.renderProblemsModalContent();
           })
