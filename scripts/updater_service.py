@@ -88,6 +88,19 @@ def load_status():
                                      step_name='Операцію перервано', progress=min(saved.get('progress', 0), 99))
         except (ValueError, OSError):
             pass
+    try:
+        current_ver = get_current_version()
+    except Exception:
+        current_ver = CURRENT_STATE.get('current_version')
+    CURRENT_STATE['current_version'] = current_ver
+    target_ver = CURRENT_STATE.get('target_version')
+    if (CURRENT_STATE.get('state') != 'running' and current_ver and target_ver and
+            version_tuple(target_ver) < version_tuple(current_ver)):
+        CURRENT_STATE.update(
+            state='idle', step=0, step_name='Готово до роботи',
+            progress=0, logs=[], error=None, rolled_back=False,
+            rollback_error=None, target_version=None
+        )
     save_status()
 
 
@@ -529,6 +542,20 @@ class UpdaterHTTPHandler(http.server.BaseHTTPRequestHandler):
             self.send_json(200, {'status': 'ok', 'service': PROJECT + '-updater'})
         elif parsed.path in ('/status', '/api/status'):
             with STATE_LOCK:
+                try:
+                    current_ver = get_current_version()
+                except Exception:
+                    current_ver = CURRENT_STATE.get('current_version')
+                CURRENT_STATE['current_version'] = current_ver
+                target_ver = CURRENT_STATE.get('target_version')
+                if (CURRENT_STATE.get('state') != 'running' and current_ver and target_ver and
+                        version_tuple(target_ver) < version_tuple(current_ver)):
+                    CURRENT_STATE.update(
+                        state='idle', step=0, step_name='Готово до роботи',
+                        progress=0, logs=[], error=None, rolled_back=False,
+                        rollback_error=None, target_version=None
+                    )
+                    save_status()
                 status = copy.deepcopy(CURRENT_STATE)
             self.send_json(200, status)
         elif parsed.path in ('/check', '/api/check'):
@@ -545,6 +572,25 @@ class UpdaterHTTPHandler(http.server.BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length) or b'{}')
             if not isinstance(data, dict):
                 raise ValueError('Очікується JSON object')
+            if self.path in ('/status', '/api/status'):
+                with STATE_LOCK:
+                    try:
+                        current_ver = get_current_version()
+                    except Exception:
+                        current_ver = CURRENT_STATE.get('current_version')
+                    CURRENT_STATE['current_version'] = current_ver
+                    target_ver = CURRENT_STATE.get('target_version')
+                    if (CURRENT_STATE.get('state') != 'running' and current_ver and target_ver and
+                            version_tuple(target_ver) < version_tuple(current_ver)):
+                        CURRENT_STATE.update(
+                            state='idle', step=0, step_name='Готово до роботи',
+                            progress=0, logs=[], error=None, rolled_back=False,
+                            rollback_error=None, target_version=None
+                        )
+                        save_status()
+                    status = copy.deepcopy(CURRENT_STATE)
+                self.send_json(200, status)
+                return
             if self.path in ('/check', '/api/check'):
                 self.send_json(200, check_github_updates(data.get('current_version')))
                 return

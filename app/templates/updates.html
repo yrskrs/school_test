@@ -199,6 +199,23 @@ let jobVersion = null;
 
 function visible(id, value) { const element = document.getElementById(id); if (element) element.hidden = !value; }
 function text(id, value) { const element = document.getElementById(id); if (element) element.textContent = value; }
+function parseVer(v) {
+  return (String(v || '').match(/\d+/g) || [0]).map(Number);
+}
+function isVerLower(a, b) {
+  const pa = parseVer(a), pb = parseVer(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const na = pa[i] || 0, nb = pb[i] || 0;
+    if (na !== nb) return na < nb;
+  }
+  return false;
+}
+function updateDisplayedVersion(newVersion) {
+  if (!newVersion) return;
+  const currentText = (document.getElementById('lblCurrentVersion')?.textContent || '').replace(/^v/, '').trim();
+  if (currentText && isVerLower(newVersion, currentText)) return;
+  text('lblCurrentVersion', `v${newVersion}`);
+}
 function setBusy(value) {
   isUpdating = value;
   ['btnCheckUpdates', 'btnRebuildCurrent', 'btnStartUpdate', 'btnManualRollback'].forEach(id => {
@@ -354,7 +371,7 @@ function renderStatus(data) {
     visible('errorAlert', false);
     visible('successAlert', true);
     text('successAlert', data.rolled_back ? 'Попередню версію, базу даних і файли відновлено та перевірено.' : 'Усі п’ять етапів завершено. Встановлену версію та готовність системи перевірено.');
-    if (version) text('lblCurrentVersion', `v${version}`);
+    if (version) updateDisplayedVersion(version);
   } else if (data.state === 'error') {
     const message = [data.error, data.rollback_error ? `Помилка відкату: ${data.rollback_error}` : ''].filter(Boolean).join('\n');
     showError(message, data.rolled_back);
@@ -377,7 +394,7 @@ function showError(message, rolledBack = false) {
   visible('btnManualRollback', Boolean(lastStatus?.rollback) && !rolledBack);
   text('errorMessage', message || 'Невідома помилка');
   document.getElementById('updateDiagnostics').value = [message, '', ...(lastStatus?.logs || [])].join('\n');
-  if (rolledBack && lastStatus?.current_version) text('lblCurrentVersion', `v${lastStatus.current_version}`);
+  if (rolledBack && lastStatus?.current_version) updateDisplayedVersion(lastStatus.current_version);
 }
 function updateStepper(step, name, progress, complete = false, running = true) {
   document.getElementById('progressBarFill').style.width = `${progress}%`;

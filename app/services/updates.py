@@ -141,37 +141,64 @@ def get_current_release():
 
 def get_update_status() -> Dict[str, Any]:
     """Retrieve live status from updater daemon or fallback to shared status files."""
+    local_ver = get_current_local_version()
+    data: Optional[Dict[str, Any]] = None
+
     # 1. Try updater daemon
     for endpoint in [f"{UPDATER_URL}/status", f"{UPDATER_URL}/api/status"]:
         try:
             req = urllib.request.Request(endpoint, headers={'User-Agent': 'SchoolTest-App/1.0'})
             with urllib.request.urlopen(req, timeout=3) as resp:
-                data = json.loads(resp.read().decode('utf-8'))
-                if isinstance(data, dict):
-                    return data
+                raw = json.loads(resp.read().decode('utf-8'))
+                if isinstance(raw, dict):
+                    data = raw
+                    break
         except Exception:
             pass
 
     # 2. Fallback to status file
-    for s_file in [STATUS_FILE_BACKUPS, STATUS_FILE_DATA]:
-        if s_file.exists():
-            try:
-                data = json.loads(s_file.read_text(encoding='utf-8'))
-                if isinstance(data, dict):
-                    return data
-            except Exception:
-                pass
+    if not isinstance(data, dict):
+        for s_file in [STATUS_FILE_BACKUPS, STATUS_FILE_DATA]:
+            if s_file.exists():
+                try:
+                    raw = json.loads(s_file.read_text(encoding='utf-8'))
+                    if isinstance(raw, dict):
+                        data = raw
+                        break
+                except Exception:
+                    pass
 
-    return {
-        'state': 'idle',
-        'step': 0,
-        'step_name': 'Готово до роботи',
-        'progress': 0,
-        'logs': [],
-        'error': None,
-        'rolled_back': False,
-        'current_version': get_current_local_version()
-    }
+    if not isinstance(data, dict):
+        return {
+            'state': 'idle',
+            'step': 0,
+            'step_name': 'Готово до роботи',
+            'progress': 0,
+            'logs': [],
+            'error': None,
+            'rolled_back': False,
+            'current_version': local_ver
+        }
+
+    # Ensure current_version always reflects the running application
+    data['current_version'] = local_ver
+
+    # Stale completed/failed status from an older version must not mask the idle state
+    target_ver = data.get('target_version')
+    if (data.get('state') != 'running' and target_ver and
+            parse_version_tuple(target_ver) < parse_version_tuple(local_ver)):
+        data.update({
+            'state': 'idle',
+            'step': 0,
+            'step_name': 'Готово до роботи',
+            'progress': 0,
+            'logs': [],
+            'error': None,
+            'rolled_back': False,
+            'target_version': None,
+        })
+
+    return data
 
 
 def start_update(target_ref: str = 'origin/main', target_ver: Optional[str] = None) -> Dict[str, Any]:

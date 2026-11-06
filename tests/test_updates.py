@@ -240,6 +240,42 @@ class TestUpdatesService(unittest.TestCase):
         res = start_rollback(backup_dir="/workspace/backups/test-backup")
         self.assertTrue(res.get("ok"))
 
+    @patch("urllib.request.urlopen")
+    def test_get_update_status_overrides_stale_current_version(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "state": "idle",
+            "current_version": "1.6.14",
+            "step": 0,
+            "progress": 0,
+            "step_name": "Готово до роботи"
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        status = get_update_status()
+        self.assertEqual(status["current_version"], get_current_local_version())
+
+    @patch("urllib.request.urlopen")
+    def test_get_update_status_resets_obsolete_completed_job(self, mock_urlopen):
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({
+            "state": "success",
+            "target_version": "1.6.14",
+            "current_version": "1.6.14",
+            "step": 5,
+            "progress": 100,
+            "step_name": "Успішно завершено"
+        }).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.return_value = mock_resp
+
+        status = get_update_status()
+        self.assertEqual(status["state"], "idle")
+        self.assertEqual(status["current_version"], get_current_local_version())
+        self.assertIsNone(status.get("target_version"))
+        self.assertEqual(status["progress"], 0)
+
 
 class TestUpdatesRoutesAndPermissions(unittest.IsolatedAsyncioTestCase):
     """Integration tests for route permissions, HTTP codes, and responses."""

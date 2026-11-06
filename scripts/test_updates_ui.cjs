@@ -45,6 +45,9 @@ module.exports = async function verify(root, template) {
   element('updateProgressSection').open = true;
   context.renderStatus(success);
   assert.equal(element('updateProgressSection').open, true, 'Repeated status must preserve user expansion');
+  element('lblCurrentVersion').textContent = 'v9.2.0';
+  context.renderStatus({state: 'success', job_id: 'old', step: 5, progress: 100, current_version: '1.6.14', logs: []});
+  assert.equal(element('lblCurrentVersion').textContent, 'v9.2.0', 'Older version from status must not overwrite current displayed version');
   const running = {state: 'running', job_id: 'new', step: 5, progress: 100, current_version: '9.2.0', logs: []};
   context.renderStatus(running);
   assert.equal(element('progressPercentage').textContent, '99%', 'Running must not claim completion');

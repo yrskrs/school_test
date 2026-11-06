@@ -135,6 +135,15 @@ class UpdaterJobTests(unittest.TestCase):
         self.assertFalse(result['ok'])
         self.assertIn('offline', result['error'])
 
+    def test_stale_target_version_resets_to_idle_on_restart(self):
+        (self.root / 'VERSION').write_text('1.8.2', encoding='utf-8')
+        updater.update_state(state='success', target_version='1.6.14', current_version='1.6.14', progress=100)
+        updater.CURRENT_STATE.update(state='running', progress=0)
+        updater.load_status()
+        self.assertEqual(updater.CURRENT_STATE['state'], 'idle')
+        self.assertEqual(updater.CURRENT_STATE['current_version'], '1.8.2')
+        self.assertIsNone(updater.CURRENT_STATE['target_version'])
+
     def test_changelog_supports_all_project_formats(self):
         releases = parse_changelog_markdown('## [4.4.6] - 2026-10-12 - Title\n* Work\n## 1.5.8 — 2026-10-12\n- Test')
         self.assertEqual(releases[0]['date'], '2026-10-12')
