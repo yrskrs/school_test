@@ -1,0 +1,6 @@
+# Optional: publish this service under /test on an existing HTTPS host.
+services:
+  app:
+    command: ["uvicorn", "funnel_test_app:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      SCHOOLTEST_PUBLIC_HOST: ${SCHOOLTEST_PUBLIC_HOST:?Set the public hostname without scheme or port}

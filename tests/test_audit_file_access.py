@@ -37,6 +37,24 @@ class AuditFileAccess(unittest.IsolatedAsyncioTestCase):
                 status, _, _ = await fixtures.http('GET', '/static/tests/synthetic/image.png')
                 self.assertEqual(status, 200)
 
+    async def test_funnel_prefix_keeps_legacy_answer_keys_blocked(self):
+        from app.funnel import PrefixApp
+        mount = next(route for route in fixtures.app.routes if route.path == '/static')
+        with tempfile.TemporaryDirectory(prefix='synthetic-funnel-static-') as directory:
+            folder = Path(directory) / 'tests' / 'synthetic'
+            folder.mkdir(parents=True)
+            (folder / 'test.json').write_text('{"private_answer": "synthetic"}')
+            (folder / 'image.png').write_bytes(b'synthetic-image')
+            with patch.object(mount.app, 'all_directories', [directory]), \
+                 patch('app.funnel.PUBLIC_HOST', 'checks.local'), \
+                 patch.object(fixtures, 'app', PrefixApp(fixtures.app)):
+                for suffix in ('test.json', 'test.json/', 'test.json/.', 'test.json/./'):
+                    status, body, _ = await fixtures.http('GET', '/test/static/tests/synthetic/' + suffix)
+                    self.assertEqual(status, 404)
+                    self.assertNotIn('private_answer', body)
+                status, _, _ = await fixtures.http('GET', '/test/static/tests/synthetic/image.png')
+                self.assertEqual(status, 200)
+
     async def test_security_headers_cover_login_static_and_errors(self):
         for path in ('/teacher/login', '/static/css/styles.css', '/missing-audit-page'):
             with self.subTest(path=path):

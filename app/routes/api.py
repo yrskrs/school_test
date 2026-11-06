@@ -48,7 +48,7 @@ async def session_status(session_id: int, response: Response, db: Session = Depe
 
 
 @router.get("/attempt/{attempt_id}")
-async def get_attempt(attempt_id: int, request: Request, response: Response, db: Session = Depends(get_db)):
+def get_attempt(attempt_id: int, request: Request, response: Response, db: Session = Depends(get_db)):
     attempt = crud.get_attempt_by_id(db, attempt_id)
     if not attempt:
         raise HTTPException(status_code=404, detail="Спробу не знайдено")

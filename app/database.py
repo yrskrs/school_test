@@ -1,3 +1,4 @@
+import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -12,9 +13,19 @@ if is_sqlite:
         "timeout": 60,
     }
 
+# A classroom can issue answer, progress and status requests concurrently.
+# Keep a finite pool below PostgreSQL max_connections (100).
+pool_options = {} if is_sqlite else {
+    "pool_size": int(os.environ.get("SCHOOLTEST_DB_POOL_SIZE", "20")),
+    "max_overflow": int(os.environ.get("SCHOOLTEST_DB_MAX_OVERFLOW", "20")),
+    "pool_timeout": 10,
+    "pool_pre_ping": True,
+}
+
 engine = create_engine(
     settings.DATABASE_URL,
     connect_args=connect_args,
+    **pool_options,
 )
 
 if is_sqlite:

@@ -1,3 +1,5 @@
+from starlette.concurrency import run_in_threadpool
+from anyio import from_thread
 from app.time_utils import timestamp_iso
 import json
 from datetime import datetime
@@ -89,7 +91,7 @@ async def student_login_page(request: Request, code: Optional[str] = None, manua
 
 
 @router.post("/student/login")
-async def student_login(
+def student_login(
     request: Request,
     response: Response,
     student_name: str = Form(""),
@@ -208,7 +210,7 @@ async def student_login(
         event_log_service.log_event(db, attempt.id, models.EventType.login, f"name={student_name}")
         try:
             from app.websocket_manager import ws_manager
-            await ws_manager.broadcast(attempt.session_id, {
+            from_thread.run(ws_manager.broadcast, attempt.session_id, {
                 "event": "login",
                 "student_name": attempt.student_name,
                 "attempt_id": attempt.id,
@@ -360,7 +362,7 @@ async def save_progress(
         body = await request.json()
     except ValueError:
         raise HTTPException(422, 'Невірний JSON прогресу')
-    lock_attempt(db, attempt)
+    await run_in_threadpool(lock_attempt, db, attempt)
     # The cookie may have been replaced while this request waited for the lock.
     if get_student_attempt_id(request) != attempt.id:
         raise HTTPException(401, 'Спробу відкрито в іншому браузері')
@@ -392,7 +394,7 @@ async def save_answer(
     question_id = body.get("question_id")
     if type(question_id) is not int or question_id <= 0:
         raise HTTPException(status_code=400, detail="question_id є обов'язковим")
-    lock_attempt(db, attempt)
+    await run_in_threadpool(lock_attempt, db, attempt)
     existing_answer = crud.get_answer_by_attempt_and_question(db, attempt_id, question_id)
     if not existing_answer or existing_answer.question.test_id != attempt.session.test_id:
         raise HTTPException(status_code=404, detail="Питання не призначене цій спробі")
@@ -454,7 +456,7 @@ async def finish_test(
     if not isinstance(body, dict) or type(body.get("timeout", False)) is not bool:
         raise HTTPException(422, "Невірний формат завершення тесту")
     is_timeout = body.get("timeout", False)
-    lock_attempt(db, attempt)
+    await run_in_threadpool(lock_attempt, db, attempt)
     if attempt.status in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
         return {"status": "already_finished", "redirect": f"/student/test/{attempt_id}/finished"}
 
@@ -576,7 +578,7 @@ async def log_browser_event(
 
     # Serialize event insertion, retry detection and stopping for this attempt.
     # A no-op UPDATE also takes a write lock on SQLite (FOR UPDATE does not).
-    lock_attempt(db, attempt)
+    await run_in_threadpool(lock_attempt, db, attempt)
     duplicate = bool(suffix and db.query(models.EventLog).filter(
         models.EventLog.attempt_id == attempt_id,
         models.EventLog.details.endswith(suffix, autoescape=True),
@@ -633,7 +635,7 @@ async def log_browser_event(
 
 
 @router.post("/student/test/{attempt_id}/retake")
-async def retake_test(
+def retake_test(
     attempt_id: int,
     db: Session = Depends(get_db),
     attempt: models.StudentAttempt = Depends(get_owned_attempt),

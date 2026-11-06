@@ -151,7 +151,13 @@ class TestAccess(unittest.IsolatedAsyncioTestCase):
             self.login(),
             fixtures.http('POST', f'/student/test/{self.attempt.id}/retake', cookie=self.student_cookie),
         )
-        self.assertEqual(sorted(response[0] for response in responses), [303, 403])
+        # If retake commits first, login may resume that not-yet-started attempt
+        # (the documented device-transfer behavior). Both redirects must still
+        # identify one attempt, and the total may never exceed the limit.
+        self.assertIn(303, [response[0] for response in responses])
+        self.assertTrue(all(response[0] in (303, 403) for response in responses))
+        redirects = {response[2][b'location'] for response in responses if response[0] == 303}
+        self.assertEqual(len(redirects), 1)
         self.db.expire_all()
         self.assertEqual(len(crud.get_attempts_by_session(self.db, self.session.id)), 2)
 

@@ -1,3 +1,4 @@
+from starlette.concurrency import run_in_threadpool
 from app.time_utils import timestamp_iso
 from app.time_utils import stored_now, kyiv_time, stored_from_kyiv
 import json
@@ -948,7 +949,7 @@ async def pause_all_attempts(
 
     count = 0
     for attempt in attempts:
-        if set_paused(db, attempt, True, "Призупинено для всіх"):
+        if await run_in_threadpool(set_paused, db, attempt, True, "Призупинено для всіх"):
             
             # Fire and forget websocket notifications
             import asyncio
@@ -978,7 +979,7 @@ async def resume_all_attempts(
 
     count = 0
     for attempt in attempts:
-        if set_paused(db, attempt, False, "Відновлено для всіх"):
+        if await run_in_threadpool(set_paused, db, attempt, False, "Відновлено для всіх"):
             
             import asyncio
             asyncio.create_task(ws_manager.send_to_student(attempt.id, {"event": "resume"}))
@@ -1046,7 +1047,7 @@ async def pause_attempt(
 
     from app.services import event_log_service
     if attempt.status == models.AttemptStatus.not_started:
-        lock_attempt(db, attempt)
+        await run_in_threadpool(lock_attempt, db, attempt)
         attempt.status = models.AttemptStatus.paused
         state = dict(attempt.progress_state or {})
         state['allow_device_transfer'] = True
@@ -1054,7 +1055,7 @@ async def pause_attempt(
         attempt.progress_state = state
         event_log_service.log_event(db, attempt.id, models.EventType.pause_test, "Призупинено вчителем до початку")
         db.commit()
-    elif not set_paused(db, attempt, True, "Призупинено вчителем"):
+    elif not await run_in_threadpool(set_paused, db, attempt, True, "Призупинено вчителем"):
         raise HTTPException(status_code=400, detail="Спроба не в процесі тестування")
 
     # Notify student
@@ -1086,7 +1087,7 @@ async def resume_attempt(
     if attempt.status == models.AttemptStatus.paused and (
         not attempt.started_at or (attempt.progress_state or {}).get('paused_before_start')
     ):
-        lock_attempt(db, attempt)
+        await run_in_threadpool(lock_attempt, db, attempt)
         attempt.status = models.AttemptStatus.not_started
         state = dict(attempt.progress_state or {})
         state.pop('paused_before_start', None)
@@ -1094,7 +1095,7 @@ async def resume_attempt(
         event_log_service.log_event(db, attempt.id, models.EventType.resume_test, "Відновлено вчителем")
         db.commit()
         status_val = "not_started"
-    elif not set_paused(db, attempt, False, "Відновлено вчителем"):
+    elif not await run_in_threadpool(set_paused, db, attempt, False, "Відновлено вчителем"):
         raise HTTPException(status_code=400, detail="Спроба не на паузі")
     else:
         status_val = "in_progress"
@@ -1168,7 +1169,7 @@ async def allow_device_transfer(
     if not attempt or attempt.session.test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Спробу не знайдено")
 
-    lock_attempt(db, attempt)
+    await run_in_threadpool(lock_attempt, db, attempt)
     state = dict(attempt.progress_state or {})
     state['allow_device_transfer'] = True
 

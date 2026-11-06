@@ -73,8 +73,12 @@ async def add_cache_control_header(request: Request, call_next):
     # Older installations still have exported answer keys under /static/tests.
     # StaticFiles normalizes dot segments before looking up a file. Apply the
     # same normalization here so /test.json/. cannot bypass this protection.
-    static_path = posixpath.normpath(request.url.path.replace("\\", "/")).lower()
-    if request.url.path.startswith("/static/") and static_path.endswith("/test.json"):
+    route_path = request.scope.get("path", request.url.path)
+    root_path = request.scope.get("root_path", "").rstrip("/")
+    if root_path and route_path.startswith(root_path + "/"):
+        route_path = route_path[len(root_path):]
+    static_path = posixpath.normpath(route_path.replace("\\", "/")).lower()
+    if route_path.startswith("/static/") and static_path.endswith("/test.json"):
         from fastapi.responses import Response
         response = Response(status_code=404)
     else:
@@ -83,7 +87,7 @@ async def add_cache_control_header(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "same-origin"
-    if request.url.path.startswith("/static/"):
+    if route_path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=86400"
     else:
         response.headers["Cache-Control"] = "no-store"
