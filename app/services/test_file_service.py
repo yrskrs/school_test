@@ -1,3 +1,4 @@
+from app.services.media_service import canonical_image_url
 import os
 import shutil
 import json
@@ -100,14 +101,14 @@ def test_to_dict(test: models.Test) -> dict:
                 "difficulty": q.difficulty.value if q.difficulty else "medium",
                 "explanation": q.explanation,
                 "order_index": q.order_index,
-                "image_url": q.image_url,
+                "image_url": canonical_image_url(q.image_url),
                 "options": [
                     {
                         "id": o.id,
                         "option_text": o.option_text,
                         "is_correct": o.is_correct,
                         "order_index": o.order_index,
-                        "image_url": o.image_url,
+                        "image_url": canonical_image_url(o.image_url),
                         "matching_text": o.matching_text,
                     }
                     for o in q.options

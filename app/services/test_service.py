@@ -1,3 +1,4 @@
+from app.services.media_service import canonical_image_url
 import json
 import random
 from typing import List, Optional
@@ -158,13 +159,13 @@ def build_test_payload(db: Session, attempt: models.StudentAttempt, shuffle: boo
             "points": q.points,
             "topic": q.topic,
             "order_index": q.order_index,
-            "image_url": q.image_url,
+            "image_url": canonical_image_url(q.image_url),
             "matching_pool": matching_pool,
             "options": [] if q.question_type in (models.QuestionType.short_text, models.QuestionType.hotspot) else [
                 {
                     "id": o.id, 
                     "option_text": o.option_text, 
-                    "image_url": o.image_url,
+                    "image_url": canonical_image_url(o.image_url),
                 }
                 for o in options
             ],

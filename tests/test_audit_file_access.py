@@ -55,6 +55,43 @@ class AuditFileAccess(unittest.IsolatedAsyncioTestCase):
                 status, _, _ = await fixtures.http('GET', '/test/static/tests/synthetic/image.png')
                 self.assertEqual(status, 200)
 
+    async def test_multipart_editor_normalizes_tunnel_media_before_saving(self):
+        import json
+        boundary = 'synthetic-multipart-editor'
+        questions = [{'question_text': 'Synthetic image question', 'question_type': 'single_choice',
+                      'image_url': '/test/static/uploads/synthetic.png',
+                      'options': [{'option_text': 'Yes', 'is_correct': True,
+                                   'image_url': '/test/static/uploads/synthetic.png'},
+                                  {'option_text': 'No', 'is_correct': False}]}]
+        fields = {'title': 'Synthetic multipart media test', 'questions_json': json.dumps(questions)}
+        body = b''
+        for name, value in fields.items():
+            body += (f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n').encode()
+        body += f'--{boundary}--\r\n'.encode()
+        status, _, _ = await fixtures.http('POST', '/teacher/tests/create', body,
+            cookie=self.teacher_cookie, content_type='multipart/form-data; boundary=' + boundary)
+        self.assertEqual(status, 303)
+        test = self.db.query(fixtures.models.Test).filter_by(title=fields['title']).one()
+        self.assertEqual(test.questions[0].image_url, '/static/uploads/synthetic.png')
+        self.assertEqual(test.questions[0].options[0].image_url, '/static/uploads/synthetic.png')
+
+    async def test_assigned_image_alias_is_portable_but_replacing_image_is_blocked(self):
+        from fastapi import HTTPException
+        from app.services.test_edit_service import validate_editor_questions, preserve_assigned_questions
+        from app.services.test_file_service import test_to_dict
+        question = self.test.questions[0]
+        question.image_url = '/test/static/uploads/assigned.png'
+        question.options[0].image_url = '/test/static/uploads/assigned.png'
+        self.db.commit()
+        data = test_to_dict(self.test)
+        self.assertEqual(data['questions'][0]['image_url'], '/static/uploads/assigned.png')
+        questions = validate_editor_questions(data['questions'])
+        preserve_assigned_questions(self.db, self.test, questions)
+        questions[0]['image_url'] = '/static/uploads/replaced.png'
+        with self.assertRaises(HTTPException) as error:
+            preserve_assigned_questions(self.db, self.test, questions)
+        self.assertEqual(error.exception.status_code, 409)
+
     async def test_security_headers_cover_login_static_and_errors(self):
         for path in ('/teacher/login', '/static/css/styles.css', '/missing-audit-page'):
             with self.subTest(path=path):

@@ -14,3 +14,10 @@ def validate_image(content, extension):
     if not content.startswith(SIGNATURES[extension]) or (extension == ".webp" and content[8:12] != b"WEBP"):
         raise ValueError("Вміст файлу не відповідає формату зображення")
     return extension
+
+
+def canonical_image_url(value):
+    """Store/export the portable path for media served by the optional /test mount."""
+    if isinstance(value, str) and value.startswith('/test/static/'):
+        return value[len('/test'):]
+    return value

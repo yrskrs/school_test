@@ -80,19 +80,6 @@ class MediaTransportTests(unittest.TestCase):
         finally:
             self.adapter['PUBLIC_HOST'] = host
 
-    def test_editor_save_stores_portable_paths(self):
-        questions = [{'image_url': '/test/static/tests/q.png', 'question_text': '/test/static/text', 'options': [{'image_url': '/test/static/uploads/o.png'}, {'image_url': 'https://example.org/x.png'}]}]
-        form = urlencode([('questions_json', json.dumps(questions)), ('title', 'Тест + & ='), ('tag', 'a'), ('tag', 'b')]).encode()
-        actual = self.exchange({}, form=form)
-        saved = parse_qs(actual['request']['body'].decode())
-        q = json.loads(saved['questions_json'][0])[0]
-        self.assertEqual(q['image_url'], '/static/tests/q.png')
-        self.assertEqual(q['options'][0]['image_url'], '/static/uploads/o.png')
-        self.assertEqual(q['options'][1]['image_url'], 'https://example.org/x.png')
-        self.assertEqual(q['question_text'], questions[0]['question_text'])
-        self.assertEqual(saved['title'], ['Тест + & ='])
-        self.assertEqual(saved['tag'], ['a', 'b'])
-
     def test_http_guard_limits_requests_and_does_not_queue_websockets(self):
         async def check():
             entered = 0

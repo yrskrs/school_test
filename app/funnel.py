@@ -4,7 +4,7 @@ import json
 import asyncio
 import os
 import weakref
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+from urllib.parse import urlsplit, urlunsplit
 
 PUBLIC_HOST = os.environ.get("SCHOOLTEST_PUBLIC_HOST", "").strip().lower()
 PREFIX = "/test"
@@ -52,43 +52,6 @@ class PrefixApp:
         scope["headers"] = [(k, v) for k, v in scope["headers"] if k.lower() != b"accept-encoding"]
         if scope["type"] == "websocket":
             return await self.application(scope, receive, send)
-
-        # Editor forms must store portable /static paths, even though the
-        # public browser previews them through /test/static. Do not buffer uploads.
-        request_kind = headers.get(b"content-type", b"").split(b";", 1)[0].lower()
-        if scope.get("method") == "POST" and request_kind == b"application/x-www-form-urlencoded":
-            chunks = []
-            while True:
-                message = await receive()
-                if message["type"] == "http.disconnect":
-                    return
-                chunks.append(message.get("body", b""))
-                if not message.get("more_body", False):
-                    break
-            raw_body = b"".join(chunks)
-            fields = parse_qsl(raw_body.decode("utf-8"), keep_blank_values=True)
-            updated = []
-            for key, value in fields:
-                if key == "questions_json":
-                    try:
-                        value = json.dumps(map_media_urls(json.loads(value), public=False), ensure_ascii=False)
-                    except (ValueError, UnicodeError):
-                        pass
-                updated.append((key, value))
-            raw_body = urlencode(updated).encode()
-            scope["headers"] = [(k, v) for k, v in scope["headers"] if k.lower() != b"content-length"]
-            scope["headers"].append((b"content-length", str(len(raw_body)).encode()))
-            original_receive = receive
-            delivered = False
-
-            async def form_receive():
-                nonlocal delivered
-                if not delivered:
-                    delivered = True
-                    return {"type": "http.request", "body": raw_body, "more_body": False}
-                return await original_receive()
-
-            receive = form_receive
 
         start = None
         body = []
