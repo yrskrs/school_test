@@ -19,12 +19,12 @@ const base = 'http://app:8000';
     assert(match, 'Seed the long SCROLL monitor first');
     const path = `/teacher/sessions/${match[1]}/monitor`;
     await page.goto(base + path);
-    await page.waitForFunction(() => document.querySelectorAll('.monitor-history-summary').length > 30);
     const baseline = process.env.BASELINE === '1';
+    await page.waitForFunction(() => document.querySelectorAll('.monitor-group-controls, .monitor-history-summary').length > 30);
     if (!baseline) {
       assert.equal(await page.locator('#monitor-grouping').inputValue(), 'student');
-      const current = page.locator('#students-tbody .monitor-history-summary').filter({hasText: 'Учень 00'});
-      assert.match(await current.innerText(), /Спроба #4/);
+      const current = page.locator('#students-tbody .monitor-attempt-row[data-status="in_progress"]').filter({hasText: 'Учень 00'});
+      assert.match(await current.innerText(), /Спроба №4/);
       assert.match(await current.innerText(), /Попередня оцінка: 9/);
       assert.equal(await current.getAttribute('data-status'), 'in_progress');
       assert.equal(await page.locator('#students-tbody .monitor-attempt-number').filter({hasText: 'Повторно'}).count(), 1);
@@ -33,8 +33,7 @@ const base = 'http://app:8000';
     for (const width of [1366, 390]) {
       await page.setViewportSize({width, height: 800});
       const prefix = width < 768 ? '#monitor-mobile-cards' : '#students-tbody';
-      const group = page.locator(`${prefix} .monitor-history-summary`).filter({hasText: 'Учень 26'});
-      const button = group.locator('button');
+      const button = baseline ? page.locator(`${prefix} .monitor-history-summary`).filter({hasText: 'Учень 26'}).locator('button') : page.locator(`${prefix} .monitor-group-controls button[aria-label^="Спроби учня Учень 26:"]`);
       await button.scrollIntoViewIfNeeded();
       await page.waitForTimeout(300);
       const before = await button.evaluate(el => ({top: el.getBoundingClientRect().top, scroll: window.scrollY}));
@@ -70,6 +69,7 @@ const base = 'http://app:8000';
     }
     if (!baseline) {
       for (const mode of ['all', 'history', 'student']) {
+        if (!await page.locator('#monitor-grouping').isVisible()) await page.locator('.monitor-display-options > summary').click();
         await page.locator('#monitor-grouping').selectOption(mode);
         await page.evaluate(() => fetchSessionStatus());
         if (mode === 'all') assert.equal(await page.locator('.monitor-history-summary').count(), 0);
@@ -86,10 +86,10 @@ const base = 'http://app:8000';
       const active = snapshot.attempts.find(a => a.status === 'in_progress');
       assert.equal((await page.request.post(base + `/teacher/attempts/${active.id}/stop`)).status(), 200);
       await page.evaluate(() => fetchSessionStatus());
-      const completed = page.locator('#students-tbody .monitor-history-summary').filter({hasText: 'Учень 00'});
-      assert.match(await completed.locator('button').innerText(), /\(4\)/);
-      assert(!await page.locator(`#row-${active.id}`).isVisible());
-      checks.push('Completion moves the fourth attempt into its existing history group');
+      const completed = page.locator('#students-tbody .monitor-group-controls button[aria-label^="Спроби учня Учень 00:"]');
+      assert.match(await completed.innerText(), /Спроби: 4/);
+      assert(await page.locator(`#row-${active.id}`).isVisible());
+      checks.push('Completion retains the latest attempt as the visible representative with all four attempts available');
       for (const width of [1366, 390]) {
         await page.setViewportSize({width, height: 800});
         await page.goto(base + `/teacher/results?session_id=${match[1]}`);

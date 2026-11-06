@@ -8,6 +8,16 @@ let reconnectTimer = null;
 let reconnectDelay = 2000;
 let pingTimer = null;
 let statusRequest = null;
+let statusRefreshTimer = null;
+let monitorSearch = '';
+
+function scheduleSessionRefresh() {
+  if (statusRefreshTimer !== null) return;
+  statusRefreshTimer = setTimeout(() => {
+    statusRefreshTimer = null;
+    fetchSessionStatus();
+  }, 200);
+}
 
 // ---------------------------------------------------------------------------
 // Ініціалізація
@@ -93,7 +103,7 @@ function handleWsEvent(data) {
   switch (event) {
     case 'answer_saved':
       // Оновити загальний стан з API (щоб отримати актуальні бали та перемалювати блок прогресу, якщо потрібно)
-      fetchSessionStatus();
+      scheduleSessionRefresh();
       
       const box = document.getElementById(`box-${attemptId}-${data.question_id}`);
       if (box) {
@@ -115,7 +125,7 @@ function handleWsEvent(data) {
         finished_at: data.finished_at || null,
       });
       incrementFinishedCount();
-      fetchSessionStatus();
+      scheduleSessionRefresh();
       break;
 
     case 'pause':
@@ -134,7 +144,7 @@ function handleWsEvent(data) {
         finished_at: data.finished_at || null,
       });
       incrementFinishedCount();
-      fetchSessionStatus();
+      scheduleSessionRefresh();
       break;
 
     case 'tab_blur':
@@ -148,11 +158,11 @@ function handleWsEvent(data) {
     case 'attempt_deleted':
       removeStudentRow(attemptId);
       decrementStudentCount();
-      fetchSessionStatus();
+      scheduleSessionRefresh();
       break;
 
     case 'reconnect':
-      fetchSessionStatus();
+      scheduleSessionRefresh();
       break;
 
     case 'login':
@@ -160,7 +170,7 @@ function handleWsEvent(data) {
     case 'mass_pause':
     case 'mass_resume':
     case 'mass_stop':
-      fetchSessionStatus();
+      scheduleSessionRefresh();
       break;
   }
 }
@@ -216,6 +226,7 @@ function updateStudentRow(attemptId, data, arrange = true) {
   const attempt = {...previous, ...data, id: attemptId};
   // A late HTTP snapshot must not undo an already received completion event.
   if (previous && completedMonitorStatuses.has(previous.status) && !completedMonitorStatuses.has(attempt.status)) return;
+  if (previous && JSON.stringify(previous) === JSON.stringify(attempt)) return;
   monitorAttempts.set(attemptId, attempt);
   const tbody = document.getElementById('students-tbody');
   const cards = document.getElementById('monitor-mobile-cards');
@@ -243,12 +254,17 @@ function updateStudentRow(attemptId, data, arrange = true) {
     if (element) element.textContent = attempt.student_name;
   }
   const meta = [];
-  if (attempt.session_attempt_count > 1) {
-    const repeated = !completedMonitorStatuses.has(attempt.status) && attempt.session_attempt_number > 1;
-    meta.push(`<span class="badge monitor-attempt-number">${repeated ? 'Повторно · ' : ''}Спроба #${Number(attempt.session_attempt_number)} з ${Number(attempt.session_attempt_count)}</span>`);
-  }
+  const repeated = !completedMonitorStatuses.has(attempt.status) && attempt.session_attempt_number > 1;
+  meta.push(`<span class="badge monitor-attempt-number">${repeated ? 'Повторно · ' : ''}Спроба №${Number(attempt.session_attempt_number || 1)}</span>`);
   if (attempt.allow_device_transfer) meta.push('<span class="badge">🔓 Дозволено інший ПК</span>');
-  for (const prefix of ['attempt-meta', 'mattempt-meta']) document.getElementById(`${prefix}-${attemptId}`).innerHTML = meta.join(' ');
+  for (const prefix of ['attempt-meta', 'mattempt-meta']) {
+    const element = document.getElementById(`${prefix}-${attemptId}`);
+    const controls = element.querySelector('.monitor-group-controls');
+    if (controls) controls.remove();
+    const html = meta.join(' ');
+    if (element.innerHTML !== html) element.innerHTML = html;
+    if (controls) element.appendChild(controls);
+  }
   for (const prefix of ['warning', 'mwarning']) {
     const badge = document.getElementById(`${prefix}-${attemptId}`);
     badge.hidden = !attempt.violation_count;
@@ -296,6 +312,7 @@ function monitorHistorySummary(key, attempts, mobile) {
     const heading = '<div class="monitor-history-heading"><div><strong class="monitor-history-name"></strong><span class="monitor-history-meta text-muted"></span></div><button type="button" class="btn btn-sm btn-secondary" data-monitor-group="'+key+'"></button></div>';
     summary.innerHTML = mobile ? heading : '<td colspan="7">'+heading+'</td>';
   }
+  summary.hidden = false;
   const maxGrade = typeof MAX_GRADE === 'undefined' ? 12 : MAX_GRADE;
   const completed = attempts.filter(a => completedMonitorStatuses.has(a.status));
   const current = attempts.filter(a => !completedMonitorStatuses.has(a.status)).sort(compareMonitorAttempts);
@@ -347,44 +364,101 @@ function syncMonitorChildren(parent, elements) {
   }
 }
 
+function setMonitorGroupControl(attempt, attempts) {
+  const completed = attempts.filter(a => completedMonitorStatuses.has(a.status));
+  for (const mobile of [false, true]) {
+    const meta = document.getElementById(`${mobile ? 'mattempt-meta' : 'attempt-meta'}-${attempt.id}`);
+    let controls = meta.querySelector('.monitor-group-controls');
+    if (!controls) {
+      controls = document.createElement('div');
+      controls.className = 'monitor-group-controls';
+      meta.appendChild(controls);
+    }
+    const key = attempt.student_key || `attempt-${attempt.id}`;
+    const expanded = expandedMonitorGroups.has(key);
+    controls.hidden = false;
+    let button = controls.querySelector('button');
+    if (!button) { button = document.createElement('button'); controls.appendChild(button); }
+    button.type = 'button';
+    button.className = 'btn btn-sm btn-secondary';
+    button.dataset.monitorGroup = key;
+    button.textContent = `Спроби: ${attempts.length} ${expanded ? '▴' : '▾'}`;
+    button.setAttribute('aria-label', `Спроби учня ${attempt.student_name}: ${attempts.length}`);
+    button.setAttribute('aria-expanded', String(expanded));
+    const history = attempts.filter(a => a.id !== attempt.id);
+    button.setAttribute('aria-controls', history.map(a => `${mobile ? 'mcard' : 'row'}-${a.id}`).join(' '));
+    const previous = completed.filter(a => a.id !== attempt.id).at(-1);
+    let label = controls.querySelector('span');
+    if (!label) { label = document.createElement('span'); label.className = 'text-muted'; controls.appendChild(label); }
+    label.hidden = !(previous && previous.max_score > 0 && previous.score !== null && previous.score !== undefined);
+    if (!label.hidden) {
+      const scale = typeof MAX_GRADE === 'undefined' ? 12 : MAX_GRADE;
+      const graded = completed.filter(a => a.max_score > 0 && a.score !== null && a.score !== undefined);
+      const best = Math.max(...graded.map(a => Math.round(a.score / a.max_score * scale)));
+      label.textContent = `Попередня оцінка: ${Math.round(previous.score / previous.max_score * scale)} · Найкраща: ${best}`;
+    }
+  }
+}
+
 function arrangeMonitorAttempts(anchor = captureMonitorAnchor()) {
   const tbody = document.getElementById('students-tbody');
   const cards = document.getElementById('monitor-mobile-cards');
   if (!tbody || !cards) return;
   const layout = new Map([['students-tbody', []], ['monitor-mobile-cards', []]]);
-  const active = [], completed = new Map();
-  for (const attempt of monitorAttempts.values()) {
-    if (monitorGrouping === 'all' || (monitorGrouping === 'history' && !completedMonitorStatuses.has(attempt.status))) active.push(attempt);
-    else {
-      const key = attempt.student_key || `attempt-${attempt.id}`;
-      if (!completed.has(key)) completed.set(key, []);
-      completed.get(key).push(attempt);
-    }
+  const all = [...monitorAttempts.values()];
+  const filtered = all.filter(a => !monitorSearch || (a.student_name || '').toLocaleLowerCase('uk-UA').includes(monitorSearch));
+  const groups = new Map();
+  for (const attempt of filtered) {
+    const key = attempt.student_key || `attempt-${attempt.id}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(attempt);
   }
-  const groupedKeys = new Set([...completed].filter(([, rows]) => rows.length > 1).map(([key]) => key));
-  document.querySelectorAll('.monitor-history-summary').forEach(summary => {
-    if (!groupedKeys.has(summary.dataset.groupKey)) summary.remove();
-  });
+  // Hide filtered rows without deleting their identity or live state.
+  for (const attempt of all) {
+    document.getElementById(`row-${attempt.id}`).hidden = true;
+    document.getElementById(`mcard-${attempt.id}`).hidden = true;
+  }
+  document.querySelectorAll('.monitor-group-controls').forEach(element => { element.hidden = true; });
+  document.querySelectorAll('.monitor-history-summary').forEach(element => { if (monitorGrouping === 'history') element.hidden = true; else element.remove(); });
   const compare = (a, b) => Number(completedMonitorStatuses.has(a.status)) - Number(completedMonitorStatuses.has(b.status)) || compareMonitorAttempts(a, b);
-  active.sort(compare).forEach(a => appendMonitorAttempt(a, false, layout));
-  const representative = rows => [...rows].sort(compare)[0];
-  const histories = [...completed.entries()].sort((a, b) => compare(representative(a[1]), representative(b[1])));
-  for (const [key, attempts] of histories) {
-    attempts.sort((a,b) => (a.session_attempt_number || 1) - (b.session_attempt_number || 1) || a.id-b.id);
-    if (attempts.length > 1) {
-      layout.get('students-tbody').push(monitorHistorySummary(key, attempts, false));
-      layout.get('monitor-mobile-cards').push(monitorHistorySummary(key, attempts, true));
+  const representative = rows => rows.find(a => !completedMonitorStatuses.has(a.status)) || rows.at(-1);
+  const ordered = [...groups.entries()].map(([key, rows]) => [key, rows.sort((a,b) => (a.session_attempt_number || 1) - (b.session_attempt_number || 1) || a.id-b.id)])
+    .sort((a,b) => compare(representative(a[1]), representative(b[1])));
+  if (monitorGrouping === 'all') {
+    filtered.sort(compare).forEach(a => appendMonitorAttempt(a, false, layout));
+  } else {
+    if (monitorGrouping === 'history') filtered.filter(a => !completedMonitorStatuses.has(a.status)).sort(compare).forEach(a => appendMonitorAttempt(a, false, layout));
+    for (const [key, attempts] of ordered) {
+      if (monitorGrouping === 'student') {
+        const lead = representative(attempts);
+        appendMonitorAttempt(lead, false, layout);
+        if (attempts.length > 1) setMonitorGroupControl(lead, attempts);
+        for (const attempt of attempts.filter(a => a.id !== lead.id).reverse()) {
+          const hidden = completedMonitorStatuses.has(attempt.status) && !expandedMonitorGroups.has(key);
+          appendMonitorAttempt(attempt, hidden, layout);
+        }
+      } else {
+        const history = attempts.filter(a => completedMonitorStatuses.has(a.status));
+        if (history.length > 1) {
+          layout.get('students-tbody').push(monitorHistorySummary(key, history, false));
+          layout.get('monitor-mobile-cards').push(monitorHistorySummary(key, history, true));
+        }
+        for (const attempt of history.slice().reverse()) appendMonitorAttempt(attempt, history.length > 1 && !expandedMonitorGroups.has(key), layout);
+      }
     }
-    for (const attempt of [...attempts].sort(compare)) appendMonitorAttempt(attempt,
-      attempts.length > 1 && completedMonitorStatuses.has(attempt.status) && !expandedMonitorGroups.has(key), layout);
   }
   syncMonitorChildren(tbody, layout.get('students-tbody'));
   syncMonitorChildren(cards, layout.get('monitor-mobile-cards'));
-  document.getElementById('student-count').textContent = monitorAttempts.size;
-  document.getElementById('finished-count').textContent = [...monitorAttempts.values()].filter(a => completedMonitorStatuses.has(a.status)).length;
-  if (!monitorAttempts.size) {
-    tbody.innerHTML = '<tr id="no-students-row"><td colspan="7" class="text-center text-muted">Учні ще не підключились</td></tr>';
-    cards.innerHTML = '<p class="text-muted">Учні ще не підключились</p>';
+  document.getElementById('student-count').textContent = all.length;
+  document.getElementById('finished-count').textContent = all.filter(a => completedMonitorStatuses.has(a.status)).length;
+  document.getElementById('unique-student-count').textContent = new Set(all.map(a => a.student_key || `attempt-${a.id}`)).size;
+  document.getElementById('active-attempt-count').textContent = `Проходять: ${all.filter(a => a.status === 'in_progress').length}`;
+  document.querySelectorAll('.monitor-empty-state').forEach(element => element.remove());
+  if (!filtered.length) {
+    const message = all.length ? 'Учнів за цим запитом не знайдено' : 'Учні ще не підключились';
+    const row = document.createElement('tr'); row.className = 'monitor-empty-state';
+    const cell = document.createElement('td'); cell.colSpan = 7; cell.textContent = message; row.appendChild(cell); tbody.appendChild(row);
+    const note = document.createElement('p'); note.className = 'monitor-empty-state text-muted'; note.textContent = message; cards.appendChild(note);
   }
   restoreMonitorAnchor(anchor);
 }
@@ -403,6 +477,10 @@ function initializeMonitorAttempts() {
     monitorGrouping = validGroups.includes(grouping.value) ? grouping.value : 'student';
     try { localStorage.setItem('schooltest:monitor-grouping', monitorGrouping); } catch {}
     arrangeMonitorAttempts();
+  });
+  document.getElementById('monitor-search').addEventListener('input', event => {
+    monitorSearch = event.target.value.trim().toLocaleLowerCase('uk-UA');
+    arrangeMonitorAttempts(null);
   });
   for (const attempt of INITIAL_MONITOR_ATTEMPTS) updateStudentRow(attempt.id, attempt, false);
   arrangeMonitorAttempts();

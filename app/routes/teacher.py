@@ -893,7 +893,7 @@ async def monitor_session(
     if not session or session.test.teacher_id != teacher.id:
         raise HTTPException(status_code=404, detail="Сесію не знайдено")
 
-    attempts = crud.get_attempts_by_session(db, session_id)
+    attempts = crud.get_attempts_by_session(db, session_id, with_progress=True)
     from sqlalchemy import func
     violation_counts = dict(db.query(models.EventLog.attempt_id, func.count(models.EventLog.id)).join(
         models.StudentAttempt

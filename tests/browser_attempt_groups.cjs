@@ -52,6 +52,7 @@ const output = '/artifacts';
     await page.locator('#password').fill('synthetic-ui-password');
     await Promise.all([page.waitForURL('**/teacher/dashboard'),page.locator('button[type=submit]').click()]);
     await page.goto(base+'/teacher/sessions/1/monitor');
+    await page.locator('.monitor-display-options > summary').click();
     await page.locator('#monitor-grouping').selectOption('history');
     let data=await status();
     const active=data.attempts.find(a=>a.student_name==='Поточна третя спроба');
@@ -66,7 +67,7 @@ const output = '/artifacts';
       await refresh();
       assert.equal(await page.locator('.monitor-attempt-row').count(),rowCount);
       for(const attempt of data.attempts) {
-        assert.equal(await page.locator(`#row-${attempt.id} .monitor-attempt-number`).count(),attempt.session_attempt_count>1?1:0);
+        assert.equal(await page.locator(`#row-${attempt.id} .monitor-attempt-number`).count(),1);
       }
     }
     await activeFirst();

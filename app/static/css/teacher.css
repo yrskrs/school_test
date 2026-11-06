@@ -285,3 +285,14 @@
   .teacher-workspace .results-table > tbody > tr > td { display: table-cell; }
   .teacher-workspace .results-table > tbody > tr > td::before { display: none; }
 }
+
+.monitor-group-controls { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:6px; }
+.monitor-session-state { font-size:.8rem; }
+.monitor-list-toolbar input[type="search"] { min-width:160px; width:100%; }
+#monitor-mobile-cards [hidden], #students-tbody [hidden] { display:none!important; }
+
+.monitor-display-options summary { padding:8px; cursor:pointer; font-weight:600; }
+.monitor-display-options-body { display:flex; flex-wrap:wrap; gap:12px; padding:8px; }
+.monitor-mass-actions { position:relative; }
+.monitor-mass-actions summary { cursor:pointer; }
+.monitor-mass-actions-menu { position:absolute; right:0; top:100%; z-index:12; min-width:190px; padding:10px; display:grid; gap:8px; background:var(--bg-card); border:1px solid var(--border-light); border-radius:8px; box-shadow:0 6px 20px #0002; }

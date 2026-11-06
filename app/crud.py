@@ -3,7 +3,7 @@ from datetime import datetime
 from app.time_utils import stored_now
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import models
 from app.security import get_password_hash
@@ -296,13 +296,17 @@ def delete_attempt(db: Session, attempt: models.StudentAttempt) -> None:
     db.commit()
 
 
-def get_attempts_by_session(db: Session, session_id: int) -> List[models.StudentAttempt]:
-    return (
+def get_attempts_by_session(db: Session, session_id: int, *, with_progress: bool = False) -> List[models.StudentAttempt]:
+    query = (
         db.query(models.StudentAttempt)
         .filter(models.StudentAttempt.session_id == session_id)
         .order_by(models.StudentAttempt.started_at)
-        .all()
     )
+    if with_progress:
+        query = query.options(selectinload(models.StudentAttempt.answers).load_only(
+            models.StudentAnswer.question_id, models.StudentAnswer.is_correct
+        ).joinedload(models.StudentAnswer.question).load_only(models.Question.id, models.Question.order_index))
+    return query.all()
 
 
 def get_all_finished_attempts(db: Session, teacher_id: int, is_archived: bool = False) -> List[models.StudentAttempt]:

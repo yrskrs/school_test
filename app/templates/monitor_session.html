@@ -51,18 +51,22 @@
     </div>
   </div>
   <div class="info-card">
-    <span class="info-label">Статус сесії</span>
+    <span class="info-label">Учнів у сесії</span>
+    <span class="info-value" id="unique-student-count">—</span>
+    <span class="text-muted" id="active-attempt-count"></span>
+    <span class="monitor-session-state">
     <span class="info-value">
       {% if session.is_active %}
         <span class="badge badge-status badge-status--in_progress">Активна</span>
       {% else %}
         <span class="badge badge-status badge-status--finished">Завершена</span>
       {% endif %}
-    </span>
+    </span></span>
   </div>
   <div class="info-card">
     <span class="info-label">Спроб у сесії</span>
     <span class="info-value" id="student-count">{{ attempts | length }}</span>
+    <span class="text-muted">На учня: {% if test.attempt_limit %}до {{ test.attempt_limit }}{% else %}без обмежень{% endif %}</span>
   </div>
   <div class="info-card">
     <span class="info-label">Завершених спроб</span>
@@ -77,15 +81,19 @@
   <div class="card-header-row" style="align-items: center;">
     <h2 class="card-title">Учні</h2>
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <details class="monitor-mass-actions"><summary class="btn btn-sm btn-secondary">Керування класом ▾</summary><div class="monitor-mass-actions-menu">
       <button class="btn btn-sm btn-warning" onclick="massAction('pause-all')" {% if not session.is_active %}disabled style="filter: grayscale(1); opacity: 0.6; cursor: not-allowed;"{% endif %}>⏸ Пауза всім</button>
       <button class="btn btn-sm btn-success" onclick="massAction('resume-all')" {% if not session.is_active %}disabled style="filter: grayscale(1); opacity: 0.6; cursor: not-allowed;"{% endif %}>▶ Відновити</button>
       <button class="btn btn-sm btn-danger" onclick="massAction('stop-all')" {% if not session.is_active %}disabled style="filter: grayscale(1); opacity: 0.6; cursor: not-allowed;"{% endif %}>⏹ Стоп всім</button>
+      </div></details>
       <button class="btn btn-sm btn-secondary" onclick="fetchSessionStatus()">⟳ Оновити</button>
     </div>
   </div>
 
   <div class="monitor-list-toolbar">
-    <p class="form-hint">Учні з поточними спробами завжди зверху. Номер повторної спроби та попередня оцінка — поруч з учнем. Розгортання історії залишає поточну спробу видимою.</p>
+    <p class="form-hint">Один рядок на учня. Кнопка «Спроби» показує історію; поточна спроба залишається видимою.</p>
+    <div class="form-group"><label for="monitor-search">Пошук учня</label><input id="monitor-search" type="search" placeholder="Прізвище або ім’я" autocomplete="off"></div>
+    <details class="monitor-display-options"><summary>Вигляд і сортування</summary><div class="monitor-display-options-body">
     <div class="form-group"><label for="monitor-grouping">Відображення спроб</label><select id="monitor-grouping">
       <option value="student">За учнем</option>
       <option value="history">Поточні та історія окремо</option>
@@ -95,9 +103,10 @@
       <option value="status">За статусом</option><option value="name">За ім’ям</option>
       <option value="newest">Нові спочатку</option><option value="oldest">Старі спочатку</option>
       <option value="progress">За прогресом</option>
-    </select></div>
+    </select></div>    </div></details>
   </div>
 
+  <noscript><p>Для живого моніторингу потрібен JavaScript. <a href="/teacher/results?session_id={{ session.id }}">Переглянути результати сесії</a>.</p></noscript>
   <!-- Desktop table -->
   <div class="table-wrapper monitor-desktop-table" style="margin:0">
     <table class="data-table" id="students-table">
@@ -198,52 +207,7 @@
 
   <!-- Mobile student cards -->
   <div class="monitor-mobile-cards" id="monitor-mobile-cards" style="display: none;">
-    {% for attempt in attempts %}
-    {% set status_str = attempt.status.value | default(attempt.status) %}
-    <div class="monitor-student-card" id="mcard-{{ attempt.id }}">
-      <div class="mcard-header">
-        <strong class="mcard-name" id="mname-{{ attempt.id }}">{{ attempt.student_name }}</strong>
-        <span id="mwarning-{{ attempt.id }}" {% if not violation_counts.get(attempt.id, 0) %}hidden{% endif %}>⚠️ {{ violation_counts.get(attempt.id, 0) }}</span>
-        <span class="badge badge-status badge-status--{{ status_str }}" id="mstatus-{{ attempt.id }}">
-          {% if status_str == 'not_started' %}Не розпочав
-          {% elif status_str == 'in_progress' %}Проходить
-          {% elif status_str == 'paused' %}Пауза
-          {% elif status_str == 'stopped' %}Зупинено
-          {% elif status_str == 'finished' %}Завершив
-          {% elif status_str == 'timeout' %}Час вийшов
-          {% endif %}
-        </span>
-      </div>
-      <div id="mattempt-meta-{{ attempt.id }}" class="monitor-attempt-meta"></div>
-      <div class="mcard-score" id="mscore-{{ attempt.id }}">
-        {% if attempt.score is not none %}
-          <span style="font-weight:700; color:var(--info);">{{ attempt | scale_grade }}/{{ test.max_grade or 12 }}</span>
-          <span style="color:var(--text-muted); font-size:0.75rem;"> ({{ attempt.score | round(1) }} балів)</span>
-        {% else %}
-          <span style="color:var(--text-dim);">Ще не відповідав</span>
-        {% endif %}
-      </div>
-      <div class="mcard-actions" id="mactions-{{ attempt.id }}">
-        {% if status_str in ['finished', 'timeout', 'stopped'] %}
-          <a href="/teacher/results/{{ attempt.id }}" class="btn btn-sm btn-secondary">Деталі</a>
-          <button type="button" data-action="delete-attempt" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-outline-danger" title="Видалити спробу" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">🗑️</button>
-        {% elif status_str == 'in_progress' %}
-          <button type="button" data-action="pause" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-warning">⏸ Пауза</button>
-          <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info">🔓 Інший ПК</button>
-          <button type="button" data-action="stop"  data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
-        {% elif status_str == 'paused' %}
-          <button type="button" data-action="resume" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-success">▶ Продовжити</button>
-          <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info">🔓 Інший ПК</button>
-          <button type="button" data-action="stop"   data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">⏹ Стоп</button>
-        {% elif status_str == 'not_started' %}
-          <button type="button" data-action="allow-transfer" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-info">🔓 Інший ПК</button>
-          <button type="button" data-action="delete-attempt" data-attempt-id="{{ attempt.id }}" class="btn btn-sm btn-danger">🗑️ Анулювати</button>
-        {% endif %}
-      </div>
-    </div>
-    {% else %}
-    <p class="text-muted" style="text-align:center; padding:1.5rem;">Учні ще не підключились</p>
-    {% endfor %}
+
   </div>
 </div>
 
