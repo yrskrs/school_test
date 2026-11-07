@@ -330,6 +330,7 @@ function monitorHistorySummary(key, attempts, mobile) {
   summary.querySelector('.monitor-history-meta').textContent = parts.join(' · ');
   summary.dataset.status = (current[0] || attempts.at(-1)).status;
   summary.classList.toggle('monitor-history-summary--active', current.length > 0);
+  summary.classList.toggle('monitor-group-expanded', expandedMonitorGroups.has(key));
   const button = summary.querySelector('button');
   const expanded = expandedMonitorGroups.has(key);
   button.hidden = !completed.length;
@@ -382,8 +383,8 @@ function setMonitorGroupControl(attempt, attempts) {
     button.type = 'button';
     button.className = 'btn btn-sm btn-secondary';
     button.dataset.monitorGroup = key;
-    button.textContent = `Спроби: ${attempts.length} ${expanded ? '▴' : '▾'}`;
-    button.setAttribute('aria-label', `Спроби учня ${attempt.student_name}: ${attempts.length}`);
+    button.textContent = `${expanded ? 'Відкрито' : 'Спроби'}: ${attempts.length} ${expanded ? '▴' : '▾'}`;
+    button.setAttribute('aria-label', `Спроби учня ${attempt.student_name}: ${attempts.length}. ${expanded ? 'Відкрито' : 'Згорнуто'}`);
     button.setAttribute('aria-expanded', String(expanded));
     const history = attempts.filter(a => a.id !== attempt.id);
     button.setAttribute('aria-controls', history.map(a => `${mobile ? 'mcard' : 'row'}-${a.id}`).join(' '));
@@ -445,6 +446,22 @@ function arrangeMonitorAttempts(anchor = captureMonitorAnchor()) {
         }
         for (const attempt of history.slice().reverse()) appendMonitorAttempt(attempt, history.length > 1 && !expandedMonitorGroups.has(key), layout);
       }
+    }
+  }
+  // Recompute visual boundaries after every live update, filter or grouping change.
+  for (const attempt of all) for (const prefix of ['row', 'mcard']) {
+    const element = document.getElementById(`${prefix}-${attempt.id}`);
+    element.classList.remove('monitor-group-expanded', 'monitor-history-child', 'monitor-history-end');
+  }
+  if (monitorGrouping !== 'all') for (const [key, attempts] of ordered) {
+    if (!expandedMonitorGroups.has(key) || attempts.length < 2) continue;
+    const lead = representative(attempts);
+    for (const [parent, prefix] of [['students-tbody','row'],['monitor-mobile-cards','mcard']]) {
+      const ids = new Set(attempts.map(a => `${prefix}-${a.id}`));
+      const elements = layout.get(parent).filter(element => ids.has(element.id) && !element.hidden);
+      elements.forEach(element => element.classList.add('monitor-history-child'));
+      elements.at(-1)?.classList.add('monitor-history-end');
+      if (monitorGrouping === 'student') document.getElementById(`${prefix}-${lead.id}`).classList.add('monitor-group-expanded');
     }
   }
   syncMonitorChildren(tbody, layout.get('students-tbody'));

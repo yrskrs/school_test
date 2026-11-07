@@ -259,7 +259,7 @@
               {% if group.has_multiple %}
                 <button type="button" class="btn btn-sm btn-primary toggle-btn" 
                         onclick="event.stopPropagation(); toggleGroupRow('{{ group.key }}');" 
-                        id="btn-{{ group.key }}" aria-expanded="false" aria-controls="details-{{ group.key }}"
+                        id="btn-{{ group.key }}" data-attempt-count="{{ group.attempts_count }}" aria-expanded="false" aria-controls="details-{{ group.key }}"
                         style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; padding: 0.35rem 0.65rem;">
                   <span id="txt-{{ group.key }}">Спроби ({{ group.attempts_count }})</span>
                   <svg id="svg-{{ group.key }}" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="transition: transform 0.25s ease;">
@@ -294,7 +294,7 @@
             <div class="card group-details-card" style="margin: 0; background: var(--bg-card, #ffffff); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 0.85rem 1rem;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
                 <div style="font-size: 0.9rem; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 0.4rem;">
-                  <span>📋 Всі спроби учня:</span>
+                  <span class="history-open-label">✓ Історію відкрито · спроб: {{ group.attempts_count }}</span><span>Учень:</span>
                   <span style="color: var(--primary);">{{ group.student_name }}</span>
                   <span style="font-weight: normal; color: var(--text-muted);">&bull; {{ group.test.title }}</span>
                 </div>
@@ -379,6 +379,7 @@
                   </tbody>
                 </table>
               </div>
+              <div class="history-end-label">Кінець історії · {{ group.student_name }} · спроб: {{ group.attempts_count }}</div>
             </div>
           </td>
         </tr>
@@ -577,49 +578,29 @@
     }
   });
 
-  // Перемикання розгортання спроб для одного учня
-  function toggleGroupRow(groupKey) {
-    const detailsRow = document.getElementById('details-' + groupKey);
-    const svgIcon = document.getElementById('svg-' + groupKey);
+  function setGroupExpanded(groupKey, expanded) {
+    const details = document.getElementById('details-' + groupKey);
     const button = document.getElementById('btn-' + groupKey);
-    if (!detailsRow) return;
-
-    if (detailsRow.style.display === 'none' || detailsRow.style.display === '') {
-      detailsRow.style.display = 'table-row';
-      button?.setAttribute('aria-expanded', 'true');
-      if (svgIcon) svgIcon.style.transform = 'rotate(180deg)';
-    } else {
-      detailsRow.style.display = 'none';
-      button?.setAttribute('aria-expanded', 'false');
-      if (svgIcon) svgIcon.style.transform = 'rotate(0deg)';
-    }
+    if (!details || !button) return;
+    details.style.display = expanded ? 'table-row' : 'none';
+    document.getElementById('row-' + groupKey)?.classList.toggle('is-expanded', expanded);
+    button.setAttribute('aria-expanded', String(expanded));
+    document.getElementById('txt-' + groupKey).textContent = expanded
+      ? `Відкрито (${button.dataset.attemptCount})` : `Спроби (${button.dataset.attemptCount})`;
+    const icon = document.getElementById('svg-' + groupKey);
+    if (icon) icon.style.transform = expanded ? 'rotate(180deg)' : 'rotate(0deg)';
   }
-
-  // Розгорнути всі групи
+  function toggleGroupRow(groupKey) {
+    const button = document.getElementById('btn-' + groupKey);
+    setGroupExpanded(groupKey, button?.getAttribute('aria-expanded') !== 'true');
+  }
   function expandAllGroups() {
-    const detailRows = document.querySelectorAll('.group-details-row');
-    detailRows.forEach(row => {
-      row.style.display = 'table-row';
-      document.getElementById(row.id.replace('details-', 'btn-'))?.setAttribute('aria-expanded', 'true');
-    });
-    const icons = document.querySelectorAll('[id^="svg-grp_"]');
-    icons.forEach(icon => {
-      icon.style.transform = 'rotate(180deg)';
-    });
+    document.querySelectorAll('.group-details-row').forEach(row => setGroupExpanded(row.id.slice(8), true));
+  }
+  function collapseAllGroups() {
+    document.querySelectorAll('.group-details-row').forEach(row => setGroupExpanded(row.id.slice(8), false));
   }
 
-  // Згорнути всі групи
-  function collapseAllGroups() {
-    const detailRows = document.querySelectorAll('.group-details-row');
-    detailRows.forEach(row => {
-      row.style.display = 'none';
-      document.getElementById(row.id.replace('details-', 'btn-'))?.setAttribute('aria-expanded', 'false');
-    });
-    const icons = document.querySelectorAll('[id^="svg-grp_"]');
-    icons.forEach(icon => {
-      icon.style.transform = 'rotate(0deg)';
-    });
-  }
 </script>
 <style>
   .group-master-row:hover {

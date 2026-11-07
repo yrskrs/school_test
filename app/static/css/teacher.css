@@ -296,3 +296,21 @@
 .monitor-mass-actions { position:relative; }
 .monitor-mass-actions summary { cursor:pointer; }
 .monitor-mass-actions-menu { position:absolute; right:0; top:100%; z-index:12; min-width:190px; padding:10px; display:grid; gap:8px; background:var(--bg-card); border:1px solid var(--border-light); border-radius:8px; box-shadow:0 6px 20px #0002; }
+
+/* An expanded history is one clearly bounded student group, including on phones. */
+.teacher-workspace .group-master-row.is-expanded > td,
+.teacher-workspace .monitor-group-expanded > td,
+.teacher-workspace .monitor-student-card.monitor-group-expanded { background:var(--primary-glow)!important; border-top:2px solid var(--primary); }
+.teacher-workspace .group-master-row.is-expanded > td:first-child,
+.teacher-workspace .monitor-group-expanded > td:first-child { box-shadow:inset 4px 0 var(--primary); }
+.teacher-workspace .group-details-row > td { background:var(--primary-glow)!important; }
+.teacher-workspace .group-details-card { border:2px solid var(--primary)!important; box-shadow:none!important; }
+.teacher-workspace .history-open-label { display:inline-block; background:var(--primary); color:#fff; border-radius:6px; padding:5px 9px; font-weight:700; }
+.teacher-workspace .history-end-label { border-top:1px solid var(--border); margin-top:12px; padding-top:10px; font-size:.8rem; font-weight:600; color:var(--text-muted); }
+.teacher-workspace .monitor-history-child > td,
+.teacher-workspace .monitor-student-card.monitor-history-child { background:var(--primary-glow); }
+.teacher-workspace .monitor-history-child > td:first-child { box-shadow:inset 4px 0 var(--primary); }
+.teacher-workspace .monitor-history-end > td { border-bottom:3px solid var(--primary); }
+.teacher-workspace .monitor-student-card.monitor-history-child { border-left:4px solid var(--primary); }
+.teacher-workspace .monitor-student-card.monitor-history-end { border-bottom:3px solid var(--primary); }
+.teacher-workspace [data-monitor-group][aria-expanded="true"] { background:var(--primary); color:#fff; border-color:var(--primary); font-weight:700; }
