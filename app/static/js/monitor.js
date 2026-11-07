@@ -259,11 +259,14 @@ function updateStudentRow(attemptId, data, arrange = true) {
   if (attempt.allow_device_transfer) meta.push('<span class="badge">🔓 Дозволено інший ПК</span>');
   for (const prefix of ['attempt-meta', 'mattempt-meta']) {
     const element = document.getElementById(`${prefix}-${attemptId}`);
-    const controls = element.querySelector('.monitor-group-controls');
-    if (controls) controls.remove();
+    let labels = element.querySelector('.monitor-attempt-labels');
+    if (!labels) {
+      labels = document.createElement('span');
+      labels.className = 'monitor-attempt-labels';
+      element.insertBefore(labels, element.firstChild);
+    }
     const html = meta.join(' ');
-    if (element.innerHTML !== html) element.innerHTML = html;
-    if (controls) element.appendChild(controls);
+    if (labels.innerHTML !== html) labels.innerHTML = html;
   }
   for (const prefix of ['warning', 'mwarning']) {
     const badge = document.getElementById(`${prefix}-${attemptId}`);

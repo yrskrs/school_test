@@ -59,6 +59,17 @@ const base = 'http://app:8000';
         assert.equal(movements, 0, 'Unchanged refresh must not move rows');
         assert.equal(await button.getAttribute('aria-expanded'), 'true');
         assert(await button.evaluate(el => document.activeElement === el), 'Refresh keeps keyboard focus');
+        const keptLiveFocus = await button.evaluate(el => {
+          const meta = el.closest('.monitor-attempt-meta');
+          const id = Number(meta.id.split('-').at(-1));
+          const previous = monitorAttempts.get(id);
+          const violations = previous.violation_count;
+          updateStudentRow(id, {violation_count: (violations || 0) + 1}, false);
+          const retained = document.activeElement === el && el.isConnected;
+          updateStudentRow(id, {violation_count: violations}, false);
+          return retained && document.activeElement === el;
+        });
+        assert(keptLiveFocus, 'Changed live snapshots keep focus on the history button');
       }
       await button.click();
       await page.waitForTimeout(200);
