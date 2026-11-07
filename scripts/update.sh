@@ -49,6 +49,7 @@ update_main() {
   wait_for_app
   python3 "$SCRIPT_DIR/configure_integration_network.py"
   SUCCESS=true
+  python3 "$SCRIPT_DIR/image_retention.py" --project schooltest5 --protect "$OLD_IMAGE" --apply || printf 'Warning: image cleanup incomplete; update remains healthy.\n' >&2
   printf 'Update completed and HTTP readiness confirmed.\nBackup: %s\nPrevious image: %s\n' "$BACKUP_DIR" "$ROLLBACK_TAG"
 
 }

@@ -1,0 +1,4 @@
+# Preserve native Windows line endings on checkout; keep normalized Git blobs.
+*.bat text eol=crlf
+*.vbs text eol=crlf
+*.sh text eol=lf
