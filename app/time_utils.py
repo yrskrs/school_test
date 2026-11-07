@@ -33,3 +33,21 @@ def timestamp_iso(value):
 def stored_from_kyiv(value):
     return value.replace(tzinfo=KYIV).astimezone(
         ZoneInfo(settings.LEGACY_RESULT_TIMEZONE)).replace(tzinfo=None)
+
+
+def format_epoch_kyiv(value, fmt='%Y-%m-%d %H:%M:%S'):
+    """Filesystem epoch is an instant, never a host-local calendar value."""
+    return datetime.fromtimestamp(value, KYIV).strftime(fmt)
+
+
+def format_utc_audit(value, fmt='%d.%m.%Y %H:%M'):
+    """Integration audit strings were written in UTC, including old naive ones."""
+    if not value:
+        return '—'
+    try:
+        parsed = datetime.fromisoformat(value) if isinstance(value, str) else value
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(KYIV).strftime(fmt)
+    except (ValueError, TypeError, AttributeError):
+        return str(value)

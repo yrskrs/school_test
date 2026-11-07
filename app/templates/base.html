@@ -414,12 +414,12 @@
   </footer>
 
   <script>
-    // Real-time clock displaying Kyiv local time (UTC+3)
+    // Real-time clock displaying Kyiv civil time, including the date-specific daylight-saving offset
     (function() {
       const clockEl = document.getElementById('navbar-clock-time');
       if (!clockEl) return;
       const fmt = new Intl.DateTimeFormat('uk-UA', {
-        timeZone: 'Europe/Kiev',
+        timeZone: 'Europe/Kyiv',
         hour:   '2-digit',
         minute: '2-digit',
         second: '2-digit',

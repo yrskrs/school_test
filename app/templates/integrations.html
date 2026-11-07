@@ -209,7 +209,7 @@
               </span>
               {% endif %}
               {% if grant.blocked_attempts > 0 %}
-              <span class="badge" style="font-size:0.78rem;padding:0.18rem 0.5rem;border-radius:999px;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);font-weight:600" title="Остання спроба: {{ grant.last_blocked_at }} (IP: {{ grant.last_blocked_ip }})">
+              <span class="badge" style="font-size:0.78rem;padding:0.18rem 0.5rem;border-radius:999px;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger);font-weight:600" title="Остання спроба: {{ grant.last_blocked_at | kyiv_audit_time }} (IP: {{ grant.last_blocked_ip }})">
                 ⚠️ {{ grant.blocked_attempts }} призупинених запитів
               </span>
               {% endif %}
@@ -261,7 +261,7 @@
               <span>🕒 Останнє звернення: 
                 <strong style="color:var(--text)">
                   {% if grant.last_used %}
-                    {{ grant.last_used }} {% if grant.method %}({{ grant.method }} {{ grant.path }}){% endif %}
+                    {{ grant.last_used | kyiv_audit_time }} {% if grant.method %}({{ grant.method }} {{ grant.path }}){% endif %}
                   {% else %}
                     Запитів ще не було
                   {% endif %}
@@ -271,10 +271,10 @@
               <span>🌐 IP: <strong style="color:var(--text)">{{ grant.client_ip }}</strong></span>
               {% endif %}
               {% if grant.created_at %}
-              <span>📅 Створено: {{ grant.created_at }}</span>
+              <span>📅 Створено: {{ grant.created_at | kyiv_audit_time }}</span>
               {% endif %}
               {% if grant.updated_at and grant.updated_at != grant.created_at %}
-              <span>✏️ Оновлено: {{ grant.updated_at }}</span>
+              <span>✏️ Оновлено: {{ grant.updated_at | kyiv_audit_time }}</span>
               {% endif %}
             </div>
           </div>
@@ -417,7 +417,7 @@
       <h2 style="font-size:1rem;margin:0 0 0.5rem 0">Статистика API</h2>
       {% for key, item in api_stats.items() %}
       <p style="margin:0.25rem 0;font-size:0.88rem;color:var(--text-muted)">
-        Ключ {{ key }}: запитів {{ item.requests }} · останній запит {{ item.last_used }} · {{ item.method }} {{ item.path }}
+        Ключ {{ key }}: запитів {{ item.requests }} · останній запит {{ item.last_used | kyiv_audit_time }} · {{ item.method }} {{ item.path }}
       </p>
       {% else %}
       <p style="margin:0.25rem 0;font-size:0.88rem;color:var(--text-muted)">Запитів ще не було.</p>

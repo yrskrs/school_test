@@ -1,6 +1,6 @@
 from starlette.concurrency import run_in_threadpool
 from app.time_utils import timestamp_iso
-from app.time_utils import stored_now, kyiv_time, stored_from_kyiv
+from app.time_utils import stored_now, kyiv_time, stored_from_kyiv, format_epoch_kyiv
 import json
 import re
 from urllib.parse import urlencode
@@ -2505,7 +2505,7 @@ async def view_teacher_logs(
         try:
             with open(LAST_ARCHIVE_FILE, "r") as f:
                 last_time = float(f.read().strip())
-                last_archive_str = datetime.fromtimestamp(last_time).strftime("%Y-%m-%d %H:%M:%S")
+                last_archive_str = format_epoch_kyiv(last_time)
         except Exception:
             pass
             
@@ -2521,7 +2521,7 @@ async def view_teacher_logs(
                     archives_list.append({
                         "filename": f,
                         "size": stat.st_size,
-                        "created_at": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                        "created_at": format_epoch_kyiv(stat.st_mtime)
                     })
             archives_list.sort(key=lambda x: x["filename"], reverse=True)
         except Exception:
