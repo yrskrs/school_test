@@ -23,6 +23,12 @@ class MonitorQueryTests(unittest.IsolatedAsyncioTestCase):
     asyncSetUp = fixtures.Flows.asyncSetUp
     asyncTearDown = fixtures.Flows.asyncTearDown
 
+    async def test_monitor_focus_fix_has_a_fresh_static_cache_key(self):
+        response = await fixtures.http('GET', f'/teacher/sessions/{self.session.id}/monitor',
+                                       cookie=self.teacher_cookie)
+        self.assertEqual(response[0], 200)
+        self.assertRegex(response[1], r'/static/js/monitor\.js\?v=[^"\s]+-focus-20261107')
+
     async def test_dashboard_chart_initialization_follows_existing_canvases(self):
         response = await fixtures.http('GET','/teacher/dashboard',cookie=self.teacher_cookie)
         self.assertEqual(response[0],200)

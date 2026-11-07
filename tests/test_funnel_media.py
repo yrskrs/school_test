@@ -71,6 +71,34 @@ class MediaTransportTests(unittest.TestCase):
         data = {'questions': [{'image_url': '/static/tests/export.png'}]}
         self.assertEqual(self.exchange(data, attachment=True)['response'], data)
 
+    def test_monitor_script_keeps_api_and_websocket_routes_on_public_mount(self):
+        source = (Path(__file__).resolve().parents[1] / 'app/static/js/monitor.js').read_bytes()
+
+        async def exchange(host):
+            messages = []
+
+            async def application(scope, receive, send):
+                await send({'type': 'http.response.start', 'status': 200,
+                            'headers': [(b'content-type', b'application/javascript')]})
+                await send({'type': 'http.response.body', 'body': source})
+
+            async def receive():
+                return {'type': 'http.request', 'body': b''}
+
+            async def send(message):
+                messages.append(message)
+
+            await self.adapter['PrefixApp'](application)(
+                {'type': 'http', 'path': '/test/static/js/monitor.js',
+                 'headers': [(b'host', host.encode())]}, receive, send)
+            return b''.join(m.get('body', b'') for m in messages).decode()
+
+        public = asyncio.run(exchange('localwork.tail9ec47d.ts.net'))
+        self.assertIn('fetch(`/test/api/session-status/${SESSION_ID}`)', public)
+        self.assertIn('${location.host}/test/ws/monitor/${SESSION_ID}', public)
+        self.assertIn('monitor-attempt-labels', public)
+        self.assertEqual(asyncio.run(exchange('192.168.1.13:8000')), source.decode())
+
     def test_no_configured_public_host_keeps_original_response(self):
         host = self.adapter['PUBLIC_HOST']
         self.adapter['PUBLIC_HOST'] = ''
