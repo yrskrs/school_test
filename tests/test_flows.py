@@ -500,7 +500,8 @@ class Flows(unittest.IsolatedAsyncioTestCase):
         status,body,_=await http('GET',path,authorization='Bearer synthetic-v2');self.assertEqual(status,200)
         first=json.loads(body)['grades'][0];self.assertEqual(first['value'],'8');self.assertEqual(first['student_id'],pupils[0].id)
         new=crud.create_attempt(self.db,self.session.id,pupils[0].full_name(),roster_student_id=pupils[0].id)
-        self.assertEqual(json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades'],[])
+        pending_rows=json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades']
+        self.assertEqual([(row['value'],row['attempt_id']) for row in pending_rows],[('8',self.attempt.id)])
         new.score=9;new.max_score=12;new.status=models.AttemptStatus.finished;new.finished_at=dt.datetime(2026,9,5,13);self.db.commit()
         row=json.loads((await http('GET',path,authorization='Bearer synthetic-v2'))[1])['grades'][0]
         self.assertEqual(row['id'],first['id']);self.assertEqual(row['value'],'9')

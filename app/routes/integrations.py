@@ -3,6 +3,7 @@ import datetime as dt
 import hashlib
 import hmac
 import json
+import math
 import re
 import secrets
 import os
@@ -218,15 +219,35 @@ def grades(request: Request, db: Session = Depends(get_db)):
             and_(models.TestSession.roster_subject_id.is_(None), func.trim(models.Test.subject) == subject.name)))
     if qs.count() > 100000:
         raise HTTPException(422, 'Забагато результатів у цьому контексті.')
-    winners = {}
+    winners, revisions = {}, {}
+    final_statuses = (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped)
     for attempt in qs.order_by(models.StudentAttempt.id.desc()).yield_per(500):
-        identity = (attempt.session_id, attempt.roster_student_id or attempt.outside_student_id) if attempt.roster_student_id or attempt.outside_student_id else ('unmapped', attempt.id)
-        winners.setdefault(identity, attempt)
-    records = []
-    for attempt in sorted(winners.values(), key=lambda row: row.id):
-        if attempt.id <= cursor or attempt.status not in (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped):
+        if attempt.roster_student_id:
+            identity = (attempt.session_id, 'roster', attempt.roster_student_id)
+        elif attempt.outside_student_id:
+            identity = (attempt.session_id, 'outside', attempt.outside_student_id)
+        else:
+            identity = ('unmapped', attempt.id)
+        # The exported record describes all retakes. Keep its revision at least
+        # as recent as a previously exported last attempt, even if the best is older.
+        updated = attempt.updated_at or attempt.finished_at
+        if updated:
+            if updated.tzinfo is None:
+                from zoneinfo import ZoneInfo
+                updated = updated.replace(tzinfo=ZoneInfo(settings.LEGACY_RESULT_TIMEZONE))
+            updated = updated.astimezone(dt.timezone.utc)
+            revisions[identity] = max(revisions.get(identity, updated), updated)
+        if (attempt.status not in final_statuses or not attempt.finished_at
+                or attempt.score is None or attempt.max_score is None
+                or not math.isfinite(attempt.score) or not math.isfinite(attempt.max_score)
+                or attempt.max_score <= 0 or not 0 <= attempt.score <= attempt.max_score):
             continue
-        if attempt.score is None or attempt.max_score is None or not attempt.finished_at:
+        previous = winners.get(identity)
+        if previous is None or (attempt.score / attempt.max_score, attempt.id) > (previous.score / previous.max_score, previous.id):
+            winners[identity] = attempt
+    records = []
+    for identity, attempt in sorted(winners.items(), key=lambda item: item[1].id):
+        if attempt.id <= cursor:
             continue
         value = _scale_grade(attempt)
         # Keep the original test result, including zero, on the source. A zero
@@ -236,11 +257,7 @@ def grades(request: Request, db: Session = Depends(get_db)):
         date = dt.date.fromisoformat(attempt.session.lesson_date) if attempt.session.lesson_date else kyiv_time(attempt.finished_at).date()
         if not start <= date <= end:
             continue
-        updated = attempt.updated_at or attempt.finished_at
-        # Legacy timestamps use the configured original server timezone.
-        if updated.tzinfo is None:
-            from zoneinfo import ZoneInfo
-            updated = updated.replace(tzinfo=ZoneInfo(settings.LEGACY_RESULT_TIMEZONE))
+        updated = revisions[identity]
         record = {'source': 'schooltest', 'id': f'schooltest:session:{attempt.session_id}:student:{attempt.roster_student_id}' if attempt.roster_student_id else f'schooltest:session:{attempt.session_id}:outside:{attempt.outside_student_id}' if attempt.outside_student_id else f'schooltest:unmapped:{attempt.id}',
             'student_id': attempt.roster_student_id, 'student_name': attempt.student_name,
             'student_key': str(attempt.roster_student_id) if attempt.roster_student_id else f'outside:{attempt.outside_student_id}' if attempt.outside_student_id else f'unmapped:{attempt.id}',
