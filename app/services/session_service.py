@@ -23,15 +23,33 @@ def generate_access_code(db: Session) -> str:
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
 
-def start_new_session(db: Session, test_id: int) -> models.TestSession:
+def start_new_session(db: Session, test_id: int, lesson_date: Optional[str] = None) -> models.TestSession:
     from fastapi import HTTPException
+    from sqlalchemy import func
     from app.services.roster_service import resolve_roster_class
+    from app.time_utils import stored_now, kyiv_time
     test = crud.get_test_by_id(db, test_id)
     group, error = resolve_roster_class(db, test)
     if error:
         raise HTTPException(409, error)
     code = generate_access_code(db)
-    return crud.create_session(db, test_id=test_id, access_code=code, roster_class_id=group.id if group else None)
+    if not lesson_date:
+        lesson_date = kyiv_time(stored_now()).date().isoformat()
+    subject_id = None
+    if test and test.subject:
+        subj = db.query(models.RosterSubject).filter(
+            func.lower(func.trim(models.RosterSubject.name)) == func.lower(func.trim(test.subject))
+        ).first()
+        if subj:
+            subject_id = subj.id
+    return crud.create_session(
+        db,
+        test_id=test_id,
+        access_code=code,
+        roster_class_id=group.id if group else None,
+        lesson_date=lesson_date,
+        roster_subject_id=subject_id,
+    )
 
 
 def find_active_session(db: Session, access_code: str) -> Optional[models.TestSession]:

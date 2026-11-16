@@ -800,6 +800,7 @@ async def unpin_session(
 
 @router.post("/tests/{test_id}/start-session")
 async def start_session(
+    request: Request,
     test_id: int,
     teacher: models.Teacher = Depends(get_current_teacher),
     db: Session = Depends(get_db),
@@ -817,8 +818,17 @@ async def start_session(
             status_code=303,
         )
 
-    session = session_service.start_new_session(db, test_id=test_id)
-    log_teacher_action(db, teacher.username, teacher.full_name, "start_session", f"Запущено сесію для тесту '{test.title}' (ID: {test_id}), код доступу: {session.access_code}", teacher.id)
+    lesson_date = None
+    try:
+        form_data = await request.form()
+        raw_date = form_data.get("lesson_date")
+        if raw_date and str(raw_date).strip():
+            lesson_date = dt.date.fromisoformat(str(raw_date).strip()).isoformat()
+    except Exception:
+        pass
+
+    session = session_service.start_new_session(db, test_id=test_id, lesson_date=lesson_date)
+    log_teacher_action(db, teacher.username, teacher.full_name, "start_session", f"Запущено сесію для тесту '{test.title}' (ID: {test_id}), код доступу: {session.access_code}, дата уроку: {session.lesson_date}", teacher.id)
     return RedirectResponse(url=f"/teacher/sessions/{session.id}/monitor", status_code=303)
 
 

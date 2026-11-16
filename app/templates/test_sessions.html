@@ -42,7 +42,14 @@
     <td data-label="Питання / час"><strong>{{ item.question_count }} питань</strong><span class="list-secondary-line">{% if item.test.time_limit_minutes %}{{ item.test.time_limit_minutes }} хв{% else %}Без ліміту часу{% endif %}</span></td>
     <td data-label="Створено">{{ item.test.created_at|kyiv_datetime('%d.%m.%Y') }}</td>
     <td class="list-actions-cell"><div class="list-row-actions">
-      {% if tab != 'archive' %}<form method="post" action="/teacher/tests/{{ item.test.id }}/start-session" {% if item.active_session_count %}data-confirm="Цей тест уже має активну сесію. Створити ще одну?"{% endif %}><button class="btn btn-sm btn-success" type="submit">{{ 'Ще одна сесія' if item.active_session_count else 'Запустити' }}</button></form>{% else %}<form method="post" action="/teacher/tests/{{ item.test.id }}/unarchive" data-preserve-list><button class="btn btn-sm btn-primary" type="submit">Відновити</button></form>{% endif %}
+      {% if tab != 'archive' %}
+      <form method="post" action="/teacher/tests/{{ item.test.id }}/start-session" {% if item.active_session_count %}data-confirm="Цей тест уже має активну сесію. Створити ще одну?"{% endif %} style="display:inline-flex;align-items:center;gap:0.35rem;margin:0;">
+        <input type="date" name="lesson_date" value="{{ today_iso }}" title="Дата уроку для оцінок у журналі (за замовчуванням сьогодні)" style="padding:0.25rem 0.4rem;font-size:0.82rem;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);width:125px;">
+        <button class="btn btn-sm btn-success" type="submit">{{ 'Ще одна сесія' if item.active_session_count else 'Запустити' }}</button>
+      </form>
+      {% else %}
+      <form method="post" action="/teacher/tests/{{ item.test.id }}/unarchive" data-preserve-list><button class="btn btn-sm btn-primary" type="submit">Відновити</button></form>
+      {% endif %}
       <a href="/teacher/tests/{{ item.test.id }}/edit" class="btn btn-sm btn-secondary">Редагувати</a>
       <details class="list-menu"><summary class="btn btn-sm btn-secondary" aria-label="Інші дії для тесту {{ item.test.title }}">Ще ▾</summary><div class="list-menu-panel">
         <a href="/teacher/tests/{{ item.test.id }}/analytics" class="menu-action">Результати й аналітика</a><a href="/teacher/tests/{{ item.test.id }}/export" class="menu-action">Експорт JSON</a>

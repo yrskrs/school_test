@@ -222,8 +222,15 @@ def delete_test(db: Session, test: models.Test) -> None:
 # TestSession CRUD
 # ---------------------------------------------------------------------------
 
-def create_session(db: Session, test_id: int, access_code: str, roster_class_id=None) -> models.TestSession:
-    session = models.TestSession(test_id=test_id, access_code=access_code, roster_class_id=roster_class_id)
+def create_session(db: Session, test_id: int, access_code: str, roster_class_id=None, lesson_date=None, lesson_number=None, roster_subject_id=None) -> models.TestSession:
+    session = models.TestSession(
+        test_id=test_id,
+        access_code=access_code,
+        roster_class_id=roster_class_id,
+        lesson_date=lesson_date,
+        lesson_number=lesson_number,
+        roster_subject_id=roster_subject_id,
+    )
     db.add(session)
     db.commit()
     db.refresh(session)

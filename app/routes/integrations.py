@@ -219,7 +219,7 @@ def grades(request: Request, db: Session = Depends(get_db)):
             and_(models.TestSession.roster_subject_id.is_(None), func.trim(models.Test.subject) == subject.name)))
     if qs.count() > 100000:
         raise HTTPException(422, 'Забагато результатів у цьому контексті.')
-    winners, revisions = {}, {}
+    winners, revisions, session_dates = {}, {}, {}
     final_statuses = (models.AttemptStatus.finished, models.AttemptStatus.timeout, models.AttemptStatus.stopped)
     for attempt in qs.order_by(models.StudentAttempt.id.desc()).yield_per(500):
         if attempt.roster_student_id:
@@ -242,6 +242,8 @@ def grades(request: Request, db: Session = Depends(get_db)):
                 or not math.isfinite(attempt.score) or not math.isfinite(attempt.max_score)
                 or attempt.max_score <= 0 or not 0 <= attempt.score <= attempt.max_score):
             continue
+        finished_date = kyiv_time(attempt.finished_at).date()
+        session_dates[identity] = min(session_dates.get(identity, finished_date), finished_date)
         previous = winners.get(identity)
         if previous is None or (attempt.score / attempt.max_score, attempt.id) > (previous.score / previous.max_score, previous.id):
             winners[identity] = attempt
@@ -254,7 +256,7 @@ def grades(request: Request, db: Session = Depends(get_db)):
         # or another grading scale is not a final 1–12 journal mark.
         if (attempt.session.test.max_grade or 12) != 12 or not str(value).isdigit() or not 1 <= int(value) <= 12:
             continue
-        date = dt.date.fromisoformat(attempt.session.lesson_date) if attempt.session.lesson_date else kyiv_time(attempt.finished_at).date()
+        date = dt.date.fromisoformat(attempt.session.lesson_date) if (attempt.session and attempt.session.lesson_date) else session_dates.get(identity, kyiv_time(attempt.finished_at).date())
         if not start <= date <= end:
             continue
         updated = revisions[identity]
@@ -647,7 +649,7 @@ async def integration_ui(request: Request, db: Session = Depends(get_db), teache
                     class_id, subject_id = int(data['class_id']), int(data['subject_id'])
                     if not db.get(models.RosterClass, class_id) or not db.get(models.RosterSubject, subject_id):
                         raise SyncError('Оберіть локальні клас і предмет.')
-                    if session.roster_class_id and (session.roster_class_id != class_id or session.roster_subject_id != subject_id):
+                    if (session.roster_class_id and session.roster_class_id != class_id) or (session.roster_subject_id and session.roster_subject_id != subject_id):
                         raise SyncError('Контекст уже прив’язано. Для іншого класу чи предмета створіть нову сесію.')
                     date = dt.date.fromisoformat(data['date'])
                     number = int(data['lesson_number']) if data.get('lesson_number') else None

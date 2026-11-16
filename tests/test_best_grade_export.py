@@ -123,6 +123,52 @@ class BestGradeExportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len({r['id'] for r in rows}), 501)
         self.assertEqual(sum(r['value'] == '10' for r in rows), 500)
 
+    async def test_retake_on_later_date_preserves_session_lesson_date(self):
+        self.seed()
+        self.session.lesson_date = '2026-09-02'
+        self.db.commit()
+        # Initial attempt on Sep 5
+        self.attempt.score = 6
+        self.attempt.finished_at = dt.datetime(2026, 9, 5, 10)
+        self.db.commit()
+        first_export = (await self.export())['grades'][0]
+        self.assertEqual(first_export['date'], '2026-09-02')
+        self.assertEqual(first_export['value'], '6')
+
+        # Retake on a later date (Sep 20) with a higher score
+        retake_attempt = self.retake(11)
+        retake_attempt.finished_at = dt.datetime(2026, 9, 20, 15)
+        retake_attempt.updated_at = dt.datetime(2026, 9, 20, 15, tzinfo=dt.timezone.utc)
+        self.db.commit()
+
+        updated_export = (await self.export())['grades'][0]
+        # Value must be updated to best attempt (11)
+        self.assertEqual(updated_export['value'], '11')
+        self.assertEqual(updated_export['attempt_id'], retake_attempt.id)
+        # Date must remain stable session date
+        self.assertEqual(updated_export['date'], '2026-09-02')
+
+    async def test_retake_without_lesson_date_preserves_session_started_date(self):
+        self.seed()
+        self.session.lesson_date = None
+        self.session.started_at = dt.datetime(2026, 9, 3, 9)
+        self.attempt.score = 5
+        self.attempt.finished_at = dt.datetime(2026, 9, 3, 10)
+        self.db.commit()
+        first_export = (await self.export())['grades'][0]
+        self.assertEqual(first_export['date'], '2026-09-03')
+
+        # Retake much later (Sep 25)
+        retake_attempt = self.retake(12)
+        retake_attempt.finished_at = dt.datetime(2026, 9, 25, 14)
+        retake_attempt.updated_at = dt.datetime(2026, 9, 25, 14, tzinfo=dt.timezone.utc)
+        self.db.commit()
+
+        updated_export = (await self.export())['grades'][0]
+        self.assertEqual(updated_export['value'], '12')
+        # Date must remain the session started date, NOT retake finished_at!
+        self.assertEqual(updated_export['date'], '2026-09-03')
+
 
 if __name__ == '__main__':
     unittest.main()

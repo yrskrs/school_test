@@ -83,7 +83,10 @@ def build_list(db, teacher_id, kind, *, page, per_page, tab, search, class_filte
         ).filter(attempt.session_id.in_(ids)).group_by(attempt.session_id).all()} if ids else {}
         items = [{"session": item, "attempt_count": counts.get(item.id, (0, 0))[0],
                   "finished_count": counts.get(item.id, (0, 0))[1]} for item in rows]
+    from app.time_utils import stored_now, kyiv_time
+    today_iso = kyiv_time(stored_now()).date().isoformat()
     return {"tests_with_count" if kind == "tests" else "sessions_data": items,
             "page": kind, "current_page": page, "total_pages": pages, "total_items": total,
             "per_page": per_page, "tab": tab, "search": search, "class_filter": class_filter,
-            "state": state, "sort": sort, "classes": classes, "active_count": active_count, "archive_count": archive_count}
+            "state": state, "sort": sort, "classes": classes, "active_count": active_count, "archive_count": archive_count,
+            "today_iso": today_iso}
